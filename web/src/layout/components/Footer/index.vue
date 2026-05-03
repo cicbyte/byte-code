@@ -1,6 +1,6 @@
 <template>
   <div class="page-footer">
-    <div class="copyright">ByteAdmin</div>
+    <div class="copyright">ByteCode</div>
   </div>
 </template>
 

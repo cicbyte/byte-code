@@ -2,8 +2,8 @@ import logoImage from '@/assets/images/logo.png';
 import loginImage from '@/assets/images/account-logo.png';
 
 export const websiteConfig = Object.freeze({
-  title: 'ByteAdmin',
+  title: 'ByteCode',
   logo: logoImage,
   loginImage: loginImage,
-  loginDesc: 'ByteAdmin 中后台管理系统',
+  loginDesc: 'ByteCode AI-Native 项目管理平台',
 });
