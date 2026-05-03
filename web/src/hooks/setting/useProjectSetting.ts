@@ -12,8 +12,6 @@ export function useProjectSetting() {
 
   const headerSetting = computed(() => projectStore.headerSetting);
 
-  const multiTabsSetting = computed(() => projectStore.multiTabsSetting);
-
   const menuSetting = computed(() => projectStore.menuSetting);
 
   const crumbsSetting = computed(() => projectStore.crumbsSetting);
@@ -31,7 +29,6 @@ export function useProjectSetting() {
     navTheme,
     isMobile,
     headerSetting,
-    multiTabsSetting,
     menuSetting,
     crumbsSetting,
     permissionMode,

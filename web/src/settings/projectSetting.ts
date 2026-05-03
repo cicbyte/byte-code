@@ -16,15 +16,6 @@ const setting = {
   },
   //页脚
   showFooter: true,
-  //多标签
-  multiTabsSetting: {
-    //背景色
-    bgColor: '#fff',
-    //是否显示
-    show: true,
-    //固定多标签
-    fixed: true,
-  },
   //菜单
   menuSetting: {
     //最小宽度

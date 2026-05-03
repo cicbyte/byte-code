@@ -53,26 +53,13 @@
         <div
           class="layout-content-main"
           :class="{
-            'layout-content-main-fix': fixedMulti,
             'fluid-header': fixedHeader === 'static',
           }"
         >
-          <TabsView v-if="isMultiTabs" v-model:collapsed="collapsed" />
-          <div
-            class="main-view"
-            :class="{
-              'main-view-fix': fixedMulti,
-              noMultiTabs: !isMultiTabs,
-              'mt-3': !isMultiTabs,
-            }"
-          >
+          <div class="main-view mt-3">
             <MainView />
           </div>
         </div>
-        <!--1.15废弃，没啥用，占用操作空间-->
-        <!--        <NLayoutFooter v-if="getShowFooter">-->
-        <!--          <PageFooter />-->
-        <!--        </NLayoutFooter>-->
       </n-layout-content>
       <n-back-top :right="100" />
     </n-layout>
@@ -82,7 +69,6 @@
 <script lang="ts" setup>
   import { ref, unref, computed, onMounted } from 'vue';
   import { Logo } from './components/Logo';
-  import { TabsView } from './components/TagsView';
   import { MainView } from './components/Main';
   import { AsideMenu } from './components/Menu';
   import { PageHeader } from './components/Header';
@@ -94,12 +80,10 @@
 
   const { getDarkTheme } = useDesignSetting();
   const {
-    // showFooter,
     navMode,
     navTheme,
     headerSetting,
     menuSetting,
-    multiTabsSetting,
   } = useProjectSetting();
 
   const settingStore = useProjectSettingStore();
@@ -133,14 +117,6 @@
     return fixed ? 'absolute' : 'static';
   });
 
-  const isMultiTabs = computed(() => {
-    return unref(multiTabsSetting).show;
-  });
-
-  const fixedMulti = computed(() => {
-    return unref(multiTabsSetting).fixed;
-  });
-
   const inverted = computed(() => {
     return ['dark', 'header-dark'].includes(unref(navTheme));
   });
@@ -158,13 +134,11 @@
     return 'left';
   });
 
-  // 控制显示或隐藏移动端侧边栏
   const showSideDrawer = computed({
     get: () => isMobile.value && collapsed.value,
     set: (val) => (collapsed.value = val),
   });
 
-  //判断是否触发移动端模式
   const checkMobileMode = () => {
     if (document.body.clientWidth <= mobileWidth) {
       isMobile.value = true;
@@ -257,19 +231,7 @@
     padding-top: 104px;
   }
 
-  .layout-content-main-fix {
-    padding-top: 104px;
-  }
-
   .fluid-header {
-    padding-top: 0;
-  }
-
-  .main-view-fix {
-    padding-top: 44px;
-  }
-
-  .noMultiTabs {
     padding-top: 0;
   }
 </style>

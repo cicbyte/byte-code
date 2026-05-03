@@ -160,16 +160,7 @@
         <!--        </div>-->
 
         <div class="drawer-setting-item">
-          <div class="drawer-setting-item-title"> 固定多页签 </div>
-          <div class="drawer-setting-item-action">
-            <n-switch v-model:value="settingStore.multiTabsSetting.fixed" />
-          </div>
-        </div>
-
-        <n-divider title-placement="center">界面显示</n-divider>
-
-        <div class="drawer-setting-item">
-          <div class="drawer-setting-item-title"> 显示重载页面按钮 </div>
+          <div class="drawer-setting-item-title"> 显示重加载页面按钮 </div>
           <div class="drawer-setting-item-action">
             <n-switch v-model:value="settingStore.headerSetting.isReload" />
           </div>
@@ -189,12 +180,6 @@
           </div>
         </div>
 
-        <div class="drawer-setting-item">
-          <div class="drawer-setting-item-title"> 显示多页签 </div>
-          <div class="drawer-setting-item-action">
-            <n-switch v-model:value="settingStore.multiTabsSetting.show" />
-          </div>
-        </div>
         <!--1.15废弃，没啥用，占用操作空间-->
         <!--        <div class="drawer-setting-item">-->
         <!--          <div class="drawer-setting-item-title"> 显示页脚 </div>-->

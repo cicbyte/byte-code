@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import projectSetting from '@/settings/projectSetting';
-import type { IHeaderSetting, IMenuSetting, IMultiTabsSetting, ICrumbsSetting } from '/#/config';
+import type { IHeaderSetting, IMenuSetting, ICrumbsSetting } from '/#/config';
 
 const {
   navMode,
@@ -9,7 +9,6 @@ const {
   headerSetting,
   showFooter,
   menuSetting,
-  multiTabsSetting,
   crumbsSetting,
   permissionMode,
   isPageAnimate,
@@ -21,8 +20,7 @@ interface ProjectSettingState {
   navTheme: string; //导航风格
   headerSetting: IHeaderSetting; //顶部设置
   showFooter: boolean; //页脚
-  menuSetting: IMenuSetting; //多标签
-  multiTabsSetting: IMultiTabsSetting; //多标签
+  menuSetting: IMenuSetting; //菜单
   crumbsSetting: ICrumbsSetting; //面包屑
   permissionMode: string; //权限模式
   isPageAnimate: boolean; //是否开启路由动画
@@ -39,7 +37,6 @@ export const useProjectSettingStore = defineStore({
     headerSetting,
     showFooter,
     menuSetting,
-    multiTabsSetting,
     crumbsSetting,
     permissionMode,
     isPageAnimate,
@@ -63,9 +60,6 @@ export const useProjectSettingStore = defineStore({
     },
     getMenuSetting(): object {
       return this.menuSetting;
-    },
-    getMultiTabsSetting(): object {
-      return this.multiTabsSetting;
     },
     getCrumbsSetting(): object {
       return this.crumbsSetting;

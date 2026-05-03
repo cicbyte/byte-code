@@ -139,7 +139,6 @@
   import { useScreenLockStore } from '@/store/modules/screenLock';
   import { useEntityContext } from '@/store/modules/entityContext';
   import { useUserStore } from '@/store/modules/user';
-  import { TABS_ROUTES } from '@/store/mutation-types';
   import { NDialogProvider, useDialog, useMessage } from 'naive-ui';
   import { computed, defineComponent, reactive, ref, toRefs, unref } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
@@ -245,8 +244,6 @@
           onPositiveClick: () => {
             userStore.logout().then(() => {
               message.success('成功退出登录');
-              // 移除标签页
-              localStorage.removeItem(TABS_ROUTES);
               router
                 .replace({
                   name: 'Login',
