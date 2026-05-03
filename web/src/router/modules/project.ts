@@ -85,6 +85,7 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: 'detail/:id',
         redirect: (to) => ({ path: `/project/${to.params.id}/overview` }),
+        meta: { hideInMenu: true },
       },
     ],
   },
