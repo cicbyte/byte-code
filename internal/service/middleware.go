@@ -16,6 +16,8 @@ type (
 		// MiddlewareResponse 统一响应格式为 {code: 200, result: ..., message: "ok"}
 		// 将 GoFrame 默认的 {code, message, data} 格式转换为前端期望的格式
 		MiddlewareResponse(r *ghttp.Request)
+		// MiddlewareAuditLog 审计日志中间件，拦截 POST/PUT/DELETE 请求记录操作
+		MiddlewareAuditLog(r *ghttp.Request)
 	}
 )
 

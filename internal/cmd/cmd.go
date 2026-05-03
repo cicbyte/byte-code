@@ -6,6 +6,7 @@ import (
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
 	"github.com/cicbyte/byte-code/internal/router"
+	"github.com/cicbyte/byte-code/utility/dbinit"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -18,6 +19,11 @@ var (
 		Usage: "main",
 		Brief: "start http server",
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
+			// 自动数据库迁移
+			if err := dbinit.AutoMigrate(ctx); err != nil {
+				g.Log().Fatalf(ctx, "Database migration failed: %v", err)
+			}
+
 			s := g.Server()
 			s.Group("/", func(group *ghttp.RouterGroup) {
 				group.Middleware(ghttp.MiddlewareHandlerResponse)

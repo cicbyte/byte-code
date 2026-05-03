@@ -17,6 +17,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		group.Middleware(service.Middleware().MiddlewareCORS)
 		group.Bind(
 			controller.Auth.Login,
+			controller.AiUserCtrl.AiLogin,
 		)
 	})
 
@@ -44,6 +45,41 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			group.Bind(
 				controller.Categories,
 				controller.Health,
+			)
+
+			// 产品管理
+			group.Bind(
+				controller.ProductCtrl,
+			)
+
+			// 项目管理
+			group.Bind(
+				controller.ProjectCtrl,
+			)
+
+			// 测试管理
+			group.Bind(
+				controller.Test,
+			)
+
+			// 知识库
+			group.Bind(
+				controller.Doc,
+			)
+
+			// 附件管理
+			group.Bind(
+				controller.AttachmentCtrl,
+			)
+
+			// AI 用户管理
+			group.Bind(
+				controller.AiUserCtrl,
+			)
+
+			// 平台功能（标签、活动流、通知、搜索、仪表盘、审计日志）
+			group.Bind(
+				controller.PlatformCtrl,
 			)
 		})
 
