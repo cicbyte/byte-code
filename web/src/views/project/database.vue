@@ -90,7 +90,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(col, idx) in editColumns" :key="idx">
+                    <tr v-for="(col, idx) in editColumns" :key="col._uid">
                       <td><n-input v-model:value="col.name" size="small" placeholder="字段名" /></td>
                       <td style="width: 160px">
                         <n-select v-model:value="col.type" :options="columnTypeOptions" size="small" />
@@ -345,11 +345,13 @@
 
   // 列编辑器
   const editingTableId = ref<number | null>(null);
-  const editColumns = ref<DbColumn[]>([]);
+  const editColumns = ref<(DbColumn & { _uid: number })[]>([]);
   const savingColumns = ref(false);
+  let uidCounter = 0;
 
   function addColumn() {
     editColumns.value.push({
+      _uid: ++uidCounter,
       name: '', type: 'VARCHAR(255)', nullable: 1, defaultValue: '',
       isPrimaryKey: 0, isAutoIncrement: 0, comment: '', sortOrder: editColumns.value.length,
     });
@@ -360,7 +362,7 @@
     try {
       const detail = await getDbTable(table.id);
       editColumns.value = detail?.columns?.length
-        ? detail.columns.map(c => ({ ...c }))
+        ? detail.columns.map(c => ({ ...c, _uid: ++uidCounter }))
         : [];
     } catch { editColumns.value = []; }
   }
