@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, onMounted, onActivated } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
@@ -180,8 +180,7 @@
         await createProject({ ...formData });
         message.success('创建成功');
       }
-      showModal.value = false;
-      loadData();
+      await loadData();
     } catch (e) {
       message.error('操作失败');
       return false;
@@ -189,6 +188,9 @@
   }
 
   onMounted(() => {
+    loadData();
+  });
+  onActivated(() => {
     loadData();
   });
 </script>

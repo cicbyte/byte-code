@@ -194,8 +194,7 @@
         await createProduct({ ...formData });
         message.success('创建成功');
       }
-      showModal.value = false;
-      loadData();
+      await loadData();
     } catch (e) {
       message.error('操作失败');
       return false;

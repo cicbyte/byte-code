@@ -10,22 +10,20 @@ const {
   showFooter,
   menuSetting,
   crumbsSetting,
-  permissionMode,
   isPageAnimate,
   pageAnimateType,
 } = projectSetting;
 
 interface ProjectSettingState {
-  navMode: string; //导航模式
-  navTheme: string; //导航风格
-  headerSetting: IHeaderSetting; //顶部设置
-  showFooter: boolean; //页脚
-  menuSetting: IMenuSetting; //菜单
-  crumbsSetting: ICrumbsSetting; //面包屑
-  permissionMode: string; //权限模式
-  isPageAnimate: boolean; //是否开启路由动画
-  pageAnimateType: string; //路由动画类型
-  isMobile: boolean; // 是否处于移动端模式
+  navMode: string;
+  navTheme: string;
+  headerSetting: IHeaderSetting;
+  showFooter: boolean;
+  menuSetting: IMenuSetting;
+  crumbsSetting: ICrumbsSetting;
+  isPageAnimate: boolean;
+  pageAnimateType: string;
+  isMobile: boolean;
 }
 
 export const useProjectSettingStore = defineStore({
@@ -38,7 +36,6 @@ export const useProjectSettingStore = defineStore({
     showFooter,
     menuSetting,
     crumbsSetting,
-    permissionMode,
     isPageAnimate,
     pageAnimateType,
   }),
@@ -63,9 +60,6 @@ export const useProjectSettingStore = defineStore({
     },
     getCrumbsSetting(): object {
       return this.crumbsSetting;
-    },
-    getPermissionMode(): string {
-      return this.permissionMode;
     },
     getIsPageAnimate(): boolean {
       return this.isPageAnimate;

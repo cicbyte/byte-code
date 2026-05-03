@@ -68,15 +68,15 @@
   import { useMessage } from 'naive-ui';
   import { BasicTable, TableAction } from '@/components/Table';
   import { getRoleList } from '@/api/system/role';
-  import { getMenuList } from '@/api/system/menu';
   import { columns } from './columns';
   import { PlusOutlined } from '@vicons/antd';
   import { getTreeAll } from '@/utils';
+  import { useAsyncRoute } from '@/store/modules/asyncRoute';
   import CreateModal from './CreateModal.vue';
   import EditModal from './EditModal.vue';
-  import type { ListDate } from '@/api/system/menu';
 
   const message = useMessage();
+  const asyncRouteStore = useAsyncRoute();
   const actionRef = ref();
   const createModalRef = ref();
   const editModalRef = ref();
@@ -84,9 +84,19 @@
   const formBtnLoading = ref(false);
   const checkedAll = ref(false);
   const editRoleTitle = ref('');
-  const treeData = ref<ListDate[]>([]);
+  const treeData = ref<any[]>([]);
   const expandedKeys = ref<string[]>([]);
-  const checkedKeys = ref<string[]>(['console', 'step-form']);
+  const checkedKeys = ref<string[]>(['project', 'dashboard']);
+
+  function routesToTreeData(routes: any[]): any[] {
+    return routes
+      .filter((r) => r.meta?.title && !r.meta?.hideInMenu)
+      .map((r) => ({
+        label: r.meta?.title || r.name,
+        key: r.name,
+        children: r.children ? routesToTreeData(r.children) : undefined,
+      }));
+  }
 
   const params = reactive({});
 
@@ -206,10 +216,10 @@
     }
   }
 
-  onMounted(async () => {
-    const treeMenuList = await getMenuList();
-    expandedKeys.value = treeMenuList?.list.map((item) => item.key);
-    treeData.value = treeMenuList?.list;
+  onMounted(() => {
+    const menus = asyncRouteStore.getMenus;
+    treeData.value = routesToTreeData(menus);
+    expandedKeys.value = treeData.value.map((item) => item.key);
   });
 </script>
 
