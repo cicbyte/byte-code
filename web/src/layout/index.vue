@@ -44,12 +44,11 @@
         <PageHeader v-model:collapsed="collapsed" :inverted="inverted" />
       </n-layout-header>
 
-      <Entity-nav-bar />
-
       <n-layout-content
         class="layout-content"
         :class="{ 'layout-default-background': getDarkTheme === false }"
       >
+        <Entity-nav-bar />
         <div
           class="layout-content-main"
           :class="{

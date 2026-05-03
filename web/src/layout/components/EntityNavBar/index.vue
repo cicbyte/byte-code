@@ -44,7 +44,8 @@
     background: #fff;
     border-bottom: 1px solid #e8e8e8;
     box-shadow: 0 1px 4px rgb(0 21 41 / 6%);
-    position: relative;
+    position: sticky;
+    top: 64px;
     z-index: 10;
 
     .entity-nav-bar-inner {
