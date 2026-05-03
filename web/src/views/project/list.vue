@@ -52,7 +52,6 @@
       </div>
     </n-card>
 
-    <!-- 新建/编辑弹窗 -->
     <n-modal
       v-model:show="showModal"
       preset="dialog"
@@ -60,6 +59,7 @@
       positive-text="确定"
       negative-text="取消"
       @positive-click="handleSubmit"
+      @update:show="onModalClose"
       style="width: 520px"
     >
       <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="left" :label-width="80" class="py-4">
@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted, onActivated } from 'vue';
+  import { ref, reactive, onMounted, nextTick } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
@@ -124,8 +124,6 @@
         projectList.value = res.list || [];
         total.value = res.total || 0;
       }
-    } catch (e) {
-      // ignore
     } finally {
       loading.value = false;
     }
@@ -180,17 +178,19 @@
         await createProject({ ...formData });
         message.success('创建成功');
       }
-      await loadData();
     } catch (e) {
       message.error('操作失败');
       return false;
     }
   }
 
+  function onModalClose(show: boolean) {
+    if (!show) {
+      nextTick(() => loadData());
+    }
+  }
+
   onMounted(() => {
-    loadData();
-  });
-  onActivated(() => {
     loadData();
   });
 </script>
