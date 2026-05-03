@@ -183,11 +183,32 @@ func (s *sDoc) Delete(ctx context.Context, id int) (err error) {
 
 func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list []api.DocItem, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
+		// Count 查询（不带 Fields，兼容 SQLite）
+		countM := g.DB().Model("docs d").Ctx(ctx)
+		if req.ProjectId != 0 {
+			countM = countM.Where("d.project_id", req.ProjectId)
+		}
+		if req.ParentId != 0 {
+			countM = countM.Where("d.parent_id", req.ParentId)
+		}
+		if req.Type != "" {
+			countM = countM.Where("d.type", req.Type)
+		}
+		if req.Status != "" {
+			countM = countM.Where("d.status", req.Status)
+		}
+		if req.Keyword != "" {
+			countM = countM.Where("d.title LIKE ?", "%"+req.Keyword+"%")
+		}
+
+		total, err = countM.Count()
+		liberr.ErrIsNil(ctx, err, "获取文档数量失败")
+
+		// 数据查询
 		m := g.DB().Model("docs d").Ctx(ctx).
 			LeftJoin("sys_users cu", "d.creator_id = cu.id").
 			LeftJoin("sys_users eu", "d.last_editor_id = eu.id").
 			Fields("d.*, cu.real_name as creator_name, eu.real_name as editor_name")
-
 		if req.ProjectId != 0 {
 			m = m.Where("d.project_id", req.ProjectId)
 		}
@@ -203,9 +224,6 @@ func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list [
 		if req.Keyword != "" {
 			m = m.Where("d.title LIKE ?", "%"+req.Keyword+"%")
 		}
-
-		total, err = m.Count()
-		liberr.ErrIsNil(ctx, err, "获取文档数量失败")
 
 		pageNum := req.PageNum
 		if pageNum == 0 {
@@ -299,12 +317,9 @@ func buildTree(nodes []api.DocTreeNode, parentId int) []api.DocTreeNode {
 
 func (s *sDoc) Versions(ctx context.Context, req *api.DocVersionListReq) (total int, list []api.DocVersionItem, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
-		m := g.DB().Model("doc_versions dv").Ctx(ctx).
-			LeftJoin("sys_users u", "dv.editor_id = u.id").
-			Fields("dv.*, u.real_name as editor_name").
-			Where("dv.doc_id", req.Id)
-
-		total, err = m.Count()
+		// Count 查询（不带 Fields，兼容 SQLite）
+		total, err = g.DB().Model("doc_versions dv").Ctx(ctx).
+			Where("dv.doc_id", req.Id).Count()
 		liberr.ErrIsNil(ctx, err, "获取版本数量失败")
 
 		pageNum := req.PageNum
@@ -315,6 +330,12 @@ func (s *sDoc) Versions(ctx context.Context, req *api.DocVersionListReq) (total 
 		if pageSize == 0 {
 			pageSize = 10
 		}
+
+		// 数据查询
+		m := g.DB().Model("doc_versions dv").Ctx(ctx).
+			LeftJoin("sys_users u", "dv.editor_id = u.id").
+			Fields("dv.*, u.real_name as editor_name").
+			Where("dv.doc_id", req.Id)
 		err = m.Page(pageNum, pageSize).Order("dv.version desc").Scan(&list)
 		liberr.ErrIsNil(ctx, err, "获取版本列表失败")
 	})

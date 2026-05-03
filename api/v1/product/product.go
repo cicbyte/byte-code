@@ -5,7 +5,7 @@ import "github.com/gogf/gf/v2/frame/g"
 // ==================== 产品 CRUD ====================
 
 type ProductCreateReq struct {
-	g.Meta      `path:"/v1/products" method:"post" tags:"产品管理" summary:"创建产品"`
+	g.Meta      `path:"/products" method:"post" tags:"产品管理" summary:"创建产品"`
 	Name        string `json:"name" v:"required#产品名称不能为空"`
 	Description string `json:"description"`
 }
@@ -15,7 +15,7 @@ type ProductCreateRes struct {
 }
 
 type ProductUpdateReq struct {
-	g.Meta      `path:"/v1/products/{id}" method:"put" tags:"产品管理" summary:"更新产品"`
+	g.Meta      `path:"/products/{id}" method:"put" tags:"产品管理" summary:"更新产品"`
 	Id          int    `json:"id" v:"required" in:"path"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -27,7 +27,7 @@ type ProductUpdateRes struct {
 }
 
 type ProductDeleteReq struct {
-	g.Meta `path:"/v1/products/{id}" method:"delete" tags:"产品管理" summary:"删除产品"`
+	g.Meta `path:"/products/{id}" method:"delete" tags:"产品管理" summary:"删除产品"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -36,7 +36,7 @@ type ProductDeleteRes struct {
 }
 
 type ProductListReq struct {
-	g.Meta `path:"/v1/products" method:"get" tags:"产品管理" summary:"产品列表"`
+	g.Meta `path:"/products" method:"get" tags:"产品管理" summary:"产品列表"`
 	Status string `json:"status" in:"query"`
 	Page   int    `json:"page" in:"query" d:"1"`
 	Size   int    `json:"size" in:"query" d:"20"`
@@ -61,7 +61,7 @@ type ProductItem struct {
 }
 
 type ProductDetailReq struct {
-	g.Meta `path:"/v1/products/{id}" method:"get" tags:"产品管理" summary:"产品详情"`
+	g.Meta `path:"/products/{id}" method:"get" tags:"产品管理" summary:"产品详情"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -72,7 +72,7 @@ type ProductDetailRes struct {
 // ==================== 需求 CRUD ====================
 
 type RequirementCreateReq struct {
-	g.Meta             `path:"/v1/products/{productId}/requirements" method:"post" tags:"需求管理" summary:"创建需求"`
+	g.Meta             `path:"/products/{productId}/requirements" method:"post" tags:"需求管理" summary:"创建需求"`
 	ProductId          int    `json:"productId" v:"required" in:"path"`
 	ParentId           int    `json:"parentId"`
 	Type               string `json:"type" v:"required|in:epic,story,task#类型不能为空|类型不合法" d:"story"`
@@ -89,7 +89,7 @@ type RequirementCreateRes struct {
 }
 
 type RequirementUpdateReq struct {
-	g.Meta             `path:"/v1/requirements/{id}" method:"put" tags:"需求管理" summary:"更新需求"`
+	g.Meta             `path:"/requirements/{id}" method:"put" tags:"需求管理" summary:"更新需求"`
 	Id                 int    `json:"id" v:"required" in:"path"`
 	Title              string `json:"title"`
 	Description        string `json:"description"`
@@ -106,7 +106,7 @@ type RequirementUpdateRes struct {
 }
 
 type RequirementDeleteReq struct {
-	g.Meta `path:"/v1/requirements/{id}" method:"delete" tags:"需求管理" summary:"删除需求"`
+	g.Meta `path:"/requirements/{id}" method:"delete" tags:"需求管理" summary:"删除需求"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -115,7 +115,7 @@ type RequirementDeleteRes struct {
 }
 
 type RequirementListReq struct {
-	g.Meta    `path:"/v1/products/{productId}/requirements" method:"get" tags:"需求管理" summary:"需求列表"`
+	g.Meta    `path:"/products/{productId}/requirements" method:"get" tags:"需求管理" summary:"需求列表"`
 	ProductId int    `json:"productId" v:"required" in:"path"`
 	Type      string `json:"type" in:"query"`
 	Status    string `json:"status" in:"query"`
@@ -152,7 +152,7 @@ type RequirementItem struct {
 }
 
 type RequirementDetailReq struct {
-	g.Meta `path:"/v1/requirements/{id}" method:"get" tags:"需求管理" summary:"需求详情"`
+	g.Meta `path:"/requirements/{id}" method:"get" tags:"需求管理" summary:"需求详情"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -163,7 +163,7 @@ type RequirementDetailRes struct {
 // ==================== 里程碑 ====================
 
 type MilestoneCreateReq struct {
-	g.Meta      `path:"/v1/products/{productId}/milestones" method:"post" tags:"里程碑" summary:"创建里程碑"`
+	g.Meta      `path:"/products/{productId}/milestones" method:"post" tags:"里程碑" summary:"创建里程碑"`
 	ProductId   int    `json:"productId" v:"required" in:"path"`
 	Name        string `json:"name" v:"required#名称不能为空"`
 	Description string `json:"description"`
@@ -175,7 +175,7 @@ type MilestoneCreateRes struct {
 }
 
 type MilestoneListReq struct {
-	g.Meta    `path:"/v1/products/{productId}/milestones" method:"get" tags:"里程碑" summary:"里程碑列表"`
+	g.Meta    `path:"/products/{productId}/milestones" method:"get" tags:"里程碑" summary:"里程碑列表"`
 	ProductId int `json:"productId" v:"required" in:"path"`
 }
 

@@ -8,7 +8,7 @@ import (
 // ==================== 测试用例 ====================
 
 type TestCaseCreateReq struct {
-	g.Meta        `path:"/v1/projects/{projectId}/test-cases" method:"post" tags:"测试管理" summary:"创建测试用例"`
+	g.Meta        `path:"/projects/{projectId}/test-cases" method:"post" tags:"测试管理" summary:"创建测试用例"`
 	ProjectId     int    `json:"-" in:"path" v:"required#项目ID不能为空"`
 	RequirementId int    `json:"requirementId" dc:"关联需求ID"`
 	TaskId        int    `json:"taskId" dc:"关联任务ID"`
@@ -28,7 +28,7 @@ type TestCaseCreateRes struct {
 }
 
 type TestCaseUpdateReq struct {
-	g.Meta         `path:"/v1/test-cases/{id}" method:"put" tags:"测试管理" summary:"更新测试用例"`
+	g.Meta         `path:"/test-cases/{id}" method:"put" tags:"测试管理" summary:"更新测试用例"`
 	Id             int    `json:"-" in:"path" v:"required#用例ID不能为空"`
 	RequirementId  int    `json:"requirementId" dc:"关联需求ID"`
 	TaskId         int    `json:"taskId" dc:"关联任务ID"`
@@ -47,7 +47,7 @@ type TestCaseUpdateRes struct {
 }
 
 type TestCaseDeleteReq struct {
-	g.Meta `path:"/v1/test-cases/{id}" method:"delete" tags:"测试管理" summary:"删除测试用例"`
+	g.Meta `path:"/test-cases/{id}" method:"delete" tags:"测试管理" summary:"删除测试用例"`
 	Id     int `json:"-" in:"path" v:"required#用例ID不能为空"`
 }
 
@@ -56,7 +56,7 @@ type TestCaseDeleteRes struct {
 }
 
 type TestCaseListReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/test-cases" method:"get" tags:"测试管理" summary:"用例列表"`
+	g.Meta    `path:"/projects/{projectId}/test-cases" method:"get" tags:"测试管理" summary:"用例列表"`
 	ProjectId int    `json:"-" in:"path" v:"required#项目ID不能为空"`
 	commonApi.PageReq
 	Category string `json:"category" dc:"分类筛选"`
@@ -92,7 +92,7 @@ type TestCaseItem struct {
 }
 
 type TestCaseDetailReq struct {
-	g.Meta `path:"/v1/test-cases/{id}" method:"get" tags:"测试管理" summary:"用例详情"`
+	g.Meta `path:"/test-cases/{id}" method:"get" tags:"测试管理" summary:"用例详情"`
 	Id     int `json:"-" in:"path" v:"required#用例ID不能为空"`
 }
 
@@ -104,7 +104,7 @@ type TestCaseDetailRes struct {
 // ==================== 测试计划 ====================
 
 type TestPlanCreateReq struct {
-	g.Meta      `path:"/v1/projects/{projectId}/test-plans" method:"post" tags:"测试管理" summary:"创建测试计划"`
+	g.Meta      `path:"/projects/{projectId}/test-plans" method:"post" tags:"测试管理" summary:"创建测试计划"`
 	ProjectId   int    `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Name        string `json:"name" v:"required#计划名称不能为空"`
 	Description string `json:"description" dc:"计划描述"`
@@ -117,7 +117,7 @@ type TestPlanCreateRes struct {
 }
 
 type TestPlanUpdateReq struct {
-	g.Meta      `path:"/v1/test-plans/{id}" method:"put" tags:"测试管理" summary:"更新测试计划"`
+	g.Meta      `path:"/test-plans/{id}" method:"put" tags:"测试管理" summary:"更新测试计划"`
 	Id          int    `json:"-" in:"path" v:"required#计划ID不能为空"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -130,7 +130,7 @@ type TestPlanUpdateRes struct {
 }
 
 type TestPlanDeleteReq struct {
-	g.Meta `path:"/v1/test-plans/{id}" method:"delete" tags:"测试管理" summary:"删除测试计划"`
+	g.Meta `path:"/test-plans/{id}" method:"delete" tags:"测试管理" summary:"删除测试计划"`
 	Id     int `json:"-" in:"path" v:"required#计划ID不能为空"`
 }
 
@@ -139,7 +139,7 @@ type TestPlanDeleteRes struct {
 }
 
 type TestPlanListReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/test-plans" method:"get" tags:"测试管理" summary:"计划列表"`
+	g.Meta    `path:"/projects/{projectId}/test-plans" method:"get" tags:"测试管理" summary:"计划列表"`
 	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
 	commonApi.PageReq
 	Status string `json:"status" dc:"状态筛选"`
@@ -165,7 +165,7 @@ type TestPlanItem struct {
 }
 
 type TestPlanDetailReq struct {
-	g.Meta `path:"/v1/test-plans/{id}" method:"get" tags:"测试管理" summary:"计划详情"`
+	g.Meta `path:"/test-plans/{id}" method:"get" tags:"测试管理" summary:"计划详情"`
 	Id     int `json:"-" in:"path" v:"required#计划ID不能为空"`
 }
 
@@ -177,7 +177,7 @@ type TestPlanDetailRes struct {
 // ==================== 测试执行 ====================
 
 type TestPlanAddCaseReq struct {
-	g.Meta     `path:"/v1/test-plans/{id}/cases" method:"post" tags:"测试管理" summary:"添加用例到计划"`
+	g.Meta     `path:"/test-plans/{id}/cases" method:"post" tags:"测试管理" summary:"添加用例到计划"`
 	Id         int   `json:"-" in:"path" v:"required#计划ID不能为空" dc:"测试计划ID"`
 	CaseIds    []int `json:"caseIds" v:"required#用例ID列表不能为空"`
 	AssigneeId int   `json:"assigneeId" dc:"指派执行人ID"`
@@ -188,7 +188,7 @@ type TestPlanAddCaseRes struct {
 }
 
 type TestCaseExecuteReq struct {
-	g.Meta       `path:"/v1/test-plan-cases/{id}/execute" method:"put" tags:"测试管理" summary:"执行用例"`
+	g.Meta       `path:"/test-plan-cases/{id}/execute" method:"put" tags:"测试管理" summary:"执行用例"`
 	Id           int    `json:"-" in:"path" v:"required#计划用例ID不能为空"`
 	Status       string `json:"status" v:"required|in:passed,failed,blocked,skipped#执行状态不能为空|状态必须是passed/failed/blocked/skipped"`
 	ActualResult string `json:"actualResult" dc:"实际结果"`
@@ -200,7 +200,7 @@ type TestCaseExecuteRes struct {
 }
 
 type TestPlanResultsReq struct {
-	g.Meta `path:"/v1/test-plans/{id}/results" method:"get" tags:"测试管理" summary:"计划执行结果"`
+	g.Meta `path:"/test-plans/{id}/results" method:"get" tags:"测试管理" summary:"计划执行结果"`
 	Id     int `json:"-" in:"path" v:"required#计划ID不能为空"`
 }
 

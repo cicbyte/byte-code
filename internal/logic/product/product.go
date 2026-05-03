@@ -91,9 +91,7 @@ func (s *sProduct) ListProducts(ctx context.Context, req *api.ProductListReq) (r
 		Page: req.Page,
 		Size: req.Size,
 	}
-	m := g.DB().Model("products p").Ctx(ctx).
-		LeftJoin("sys_users u", "p.owner_id = u.id").
-		Fields("p.id, p.name, p.description, p.owner_id, p.status, p.created_at, p.updated_at, COALESCE(u.real_name, u.username) as owner_name")
+	m := g.DB().Model("products p").Ctx(ctx)
 
 	if req.Status != "" {
 		m = m.Where("p.status", req.Status)
@@ -106,7 +104,11 @@ func (s *sProduct) ListProducts(ctx context.Context, req *api.ProductListReq) (r
 	res.Total = total
 
 	var list []api.ProductItem
-	err = m.Page(req.Page, req.Size).Order("p.id DESC").Scan(&list)
+	err = g.DB().Model("products p").Ctx(ctx).
+		LeftJoin("sys_users u", "p.owner_id = u.id").
+		Fields("p.id, p.name, p.description, p.owner_id, p.status, p.created_at, p.updated_at, COALESCE(u.real_name, u.username) as owner_name").
+		Where("1=1").
+		Page(req.Page, req.Size).Order("p.id DESC").Scan(&list)
 	if err != nil {
 		return nil, fmt.Errorf("查询产品列表失败: %v", err)
 	}
@@ -213,12 +215,31 @@ func (s *sProduct) GetRequirement(ctx context.Context, id int) (res *api.Require
 func (s *sProduct) ListRequirements(ctx context.Context, req *api.RequirementListReq) (res *api.RequirementListRes, err error) {
 	res = &api.RequirementListRes{}
 
+	// Count 查询（不带 Fields，兼容 SQLite）
+	countM := g.DB().Model("requirements r").Ctx(ctx).
+		Where("r.product_id", req.ProductId)
+	if req.Type != "" {
+		countM = countM.Where("r.type", req.Type)
+	}
+	if req.Status != "" {
+		countM = countM.Where("r.status", req.Status)
+	}
+	if req.ParentId > 0 {
+		countM = countM.Where("r.parent_id", req.ParentId)
+	}
+
+	total, err := countM.Count()
+	if err != nil {
+		return nil, fmt.Errorf("查询需求数量失败: %v", err)
+	}
+	res.Total = total
+
+	// 数据查询
 	m := g.DB().Model("requirements r").Ctx(ctx).
 		LeftJoin("sys_users au", "r.assignee_id = au.id").
 		LeftJoin("sys_users cu", "r.creator_id = cu.id").
 		Fields("r.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
 		Where("r.product_id", req.ProductId)
-
 	if req.Type != "" {
 		m = m.Where("r.type", req.Type)
 	}
@@ -228,12 +249,6 @@ func (s *sProduct) ListRequirements(ctx context.Context, req *api.RequirementLis
 	if req.ParentId > 0 {
 		m = m.Where("r.parent_id", req.ParentId)
 	}
-
-	total, err := m.Count()
-	if err != nil {
-		return nil, fmt.Errorf("查询需求数量失败: %v", err)
-	}
-	res.Total = total
 
 	var list []api.RequirementItem
 	err = m.Page(req.Page, req.Size).Order("r.sort_order ASC, r.id DESC").Scan(&list)

@@ -146,23 +146,32 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 		Size: req.Size,
 	}
 
+	// Count 查询（不带 Fields，兼容 SQLite）
+	countM := g.DB().Model("projects p").Ctx(ctx)
+	if req.Status > 0 {
+		countM = countM.Where("p.status", req.Status)
+	}
+	if req.ProductId > 0 {
+		countM = countM.Where("p.product_id", req.ProductId)
+	}
+
+	total, err := countM.Count()
+	if err != nil {
+		return nil, fmt.Errorf("查询项目数量失败: %v", err)
+	}
+	res.Total = total
+
+	// 数据查询
 	m := g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
 		LeftJoin("products pd", "p.product_id = pd.id").
 		Fields("p.id, p.product_id, COALESCE(pd.name, '') as product_name, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
-
 	if req.Status > 0 {
 		m = m.Where("p.status", req.Status)
 	}
 	if req.ProductId > 0 {
 		m = m.Where("p.product_id", req.ProductId)
 	}
-
-	total, err := m.Count()
-	if err != nil {
-		return nil, fmt.Errorf("查询项目数量失败: %v", err)
-	}
-	res.Total = total
 
 	var list []api.ProjectItem
 	err = m.Page(req.Page, req.Size).Order("p.id DESC").Scan(&list)
@@ -346,12 +355,34 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *api.TaskListRes, err error) {
 	res = &api.TaskListRes{}
 
+	// Count 查询（不带 Fields，兼容 SQLite）
+	countM := g.DB().Model("tasks t").Ctx(ctx).
+		Where("t.project_id", req.ProjectId)
+	if req.Status != "" {
+		countM = countM.Where("t.status", req.Status)
+	}
+	if req.Type != "" {
+		countM = countM.Where("t.type", req.Type)
+	}
+	if req.SprintId > 0 {
+		countM = countM.Where("t.sprint_id", req.SprintId)
+	}
+	if req.AssigneeId > 0 {
+		countM = countM.Where("t.assignee_id", req.AssigneeId)
+	}
+
+	total, err := countM.Count()
+	if err != nil {
+		return nil, fmt.Errorf("查询任务数量失败: %v", err)
+	}
+	res.Total = total
+
+	// 数据查询
 	m := g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users au", "t.assignee_id = au.id").
 		LeftJoin("sys_users cu", "t.creator_id = cu.id").
 		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
 		Where("t.project_id", req.ProjectId)
-
 	if req.Status != "" {
 		m = m.Where("t.status", req.Status)
 	}
@@ -364,12 +395,6 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	if req.AssigneeId > 0 {
 		m = m.Where("t.assignee_id", req.AssigneeId)
 	}
-
-	total, err := m.Count()
-	if err != nil {
-		return nil, fmt.Errorf("查询任务数量失败: %v", err)
-	}
-	res.Total = total
 
 	var list []api.TaskItem
 	err = m.Page(req.Page, req.Size).Order("t.sort_order ASC, t.id DESC").Scan(&list)

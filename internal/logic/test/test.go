@@ -148,10 +148,31 @@ func (s *sTest) DeleteCase(ctx context.Context, id int) (err error) {
 
 func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total int, list []api.TestCaseItem, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
+		// Count 查询（不带 Fields，兼容 SQLite）
+		countM := g.DB().Model("test_cases").Ctx(ctx)
+		if req.ProjectId != 0 {
+			countM = countM.Where("test_cases.project_id", req.ProjectId)
+		}
+		if req.Category != "" {
+			countM = countM.Where("test_cases.category", req.Category)
+		}
+		if req.Module != "" {
+			countM = countM.Where("test_cases.module", req.Module)
+		}
+		if req.Status != "" {
+			countM = countM.Where("test_cases.status", req.Status)
+		}
+		if req.Keyword != "" {
+			countM = countM.Where("test_cases.title LIKE ?", "%"+req.Keyword+"%")
+		}
+
+		total, err = countM.Count()
+		liberr.ErrIsNil(ctx, err, "获取用例数量失败")
+
+		// 数据查询
 		m := g.DB().Model("test_cases").Ctx(ctx).
 			LeftJoin("sys_users u", "test_cases.creator_id = u.id").
 			Fields("test_cases.*, u.real_name as creator_name")
-
 		if req.ProjectId != 0 {
 			m = m.Where("test_cases.project_id", req.ProjectId)
 		}
@@ -167,9 +188,6 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 		if req.Keyword != "" {
 			m = m.Where("test_cases.title LIKE ?", "%"+req.Keyword+"%")
 		}
-
-		total, err = m.Count()
-		liberr.ErrIsNil(ctx, err, "获取用例数量失败")
 
 		pageNum := req.PageNum
 		if pageNum == 0 {
@@ -305,19 +323,28 @@ func (s *sTest) DeletePlan(ctx context.Context, id int) (err error) {
 
 func (s *sTest) ListPlans(ctx context.Context, req *api.TestPlanListReq) (total int, list []api.TestPlanItem, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
+		// Count 查询（不带 Fields，兼容 SQLite）
+		countM := g.DB().Model("test_plans").Ctx(ctx)
+		if req.ProjectId != 0 {
+			countM = countM.Where("test_plans.project_id", req.ProjectId)
+		}
+		if req.Status != "" {
+			countM = countM.Where("test_plans.status", req.Status)
+		}
+
+		total, err = countM.Count()
+		liberr.ErrIsNil(ctx, err, "获取计划数量失败")
+
+		// 数据查询
 		m := g.DB().Model("test_plans").Ctx(ctx).
 			LeftJoin("sys_users u", "test_plans.creator_id = u.id").
 			Fields("test_plans.*, u.real_name as creator_name")
-
 		if req.ProjectId != 0 {
 			m = m.Where("test_plans.project_id", req.ProjectId)
 		}
 		if req.Status != "" {
 			m = m.Where("test_plans.status", req.Status)
 		}
-
-		total, err = m.Count()
-		liberr.ErrIsNil(ctx, err, "获取计划数量失败")
 
 		pageNum := req.PageNum
 		if pageNum == 0 {

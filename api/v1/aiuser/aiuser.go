@@ -3,7 +3,7 @@ package aiuser
 import "github.com/gogf/gf/v2/frame/g"
 
 type AiUserCreateReq struct {
-	g.Meta       `path:"/v1/ai-users" method:"post" tags:"AI用户" summary:"创建AI用户"`
+	g.Meta       `path:"/ai-users" method:"post" tags:"AI用户" summary:"创建AI用户"`
 	Username     string `json:"username" v:"required#用户名不能为空"`
 	RealName     string `json:"realName"`
 	Capabilities string `json:"capabilities"`
@@ -15,7 +15,7 @@ type AiUserCreateRes struct {
 }
 
 type AiUserUpdateReq struct {
-	g.Meta       `path:"/v1/ai-users/{id}" method:"put" tags:"AI用户" summary:"更新AI用户"`
+	g.Meta       `path:"/ai-users/{id}" method:"put" tags:"AI用户" summary:"更新AI用户"`
 	Id           int    `json:"id" v:"required" in:"path"`
 	RealName     string `json:"realName"`
 	Capabilities string `json:"capabilities"`
@@ -27,7 +27,7 @@ type AiUserUpdateRes struct {
 }
 
 type AiUserDeleteReq struct {
-	g.Meta `path:"/v1/ai-users/{id}" method:"delete" tags:"AI用户" summary:"删除AI用户"`
+	g.Meta `path:"/ai-users/{id}" method:"delete" tags:"AI用户" summary:"删除AI用户"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -36,7 +36,7 @@ type AiUserDeleteRes struct {
 }
 
 type AiUserListReq struct {
-	g.Meta `path:"/v1/ai-users" method:"get" tags:"AI用户" summary:"AI用户列表"`
+	g.Meta `path:"/ai-users" method:"get" tags:"AI用户" summary:"AI用户列表"`
 	Page   int `json:"page" in:"query" d:"1"`
 	Size   int `json:"size" in:"query" d:"20"`
 }
@@ -58,7 +58,7 @@ type AiUserItem struct {
 }
 
 type AiUserResetKeyReq struct {
-	g.Meta `path:"/v1/ai-users/{id}/reset-key" method:"post" tags:"AI用户" summary:"重置API Key"`
+	g.Meta `path:"/ai-users/{id}/reset-key" method:"post" tags:"AI用户" summary:"重置API Key"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 

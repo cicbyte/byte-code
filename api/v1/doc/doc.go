@@ -8,7 +8,7 @@ import (
 // ==================== 文档 CRUD ====================
 
 type DocCreateReq struct {
-	g.Meta    `path:"/v1/docs" method:"post" tags:"知识库" summary:"创建文档"`
+	g.Meta    `path:"/docs" method:"post" tags:"知识库" summary:"创建文档"`
 	ProjectId int    `json:"projectId" v:"required#项目ID不能为空"`
 	ParentId  int    `json:"parentId" dc:"父文档ID"`
 	Title     string `json:"title" v:"required#文档标题不能为空"`
@@ -23,7 +23,7 @@ type DocCreateRes struct {
 }
 
 type DocUpdateReq struct {
-	g.Meta    `path:"/v1/docs/{id}" method:"put" tags:"知识库" summary:"更新文档"`
+	g.Meta    `path:"/docs/{id}" method:"put" tags:"知识库" summary:"更新文档"`
 	Id        int    `json:"-" in:"path" v:"required#文档ID不能为空"`
 	ParentId  int    `json:"parentId"`
 	Title     string `json:"title"`
@@ -38,7 +38,7 @@ type DocUpdateRes struct {
 }
 
 type DocDeleteReq struct {
-	g.Meta `path:"/v1/docs/{id}" method:"delete" tags:"知识库" summary:"删除文档"`
+	g.Meta `path:"/docs/{id}" method:"delete" tags:"知识库" summary:"删除文档"`
 	Id     int `json:"-" in:"path" v:"required#文档ID不能为空"`
 }
 
@@ -47,7 +47,7 @@ type DocDeleteRes struct {
 }
 
 type DocListReq struct {
-	g.Meta    `path:"/v1/docs" method:"get" tags:"知识库" summary:"文档列表"`
+	g.Meta    `path:"/docs" method:"get" tags:"知识库" summary:"文档列表"`
 	ProjectId int    `json:"projectId" dc:"项目ID"`
 	ParentId  int    `json:"parentId" dc:"父文档ID"`
 	Type      string `json:"type" dc:"文档类型"`
@@ -82,7 +82,7 @@ type DocItem struct {
 }
 
 type DocDetailReq struct {
-	g.Meta `path:"/v1/docs/{id}" method:"get" tags:"知识库" summary:"文档详情"`
+	g.Meta `path:"/docs/{id}" method:"get" tags:"知识库" summary:"文档详情"`
 	Id     int `json:"-" in:"path" v:"required#文档ID不能为空"`
 }
 
@@ -94,7 +94,7 @@ type DocDetailRes struct {
 // ==================== 文档移动 ====================
 
 type DocMoveReq struct {
-	g.Meta   `path:"/v1/docs/{id}/move" method:"put" tags:"知识库" summary:"移动文档"`
+	g.Meta   `path:"/docs/{id}/move" method:"put" tags:"知识库" summary:"移动文档"`
 	Id       int `json:"-" in:"path" v:"required#文档ID不能为空"`
 	ParentId int `json:"parentId" v:"required#目标父文档ID不能为空"`
 }
@@ -106,7 +106,7 @@ type DocMoveRes struct {
 // ==================== 文档树 ====================
 
 type DocTreeReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/docs/tree" method:"get" tags:"知识库" summary:"项目文档树"`
+	g.Meta    `path:"/projects/{projectId}/docs/tree" method:"get" tags:"知识库" summary:"项目文档树"`
 	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
 }
 
@@ -127,7 +127,7 @@ type DocTreeNode struct {
 // ==================== 文档版本 ====================
 
 type DocVersionListReq struct {
-	g.Meta `path:"/v1/docs/{id}/versions" method:"get" tags:"知识库" summary:"版本历史"`
+	g.Meta `path:"/docs/{id}/versions" method:"get" tags:"知识库" summary:"版本历史"`
 	Id     int `json:"-" in:"path" v:"required#文档ID不能为空"`
 	commonApi.PageReq
 }
@@ -150,7 +150,7 @@ type DocVersionItem struct {
 }
 
 type DocRevertReq struct {
-	g.Meta    `path:"/v1/docs/{id}/revert" method:"post" tags:"知识库" summary:"回退版本"`
+	g.Meta    `path:"/docs/{id}/revert" method:"post" tags:"知识库" summary:"回退版本"`
 	Id        int    `json:"-" in:"path" v:"required#文档ID不能为空"`
 	Version   int    `json:"version" v:"required#目标版本号不能为空"`
 	Summary   string `json:"summary" dc:"回退说明"`
@@ -163,7 +163,7 @@ type DocRevertRes struct {
 // ==================== 文档关联 ====================
 
 type DocRelationCreateReq struct {
-	g.Meta     `path:"/v1/docs/{id}/relations" method:"post" tags:"知识库" summary:"创建关联"`
+	g.Meta     `path:"/docs/{id}/relations" method:"post" tags:"知识库" summary:"创建关联"`
 	Id         int    `json:"-" in:"path" v:"required#文档ID不能为空"`
 	TargetType string `json:"targetType" v:"required|in:task,requirement,test_case,doc#目标类型不能为空"`
 	TargetId   int    `json:"targetId" v:"required#目标ID不能为空"`
@@ -175,7 +175,7 @@ type DocRelationCreateRes struct {
 }
 
 type DocRelationDeleteReq struct {
-	g.Meta     `path:"/v1/docs/{id}/relations/{targetType}/{targetId}" method:"delete" tags:"知识库" summary:"删除关联"`
+	g.Meta     `path:"/docs/{id}/relations/{targetType}/{targetId}" method:"delete" tags:"知识库" summary:"删除关联"`
 	Id         int    `json:"-" in:"path" v:"required#文档ID不能为空"`
 	TargetType string `json:"-" in:"path" v:"required|in:task,requirement,test_case,doc#目标类型不能为空"`
 	TargetId   int    `json:"-" in:"path" v:"required#目标ID不能为空"`
@@ -186,7 +186,7 @@ type DocRelationDeleteRes struct {
 }
 
 type DocRelationListReq struct {
-	g.Meta `path:"/v1/docs/{id}/relations" method:"get" tags:"知识库" summary:"关联列表"`
+	g.Meta `path:"/docs/{id}/relations" method:"get" tags:"知识库" summary:"关联列表"`
 	Id     int `json:"-" in:"path" v:"required#文档ID不能为空"`
 }
 
@@ -206,7 +206,7 @@ type DocRelationItem struct {
 // ==================== 全局搜索 ====================
 
 type SearchReq struct {
-	g.Meta `path:"/v1/search" method:"get" tags:"知识库" summary:"全局搜索"`
+	g.Meta `path:"/docs/search" method:"get" tags:"知识库" summary:"文档搜索"`
 	Keyword string `json:"keyword" v:"required#搜索关键字不能为空"`
 	commonApi.PageReq
 }

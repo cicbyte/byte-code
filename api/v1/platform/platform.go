@@ -4,7 +4,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // 标签
 type TagCreateReq struct {
-	g.Meta `path:"/v1/tags" method:"post" tags:"标签" summary:"创建标签"`
+	g.Meta `path:"/tags" method:"post" tags:"标签" summary:"创建标签"`
 	Name   string `json:"name" v:"required#标签名不能为空"`
 	Color  string `json:"color" v:"required#颜色不能为空"`
 }
@@ -14,7 +14,7 @@ type TagCreateRes struct {
 }
 
 type TagUpdateReq struct {
-	g.Meta `path:"/v1/tags/{id}" method:"put" tags:"标签" summary:"更新标签"`
+	g.Meta `path:"/tags/{id}" method:"put" tags:"标签" summary:"更新标签"`
 	Id     int    `json:"id" v:"required" in:"path"`
 	Name   string `json:"name"`
 	Color  string `json:"color"`
@@ -25,7 +25,7 @@ type TagUpdateRes struct {
 }
 
 type TagDeleteReq struct {
-	g.Meta `path:"/v1/tags/{id}" method:"delete" tags:"标签" summary:"删除标签"`
+	g.Meta `path:"/tags/{id}" method:"delete" tags:"标签" summary:"删除标签"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -34,7 +34,7 @@ type TagDeleteRes struct {
 }
 
 type TagListReq struct {
-	g.Meta `path:"/v1/tags" method:"get" tags:"标签" summary:"标签列表"`
+	g.Meta `path:"/tags" method:"get" tags:"标签" summary:"标签列表"`
 }
 
 type TagListRes struct {
@@ -50,7 +50,7 @@ type TagItem struct {
 }
 
 type TagAttachReq struct {
-	g.Meta      `path:"/v1/tags/{id}/attach" method:"post" tags:"标签" summary:"给实体打标签"`
+	g.Meta      `path:"/tags/{id}/attach" method:"post" tags:"标签" summary:"给实体打标签"`
 	Id          int    `json:"id" v:"required" in:"path"`
 	EntityType  string `json:"entityType" v:"required|in:task,requirement,test_case#实体类型不能为空"`
 	EntityId    int    `json:"entityId" v:"required#实体ID不能为空"`
@@ -61,7 +61,7 @@ type TagAttachRes struct {
 }
 
 type TagDetachReq struct {
-	g.Meta      `path:"/v1/tags/{id}/detach" method:"delete" tags:"标签" summary:"移除实体标签"`
+	g.Meta      `path:"/tags/{id}/detach" method:"delete" tags:"标签" summary:"移除实体标签"`
 	Id          int    `json:"id" v:"required" in:"path"`
 	EntityType  string `json:"entityType" v:"required" in:"query"`
 	EntityId    int    `json:"entityId" v:"required" in:"query"`
@@ -72,7 +72,7 @@ type TagDetachRes struct {
 }
 
 type TagEntitiesReq struct {
-	g.Meta `path:"/v1/tags/{id}/entities" method:"get" tags:"标签" summary:"按标签查询实体"`
+	g.Meta `path:"/tags/{id}/entities" method:"get" tags:"标签" summary:"按标签查询实体"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -84,7 +84,7 @@ type TagEntitiesRes struct {
 
 // 活动
 type ActivityListReq struct {
-	g.Meta    `path:"/v1/activities" method:"get" tags:"活动流" summary:"活动流列表"`
+	g.Meta    `path:"/activities" method:"get" tags:"活动流" summary:"活动流列表"`
 	Module    string `json:"module" in:"query"`
 	ActorId   int    `json:"actorId" in:"query"`
 	ProjectId int    `json:"projectId" in:"query"`
@@ -113,7 +113,7 @@ type ActivityItem struct {
 
 // 通知
 type NotificationListReq struct {
-	g.Meta `path:"/v1/notifications" method:"get" tags:"通知" summary:"通知列表"`
+	g.Meta `path:"/notifications" method:"get" tags:"通知" summary:"通知列表"`
 	Unread int `json:"unread" in:"query"`
 	Page   int `json:"page" in:"query" d:"1"`
 	Size   int `json:"size" in:"query" d:"20"`
@@ -136,7 +136,7 @@ type NotificationItem struct {
 }
 
 type NotificationReadReq struct {
-	g.Meta `path:"/v1/notifications/{id}/read" method:"put" tags:"通知" summary:"标记已读"`
+	g.Meta `path:"/notifications/{id}/read" method:"put" tags:"通知" summary:"标记已读"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -145,7 +145,7 @@ type NotificationReadRes struct {
 }
 
 type NotificationReadAllReq struct {
-	g.Meta `path:"/v1/notifications/read-all" method:"put" tags:"通知" summary:"全部已读"`
+	g.Meta `path:"/notifications/read-all" method:"put" tags:"通知" summary:"全部已读"`
 }
 
 type NotificationReadAllRes struct {
@@ -153,7 +153,7 @@ type NotificationReadAllRes struct {
 }
 
 type NotificationUnreadCountReq struct {
-	g.Meta `path:"/v1/notifications/unread-count" method:"get" tags:"通知" summary:"未读数量"`
+	g.Meta `path:"/notifications/unread-count" method:"get" tags:"通知" summary:"未读数量"`
 }
 
 type NotificationUnreadCountRes struct {
@@ -162,7 +162,7 @@ type NotificationUnreadCountRes struct {
 
 // 全局搜索
 type SearchReq struct {
-	g.Meta `path:"/v1/search" method:"get" tags:"搜索" summary:"全局搜索"`
+	g.Meta `path:"/search" method:"get" tags:"搜索" summary:"全局搜索"`
 	Q      string `json:"q" in:"query" v:"required#关键词不能为空"`
 	Module string `json:"module" in:"query"`
 	Page   int    `json:"page" in:"query" d:"1"`
@@ -183,7 +183,7 @@ type SearchResult struct {
 
 // 仪表盘
 type DashboardStatsReq struct {
-	g.Meta `path:"/v1/stats/dashboard" method:"get" tags:"统计" summary:"全局仪表盘"`
+	g.Meta `path:"/stats/dashboard" method:"get" tags:"统计" summary:"全局仪表盘"`
 }
 
 type DashboardStatsRes struct {
@@ -210,7 +210,7 @@ type RecentTaskItem struct {
 
 // 审计日志
 type AuditLogListReq struct {
-	g.Meta     `path:"/v1/admin/audit-logs" method:"get" tags:"审计日志" summary:"审计日志列表"`
+	g.Meta     `path:"/admin/audit-logs" method:"get" tags:"审计日志" summary:"审计日志列表"`
 	TargetType string `json:"targetType" in:"query"`
 	ActorId    int    `json:"actorId" in:"query"`
 	Action     string `json:"action" in:"query"`

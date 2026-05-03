@@ -5,7 +5,7 @@ import "github.com/gogf/gf/v2/frame/g"
 // ==================== 项目 CRUD ====================
 
 type ProjectCreateReq struct {
-	g.Meta      `path:"/v1/projects" method:"post" tags:"项目管理" summary:"创建项目"`
+	g.Meta      `path:"/projects" method:"post" tags:"项目管理" summary:"创建项目"`
 	ProductId   int    `json:"productId"`
 	Name        string `json:"name" v:"required#项目名称不能为空"`
 	Description string `json:"description"`
@@ -16,7 +16,7 @@ type ProjectCreateRes struct {
 }
 
 type ProjectUpdateReq struct {
-	g.Meta      `path:"/v1/projects/{id}" method:"put" tags:"项目管理" summary:"更新项目"`
+	g.Meta      `path:"/projects/{id}" method:"put" tags:"项目管理" summary:"更新项目"`
 	Id          int    `json:"id" v:"required" in:"path"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -29,7 +29,7 @@ type ProjectUpdateRes struct {
 }
 
 type ProjectDeleteReq struct {
-	g.Meta `path:"/v1/projects/{id}" method:"delete" tags:"项目管理" summary:"删除项目"`
+	g.Meta `path:"/projects/{id}" method:"delete" tags:"项目管理" summary:"删除项目"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -38,7 +38,7 @@ type ProjectDeleteRes struct {
 }
 
 type ProjectListReq struct {
-	g.Meta   `path:"/v1/projects" method:"get" tags:"项目管理" summary:"项目列表"`
+	g.Meta   `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
 	Status   int    `json:"status" in:"query"`
 	ProductId int   `json:"productId" in:"query"`
 	Page     int    `json:"page" in:"query" d:"1"`
@@ -66,7 +66,7 @@ type ProjectItem struct {
 }
 
 type ProjectDetailReq struct {
-	g.Meta `path:"/v1/projects/{id}" method:"get" tags:"项目管理" summary:"项目详情"`
+	g.Meta `path:"/projects/{id}" method:"get" tags:"项目管理" summary:"项目详情"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -77,7 +77,7 @@ type ProjectDetailRes struct {
 // ==================== 项目成员 ====================
 
 type MemberAddReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/members" method:"post" tags:"项目成员" summary:"添加成员"`
+	g.Meta    `path:"/projects/{projectId}/members" method:"post" tags:"项目成员" summary:"添加成员"`
 	ProjectId int    `json:"projectId" v:"required" in:"path"`
 	UserId    int    `json:"userId" v:"required#用户ID不能为空"`
 	Role      string `json:"role" d:"member"`
@@ -88,7 +88,7 @@ type MemberAddRes struct {
 }
 
 type MemberRemoveReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/members/{userId}" method:"delete" tags:"项目成员" summary:"移除成员"`
+	g.Meta    `path:"/projects/{projectId}/members/{userId}" method:"delete" tags:"项目成员" summary:"移除成员"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`
 	UserId    int `json:"userId" v:"required" in:"path"`
 }
@@ -98,7 +98,7 @@ type MemberRemoveRes struct {
 }
 
 type MemberListReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/members" method:"get" tags:"项目成员" summary:"成员列表"`
+	g.Meta    `path:"/projects/{projectId}/members" method:"get" tags:"项目成员" summary:"成员列表"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`
 }
 
@@ -118,7 +118,7 @@ type MemberListRes struct {
 // ==================== 任务 CRUD ====================
 
 type TaskCreateReq struct {
-	g.Meta         `path:"/v1/projects/{projectId}/tasks" method:"post" tags:"任务管理" summary:"创建任务"`
+	g.Meta         `path:"/projects/{projectId}/tasks" method:"post" tags:"任务管理" summary:"创建任务"`
 	ProjectId      int    `json:"projectId" v:"required" in:"path"`
 	RequirementId  int    `json:"requirementId"`
 	SprintId       int    `json:"sprintId"`
@@ -135,7 +135,7 @@ type TaskCreateRes struct {
 }
 
 type TaskUpdateReq struct {
-	g.Meta         `path:"/v1/tasks/{id}" method:"put" tags:"任务管理" summary:"更新任务"`
+	g.Meta         `path:"/tasks/{id}" method:"put" tags:"任务管理" summary:"更新任务"`
 	Id             int    `json:"id" v:"required" in:"path"`
 	Title          string `json:"title"`
 	Description    string `json:"description"`
@@ -153,7 +153,7 @@ type TaskUpdateRes struct {
 }
 
 type TaskDeleteReq struct {
-	g.Meta `path:"/v1/tasks/{id}" method:"delete" tags:"任务管理" summary:"删除任务"`
+	g.Meta `path:"/tasks/{id}" method:"delete" tags:"任务管理" summary:"删除任务"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -162,7 +162,7 @@ type TaskDeleteRes struct {
 }
 
 type TaskListReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/tasks" method:"get" tags:"任务管理" summary:"任务列表"`
+	g.Meta    `path:"/projects/{projectId}/tasks" method:"get" tags:"任务管理" summary:"任务列表"`
 	ProjectId int    `json:"projectId" v:"required" in:"path"`
 	Status    string `json:"status" in:"query"`
 	Type      string `json:"type" in:"query"`
@@ -202,7 +202,7 @@ type TaskItem struct {
 }
 
 type TaskDetailReq struct {
-	g.Meta `path:"/v1/tasks/{id}" method:"get" tags:"任务管理" summary:"任务详情"`
+	g.Meta `path:"/tasks/{id}" method:"get" tags:"任务管理" summary:"任务详情"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -213,7 +213,7 @@ type TaskDetailRes struct {
 // ==================== 任务特殊操作 ====================
 
 type TaskClaimReq struct {
-	g.Meta `path:"/v1/tasks/{id}/claim" method:"post" tags:"任务管理" summary:"AI认领任务"`
+	g.Meta `path:"/tasks/{id}/claim" method:"post" tags:"任务管理" summary:"AI认领任务"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -222,7 +222,7 @@ type TaskClaimRes struct {
 }
 
 type TaskCompleteReq struct {
-	g.Meta    `path:"/v1/tasks/{id}/complete" method:"post" tags:"任务管理" summary:"AI完成任务"`
+	g.Meta    `path:"/tasks/{id}/complete" method:"post" tags:"任务管理" summary:"AI完成任务"`
 	Id        int    `json:"id" v:"required" in:"path"`
 	Artifacts string `json:"artifacts"`
 }
@@ -232,7 +232,7 @@ type TaskCompleteRes struct {
 }
 
 type TaskReviewReq struct {
-	g.Meta   `path:"/v1/tasks/{id}/review" method:"post" tags:"任务管理" summary:"审核任务"`
+	g.Meta   `path:"/tasks/{id}/review" method:"post" tags:"任务管理" summary:"审核任务"`
 	Id       int    `json:"id" v:"required" in:"path"`
 	Status   string `json:"status" v:"required|in:approved,rejected#审核状态不能为空|状态不合法"`
 	Comment  string `json:"comment"`
@@ -243,7 +243,7 @@ type TaskReviewRes struct {
 }
 
 type TaskImportReq struct {
-	g.Meta        `path:"/v1/projects/{projectId}/tasks/import" method:"post" tags:"任务管理" summary:"从需求导入任务"`
+	g.Meta        `path:"/projects/{projectId}/tasks/import" method:"post" tags:"任务管理" summary:"从需求导入任务"`
 	ProjectId     int  `json:"projectId" v:"required" in:"path"`
 	RequirementId int  `json:"requirementId" v:"required#需求ID不能为空"`
 	SprintId      int  `json:"sprintId"`
@@ -256,7 +256,7 @@ type TaskImportRes struct {
 // ==================== 评论 ====================
 
 type CommentCreateReq struct {
-	g.Meta   `path:"/v1/tasks/{taskId}/comments" method:"post" tags:"任务评论" summary:"创建评论"`
+	g.Meta   `path:"/tasks/{taskId}/comments" method:"post" tags:"任务评论" summary:"创建评论"`
 	TaskId   int    `json:"taskId" v:"required" in:"path"`
 	Content  string `json:"content" v:"required#评论内容不能为空"`
 	UserType string `json:"userType" d:"human"`
@@ -267,7 +267,7 @@ type CommentCreateRes struct {
 }
 
 type CommentListReq struct {
-	g.Meta `path:"/v1/tasks/{taskId}/comments" method:"get" tags:"任务评论" summary:"评论列表"`
+	g.Meta `path:"/tasks/{taskId}/comments" method:"get" tags:"任务评论" summary:"评论列表"`
 	TaskId int `json:"taskId" v:"required" in:"path"`
 }
 
@@ -289,7 +289,7 @@ type CommentListRes struct {
 // ==================== AI 执行日志 ====================
 
 type AiLogCreateReq struct {
-	g.Meta    `path:"/v1/tasks/{taskId}/ai-logs" method:"post" tags:"AI执行日志" summary:"创建AI执行日志"`
+	g.Meta    `path:"/tasks/{taskId}/ai-logs" method:"post" tags:"AI执行日志" summary:"创建AI执行日志"`
 	TaskId    int    `json:"taskId" v:"required" in:"path"`
 	AiUserId  int    `json:"aiUserId" v:"required#AI用户ID不能为空"`
 	Action    string `json:"action" v:"required#操作不能为空"`
@@ -302,7 +302,7 @@ type AiLogCreateRes struct {
 }
 
 type AiLogListReq struct {
-	g.Meta `path:"/v1/tasks/{taskId}/ai-logs" method:"get" tags:"AI执行日志" summary:"AI执行日志列表"`
+	g.Meta `path:"/tasks/{taskId}/ai-logs" method:"get" tags:"AI执行日志" summary:"AI执行日志列表"`
 	TaskId int `json:"taskId" v:"required" in:"path"`
 }
 
@@ -323,7 +323,7 @@ type AiLogListRes struct {
 // ==================== Sprint CRUD ====================
 
 type SprintCreateReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/sprints" method:"post" tags:"Sprint" summary:"创建Sprint"`
+	g.Meta    `path:"/projects/{projectId}/sprints" method:"post" tags:"Sprint" summary:"创建Sprint"`
 	ProjectId int    `json:"projectId" v:"required" in:"path"`
 	Name      string `json:"name" v:"required#名称不能为空"`
 	Goal      string `json:"goal"`
@@ -336,7 +336,7 @@ type SprintCreateRes struct {
 }
 
 type SprintUpdateReq struct {
-	g.Meta    `path:"/v1/sprints/{id}" method:"put" tags:"Sprint" summary:"更新Sprint"`
+	g.Meta    `path:"/sprints/{id}" method:"put" tags:"Sprint" summary:"更新Sprint"`
 	Id        int    `json:"id" v:"required" in:"path"`
 	Name      string `json:"name"`
 	Goal      string `json:"goal"`
@@ -350,7 +350,7 @@ type SprintUpdateRes struct {
 }
 
 type SprintDeleteReq struct {
-	g.Meta `path:"/v1/sprints/{id}" method:"delete" tags:"Sprint" summary:"删除Sprint"`
+	g.Meta `path:"/sprints/{id}" method:"delete" tags:"Sprint" summary:"删除Sprint"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -359,7 +359,7 @@ type SprintDeleteRes struct {
 }
 
 type SprintListReq struct {
-	g.Meta    `path:"/v1/projects/{projectId}/sprints" method:"get" tags:"Sprint" summary:"Sprint列表"`
+	g.Meta    `path:"/projects/{projectId}/sprints" method:"get" tags:"Sprint" summary:"Sprint列表"`
 	ProjectId int    `json:"projectId" v:"required" in:"path"`
 	Status    string `json:"status" in:"query"`
 }
@@ -380,7 +380,7 @@ type SprintListRes struct {
 }
 
 type SprintDetailReq struct {
-	g.Meta `path:"/v1/sprints/{id}" method:"get" tags:"Sprint" summary:"Sprint详情"`
+	g.Meta `path:"/sprints/{id}" method:"get" tags:"Sprint" summary:"Sprint详情"`
 	Id     int `json:"id" v:"required" in:"path"`
 }
 
@@ -390,7 +390,7 @@ type SprintDetailRes struct {
 
 // Sprint 任务管理
 type SprintTaskAddReq struct {
-	g.Meta    `path:"/v1/sprints/{sprintId}/tasks" method:"post" tags:"Sprint" summary:"添加任务到Sprint"`
+	g.Meta    `path:"/sprints/{sprintId}/tasks" method:"post" tags:"Sprint" summary:"添加任务到Sprint"`
 	SprintId  int `json:"sprintId" v:"required" in:"path"`
 	TaskId    int `json:"taskId" v:"required#任务ID不能为空"`
 }
@@ -400,7 +400,7 @@ type SprintTaskAddRes struct {
 }
 
 type SprintTaskRemoveReq struct {
-	g.Meta    `path:"/v1/sprints/{sprintId}/tasks/{taskId}" method:"delete" tags:"Sprint" summary:"从Sprint移除任务"`
+	g.Meta    `path:"/sprints/{sprintId}/tasks/{taskId}" method:"delete" tags:"Sprint" summary:"从Sprint移除任务"`
 	SprintId  int `json:"sprintId" v:"required" in:"path"`
 	TaskId    int `json:"taskId" v:"required" in:"path"`
 }
@@ -411,7 +411,7 @@ type SprintTaskRemoveRes struct {
 
 // 燃尽图数据
 type BurndownReq struct {
-	g.Meta   `path:"/v1/sprints/{id}/burndown" method:"get" tags:"Sprint" summary:"燃尽图数据"`
+	g.Meta   `path:"/sprints/{id}/burndown" method:"get" tags:"Sprint" summary:"燃尽图数据"`
 	Id       int `json:"id" v:"required" in:"path"`
 }
 
