@@ -1,0 +1,75 @@
+import { createAlova } from 'alova';
+import VueHook from 'alova/vue';
+import adapterFetch from 'alova/fetch';
+import { isString } from 'lodash-es';
+import { useUser } from '@/store/modules/user';
+import { storage } from '@/utils/Storage';
+import { useGlobSetting } from '@/hooks/setting';
+import { ResultEnum } from '@/enums/httpEnum';
+import { isUrl } from '@/utils';
+
+const { apiUrl, urlPrefix } = useGlobSetting();
+
+function normalizeResponse(res: any) {
+  if (res.result !== undefined) {
+    return res;
+  }
+  if (res.data !== undefined) {
+    return {
+      code: res.code === 0 ? ResultEnum.SUCCESS : res.code,
+      result: res.data,
+      message: res.message || 'ok',
+    };
+  }
+  return res;
+}
+
+export const Alova = createAlova({
+  baseURL: apiUrl,
+  statesHook: VueHook,
+  cacheLogger: process.env.NODE_ENV === 'development',
+  requestAdapter: adapterFetch(),
+  beforeRequest(method) {
+    const userStore = useUser();
+    const token = userStore.getToken;
+    if (!method.meta?.ignoreToken && token) {
+      method.config.headers['token'] = token;
+    }
+    const isUrlStr = isUrl(method.url as string);
+    if (!isUrlStr && urlPrefix) {
+      method.url = `${urlPrefix}${method.url}`;
+    }
+    if (!isUrlStr && apiUrl && isString(apiUrl)) {
+      method.url = `${apiUrl}${method.url}`;
+    }
+  },
+  responded: {
+    onSuccess: async (response, method) => {
+      const raw = (response.json && (await response.json())) || response.body;
+      const res = normalizeResponse(raw);
+
+      const { message, code, result } = res;
+
+      if (code === 401 || code === 912) {
+        throw new Error(message || '登录已过期');
+      }
+
+      if (method.meta?.isReturnNativeResponse) {
+        return res;
+      }
+
+      if (method.meta?.isTransformResponse === false) {
+        return result;
+      }
+
+      const Message = window.$message;
+
+      if (ResultEnum.SUCCESS === code) {
+        return result;
+      }
+
+      Message?.error(message);
+      throw new Error(message);
+    },
+  },
+});
