@@ -27,6 +27,7 @@ function normalizeResponse(res: any) {
 export const Alova = createAlova({
   baseURL: apiUrl,
   statesHook: VueHook,
+  cacheFor: 0,
   cacheLogger: process.env.NODE_ENV === 'development',
   requestAdapter: adapterFetch(),
   beforeRequest(method) {

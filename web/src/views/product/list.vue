@@ -66,7 +66,6 @@
       positive-text="确定"
       negative-text="取消"
       @positive-click="handleSubmit"
-      @update:show="onModalClose"
       style="width: 520px"
     >
       <n-form
@@ -94,7 +93,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted, nextTick } from 'vue';
+  import { ref, reactive, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
@@ -195,15 +194,11 @@
         await createProduct({ ...formData });
         message.success('创建成功');
       }
+      showModal.value = false;
+      loadData();
     } catch (e) {
       message.error('操作失败');
       return false;
-    }
-  }
-
-  function onModalClose(show: boolean) {
-    if (!show) {
-      nextTick(() => loadData());
     }
   }
 
