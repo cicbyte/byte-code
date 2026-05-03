@@ -13,7 +13,7 @@ type DocCreateReq struct {
 	ParentId  int    `json:"parentId" dc:"父文档ID"`
 	Title     string `json:"title" v:"required#文档标题不能为空"`
 	Content   string `json:"content" dc:"文档内容"`
-	Type      string `json:"type" v:"in:document,wiki,api,design|default:document#类型必须是document/wiki/api/design"`
+	Type      string `json:"type" v:"in:doc,folder,wiki,api,design#类型必须是doc/folder/wiki/api/design" d:"doc"`
 	SortOrder int    `json:"sortOrder" dc:"排序"`
 }
 
@@ -28,9 +28,9 @@ type DocUpdateReq struct {
 	ParentId  int    `json:"parentId"`
 	Title     string `json:"title"`
 	Content   string `json:"content"`
-	Type      string `json:"type" v:"in:document,wiki,api,design#类型必须是document/wiki/api/design"`
+	Type      string `json:"type" v:"in:doc,folder,wiki,api,design#类型必须是doc/folder/wiki/api/design"`
 	SortOrder int    `json:"sortOrder"`
-	Status    string `json:"status" v:"in:active,archived,draft#状态必须是active/archived/draft"`
+	Status    string `json:"status" v:"in:active,archived#状态必须是active/archived"`
 }
 
 type DocUpdateRes struct {
