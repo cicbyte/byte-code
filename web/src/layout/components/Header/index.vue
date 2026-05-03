@@ -70,6 +70,9 @@
           </n-breadcrumb-item>
         </template>
       </n-breadcrumb>
+      <span v-if="entityContext.currentEntityName" class="entity-breadcrumb-name">
+        / {{ entityContext.currentEntityName }}
+      </span>
     </div>
     <div class="layout-header-right">
       <div
@@ -134,6 +137,7 @@
   import { AsideMenu } from '@/layout/components/Menu';
   import { RedirectName } from '@/router/constant';
   import { useScreenLockStore } from '@/store/modules/screenLock';
+  import { useEntityContext } from '@/store/modules/entityContext';
   import { useUserStore } from '@/store/modules/user';
   import { TABS_ROUTES } from '@/store/mutation-types';
   import { NDialogProvider, useDialog, useMessage } from 'naive-ui';
@@ -156,6 +160,7 @@
     emits: ['update:collapsed'],
     setup(props, { emit }) {
       const userStore = useUserStore();
+      const entityContext = useEntityContext();
       const useLockscreen = useScreenLockStore();
       const message = useMessage();
       const dialog = useDialog();
@@ -347,6 +352,7 @@
         mixMenu,
         websiteConfig,
         handleMenuCollapsed,
+        entityContext,
         RedirectName,
       };
     },
@@ -396,6 +402,12 @@
 
       .n-breadcrumb {
         display: inline-block;
+      }
+
+      .entity-breadcrumb-name {
+        font-size: 13px;
+        color: #515a6e;
+        font-weight: 500;
       }
 
       &-menu {

@@ -38,6 +38,7 @@
               </td>
               <td>
                 <n-space>
+                  <n-button text type="primary" @click="router.push(`/product/${item.id}/overview`)">进入</n-button>
                   <n-button text type="info" @click="handleEdit(item)">编辑</n-button>
                   <n-button text type="error" @click="handleDelete(item)">删除</n-button>
                 </n-space>
@@ -93,6 +94,7 @@
 
 <script lang="ts" setup>
   import { ref, reactive, onMounted } from 'vue';
+  import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {
@@ -105,6 +107,7 @@
 
   const message = useMessage();
   const dialog = useDialog();
+  const router = useRouter();
   const loading = ref(false);
   const productList = ref<ProductItem[]>([]);
   const total = ref(0);

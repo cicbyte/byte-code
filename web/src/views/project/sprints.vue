@@ -1,11 +1,37 @@
 <template>
-  <div class="p-4">
-    <n-card title="Sprint 管理">
+  <div>
+    <n-card :bordered="false" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="showCreate = true">新建 Sprint</n-button>
       </template>
 
-      <n-data-table :columns="columns" :data="sprints" :loading="loading" />
+      <n-spin :show="loading">
+        <n-empty v-if="!loading && sprints.length === 0" description="暂无 Sprint" />
+        <n-table v-else :bordered="false" :single-line="false" size="small">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>目标</th>
+              <th>开始日期</th>
+              <th>结束日期</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="sprint in sprints" :key="sprint.id">
+              <td>{{ sprint.name }}</td>
+              <td>{{ sprint.goal }}</td>
+              <td>{{ sprint.startDate }}</td>
+              <td>{{ sprint.endDate }}</td>
+              <td>
+                <n-tag :type="statusMap[sprint.status]?.type || 'default'" size="small">
+                  {{ statusMap[sprint.status]?.label || sprint.status }}
+                </n-tag>
+              </td>
+            </tr>
+          </tbody>
+        </n-table>
+      </n-spin>
     </n-card>
 
     <n-modal v-model:show="showCreate" title="新建 Sprint" preset="card" style="width: 500px">
@@ -17,10 +43,10 @@
           <n-input v-model:value="form.goal" type="textarea" placeholder="Sprint 目标" />
         </n-form-item>
         <n-form-item label="开始日期" path="startDate">
-          <n-date-picker v-model:value="form.startDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="form.startDate" type="date" style="width: 100%" />
         </n-form-item>
         <n-form-item label="结束日期" path="endDate">
-          <n-date-picker v-model:value="form.endDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="form.endDate" type="date" style="width: 100%" />
         </n-form-item>
       </n-form>
       <template #action>
@@ -34,82 +60,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue';
-import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NDatePicker, NSpace, NTag, useMessage } from 'naive-ui';
-import { getSprints, createSprint } from '@/api/project';
+  import { ref, computed, onMounted } from 'vue';
+  import { useRoute } from 'vue-router';
+  import { useMessage } from 'naive-ui';
+  import { getSprints, createSprint } from '@/api/project';
+  import type { SprintItem } from '@/api/project';
 
-const message = useMessage();
-const loading = ref(false);
-const submitting = ref(false);
-const sprints = ref<any[]>([]);
-const showCreate = ref(false);
-const projectId = ref(0);
-const formRef = ref();
+  const route = useRoute();
+  const message = useMessage();
+  const projectId = computed(() => Number(route.params.projectId));
 
-const form = ref({
-  name: '',
-  goal: '',
-  startDate: null as number | null,
-  endDate: null as number | null,
-});
+  const loading = ref(false);
+  const submitting = ref(false);
+  const sprints = ref<SprintItem[]>([]);
+  const showCreate = ref(false);
+  const formRef = ref();
 
-const rules = {
-  name: { required: true, message: '请输入名称' },
-  startDate: { required: true, message: '请选择开始日期' },
-  endDate: { required: true, message: '请选择结束日期' },
-};
+  const form = ref({ name: '', goal: '', startDate: '', endDate: '' });
+  const rules = {
+    name: { required: true, message: '请输入名称' },
+  };
 
-const statusMap: Record<string, { type: 'default' | 'info' | 'success' | 'warning'; label: string }> = {
-  planning: { type: 'default', label: '规划中' },
-  active: { type: 'info', label: '进行中' },
-  completed: { type: 'success', label: '已完成' },
-};
+  const statusMap: Record<string, { type: 'default' | 'info' | 'success' | 'warning'; label: string }> = {
+    planning: { type: 'default', label: '规划中' },
+    active: { type: 'info', label: '进行中' },
+    completed: { type: 'success', label: '已完成' },
+  };
 
-const columns = [
-  { title: '名称', key: 'name' },
-  { title: '目标', key: 'goal' },
-  { title: '开始日期', key: 'startDate' },
-  { title: '结束日期', key: 'endDate' },
-  {
-    title: '状态', key: 'status',
-    render: (row: any) => {
-      const s = statusMap[row.status] || { type: 'default' as const, label: row.status };
-      return h(NTag, { type: s.type, size: 'small' }, () => s.label);
-    },
-  },
-];
-
-async function loadSprints() {
-  loading.value = true;
-  try {
-    // Sprint 需要在项目上下文中，这里显示所有项目的 Sprint
-    // TODO: 实现全局 Sprint 列表
-    sprints.value = [];
-  } finally {
-    loading.value = false;
+  async function loadSprints() {
+    loading.value = true;
+    try {
+      const res = await getSprints(projectId.value);
+      sprints.value = res?.list || [];
+    } catch {
+      // ignore
+    } finally {
+      loading.value = false;
+    }
   }
-}
 
-async function handleCreate() {
-  submitting.value = true;
-  try {
-    const fmt = (ts: number) => new Date(ts).toISOString().split('T')[0];
-    await createSprint(projectId.value, {
-      name: form.value.name,
-      goal: form.value.goal,
-      startDate: form.value.startDate ? fmt(form.value.startDate) : '',
-      endDate: form.value.endDate ? fmt(form.value.endDate) : '',
-    });
-    message.success('创建成功');
-    showCreate.value = false;
-    form.value = { name: '', goal: '', startDate: null, endDate: null };
-    loadSprints();
-  } catch (e: any) {
-    message.error(e.message || '创建失败');
-  } finally {
-    submitting.value = false;
+  async function handleCreate() {
+    submitting.value = true;
+    try {
+      await createSprint(projectId.value, { ...form.value });
+      message.success('创建成功');
+      showCreate.value = false;
+      form.value = { name: '', goal: '', startDate: '', endDate: '' };
+      loadSprints();
+    } catch (e: any) {
+      message.error(e.message || '创建失败');
+    } finally {
+      submitting.value = false;
+    }
   }
-}
 
-onMounted(loadSprints);
+  onMounted(loadSprints);
 </script>

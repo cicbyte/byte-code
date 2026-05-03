@@ -26,21 +26,65 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/project/list.vue'),
       },
       {
-        path: 'detail/:id',
-        name: `${routeName}_detail`,
+        path: ':projectId',
+        name: `${routeName}_workspace`,
         meta: {
           title: '项目详情',
           hideInMenu: true,
         },
-        component: () => import('@/views/project/detail.vue'),
+        component: () => import('@/views/project/ProjectWorkspace.vue'),
+        children: [
+          {
+            path: 'overview',
+            name: `${routeName}_overview`,
+            meta: {
+              title: '项目概览',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/overview.vue'),
+          },
+          {
+            path: 'board',
+            name: `${routeName}_board`,
+            meta: {
+              title: '任务看板',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/board.vue'),
+          },
+          {
+            path: 'tasks',
+            name: `${routeName}_tasks`,
+            meta: {
+              title: '任务列表',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/tasks.vue'),
+          },
+          {
+            path: 'sprints',
+            name: `${routeName}_sprints`,
+            meta: {
+              title: 'Sprint 管理',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/sprints.vue'),
+          },
+          {
+            path: 'members',
+            name: `${routeName}_members`,
+            meta: {
+              title: '成员管理',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/members.vue'),
+          },
+        ],
       },
+      // 兼容旧链接
       {
-        path: 'sprints',
-        name: `${routeName}_sprints`,
-        meta: {
-          title: 'Sprint 管理',
-        },
-        component: () => import('@/views/project/sprints.vue'),
+        path: 'detail/:id',
+        redirect: (to) => ({ path: `/project/${to.params.id}/overview` }),
       },
     ],
   },

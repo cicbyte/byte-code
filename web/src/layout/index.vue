@@ -44,6 +44,8 @@
         <PageHeader v-model:collapsed="collapsed" :inverted="inverted" />
       </n-layout-header>
 
+      <Entity-nav-bar />
+
       <n-layout-content
         class="layout-content"
         :class="{ 'layout-default-background': getDarkTheme === false }"
@@ -84,6 +86,7 @@
   import { MainView } from './components/Main';
   import { AsideMenu } from './components/Menu';
   import { PageHeader } from './components/Header';
+  import EntityNavBar from './components/EntityNavBar/index.vue';
   import { useProjectSetting } from '@/hooks/setting/useProjectSetting';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import { useRoute } from 'vue-router';
@@ -251,11 +254,11 @@
   .layout-content-main {
     margin: 0 10px 10px;
     position: relative;
-    padding-top: 64px;
+    padding-top: 104px;
   }
 
   .layout-content-main-fix {
-    padding-top: 64px;
+    padding-top: 104px;
   }
 
   .fluid-header {

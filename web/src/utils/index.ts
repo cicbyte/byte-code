@@ -65,10 +65,12 @@ export function generatorMenu(routerMap: Array<any>) {
       key: info.name,
       icon: isRoot ? item.meta?.icon : info.meta?.icon,
     };
-    // 是否有子菜单，并递归处理
+    // 是否有子菜单，并递归处理，过滤 hideInMenu
     if (info.children && info.children.length > 0) {
-      // Recursion
-      currentMenu.children = generatorMenu(info.children);
+      const visibleChildren = info.children.filter((c: any) => !c.meta?.hideInMenu);
+      if (visibleChildren.length > 0) {
+        currentMenu.children = generatorMenu(visibleChildren);
+      }
     }
     return currentMenu;
   });

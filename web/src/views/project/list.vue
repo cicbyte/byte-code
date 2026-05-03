@@ -132,7 +132,7 @@
   }
 
   function handleDetail(item: ProjectItem) {
-    router.push(`/project/detail/${item.id}`);
+    router.push(`/project/${item.id}/board`);
   }
 
   function handleCreate() {

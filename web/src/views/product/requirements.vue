@@ -84,6 +84,7 @@
 
 <script lang="ts" setup>
   import { ref, reactive, computed, onMounted, h } from 'vue';
+  import { useRoute } from 'vue-router';
   import { useMessage, useDialog, NTag, NSpace, NButton } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {
@@ -97,6 +98,7 @@
 
   const message = useMessage();
   const dialog = useDialog();
+  const route = useRoute();
   const reqLoading = ref(false);
   const showModal = ref(false);
   const isEdit = ref(false);
@@ -311,7 +313,13 @@
     }
   }
 
-  onMounted(() => {
-    loadProducts();
+  onMounted(async () => {
+    await loadProducts();
+    // 如果在产品 workspace 内，自动选中产品
+    const routeProductId = Number(route.params.productId);
+    if (routeProductId) {
+      selectedProduct.value = routeProductId;
+      loadRequirements();
+    }
   });
 </script>

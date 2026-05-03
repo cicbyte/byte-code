@@ -26,12 +26,42 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/product/list.vue'),
       },
       {
-        path: 'requirements',
-        name: `${routeName}_requirements`,
+        path: ':productId',
+        name: `${routeName}_workspace`,
         meta: {
-          title: '需求池',
+          title: '产品详情',
+          hideInMenu: true,
         },
-        component: () => import('@/views/product/requirements.vue'),
+        component: () => import('@/views/product/ProductWorkspace.vue'),
+        children: [
+          {
+            path: 'overview',
+            name: `${routeName}_overview`,
+            meta: {
+              title: '产品概览',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/product/overview.vue'),
+          },
+          {
+            path: 'requirements',
+            name: `${routeName}_requirements`,
+            meta: {
+              title: '需求池',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/product/requirements.vue'),
+          },
+          {
+            path: 'milestones',
+            name: `${routeName}_milestones`,
+            meta: {
+              title: '里程碑',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/product/milestones.vue'),
+          },
+        ],
       },
     ],
   },
