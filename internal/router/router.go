@@ -57,6 +57,11 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.ProjectCtrl,
 			)
 
+			// 数据库模型管理
+			group.Bind(
+				controller.DatabaseCtrl,
+			)
+
 			// 测试管理
 			group.Bind(
 				controller.Test,

@@ -15,6 +15,7 @@ const projectTabs: NavTab[] = [
   { key: 'tasks', label: '任务列表', path: '/project/:projectId/tasks' },
   { key: 'sprints', label: 'Sprint', path: '/project/:projectId/sprints' },
   { key: 'members', label: '成员', path: '/project/:projectId/members' },
+  { key: 'database', label: '数据库', path: '/project/:projectId/database' },
 ];
 
 const productTabs: NavTab[] = [

@@ -79,6 +79,15 @@ const routes: Array<RouteRecordRaw> = [
             },
             component: () => import('@/views/project/members.vue'),
           },
+          {
+            path: 'database',
+            name: `${routeName}_database`,
+            meta: {
+              title: '数据库模型',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/database.vue'),
+          },
         ],
       },
       // 兼容旧链接

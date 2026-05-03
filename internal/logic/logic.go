@@ -1,6 +1,7 @@
 package logic
 
 import (
+	_ "github.com/cicbyte/byte-code/internal/logic/database"
 	_ "github.com/cicbyte/byte-code/internal/logic/aiuser"
 	_ "github.com/cicbyte/byte-code/internal/logic/attachment"
 	_ "github.com/cicbyte/byte-code/internal/logic/auth"
