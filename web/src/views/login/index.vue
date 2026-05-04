@@ -15,7 +15,7 @@
     <div class="view-account-container animate__animated animate__fadeInDown">
       <div class="view-account-top">
         <div class="view-account-top-logo">
-          <img :src="websiteConfig.loginImage" alt="" />
+          <span class="logo-text">ByteCode</span>
         </div>
         <div class="view-account-top-desc">{{ websiteConfig.loginDesc }}</div>
       </div>
@@ -301,9 +301,14 @@
         margin-bottom: 8px;
         display: flex;
         justify-content: center;
-        
-        img {
-          height: 60px;
+
+        .logo-text {
+          font-size: 36px;
+          font-weight: 700;
+          background: linear-gradient(135deg, #2d8cf0, #0081ff);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          letter-spacing: 2px;
         }
       }
 
