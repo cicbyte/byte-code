@@ -81,31 +81,6 @@
             </n-button>
           </n-form-item>
           <n-form-item class="default-color other-item">
-            <div class="flex view-account-other">
-              <div class="flex-initial other-text">
-                <span>其它登录方式</span>
-              </div>
-              <div class="social-login">
-                <a href="javascript:" class="social-icon">
-                  <n-icon size="24" color="#909399">
-                    <LogoGithub />
-                  </n-icon>
-                </a>
-                <a href="javascript:" class="social-icon">
-                  <n-icon size="24" color="#909399">
-                    <LogoFacebook />
-                  </n-icon>
-                </a>
-                <a href="javascript:" class="social-icon">
-                  <n-icon size="24" color="#909399">
-                    <LogoWechat />
-                  </n-icon>
-                </a>
-              </div>
-              <div class="flex-initial" style="margin-left: auto">
-                <a href="javascript:" class="register-link">注册账号</a>
-              </div>
-            </div>
           </n-form-item>
         </n-form>
       </div>
@@ -119,7 +94,7 @@
   import { useUserStore } from '@/store/modules/user';
   import { useMessage } from 'naive-ui';
   import { ResultEnum } from '@/enums/httpEnum';
-  import { PersonOutline, LockClosedOutline, LogoGithub, LogoFacebook, LogoWechat } from '@vicons/ionicons5';
+  import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5';
   import { PageEnum } from '@/enums/pageEnum';
   import { websiteConfig } from '@/config/website.config';
   
@@ -404,42 +379,6 @@
       }
     }
 
-    .social-login {
-      display: flex;
-      margin-left: 16px;
-    }
-
-    .social-icon {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      margin-right: 12px;
-      transition: all 0.3s;
-      background-color: rgba(144, 147, 153, 0.1);
-      
-      &:hover {
-        background-color: rgba(45, 140, 240, 0.2);
-        transform: scale(1.1);
-        
-        :deep(svg) {
-          color: #2d8cf0 !important;
-        }
-      }
-    }
-
-    .register-link {
-      color: #2d8cf0;
-      transition: all 0.3s;
-      
-      &:hover {
-        color: #57a3f3;
-        text-decoration: underline;
-      }
-    }
-    
     .login-form {
       :deep(.n-form-item-feedback-wrapper) {
         min-height: 18px;
@@ -471,11 +410,7 @@
     .username-item, .password-item {
       margin-bottom: 24px;
     }
-    
-    .other-text {
-      padding-left: 5px;
-    }
-    
+
     .other-item {
       margin-bottom: 0;
     }
