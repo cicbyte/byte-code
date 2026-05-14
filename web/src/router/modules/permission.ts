@@ -1,23 +1,25 @@
 import { RouteRecordRaw } from 'vue-router';
 import { Layout } from '@/router/constant';
-import { OptionsSharp } from '@vicons/ionicons5';
+import { ShieldCheckmarkOutline } from '@vicons/ionicons5';
 import { renderIcon } from '@/utils/index';
+
+const routeName = 'permission';
 
 const routes: Array<RouteRecordRaw> = [
   {
-    path: '/system',
-    name: 'System',
-    redirect: '/system/role',
+    path: '/permission',
+    name: routeName,
+    redirect: '/permission/role',
     component: Layout,
     meta: {
-      title: '系统设置',
-      icon: renderIcon(OptionsSharp),
-      sort: 1,
+      title: '权限管理',
+      icon: renderIcon(ShieldCheckmarkOutline),
+      sort: 8,
     },
     children: [
       {
         path: 'role',
-        name: 'system_role',
+        name: `${routeName}_role`,
         meta: {
           title: '角色权限',
         },
