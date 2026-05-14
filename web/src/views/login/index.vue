@@ -1,49 +1,73 @@
 <template>
-  <div class="view-account">
-    <div class="view-account-header"></div>
-    <div class="view-account-background">
-      <div class="line line-1"></div>
-      <div class="line line-2"></div>
-      <div class="line line-3"></div>
-      <div class="square square-1"></div>
-      <div class="square square-2"></div>
-      <div class="triangle"></div>
-      <div class="wave wave-1"></div>
-      <div class="wave wave-2"></div>
-      <div class="wave wave-3"></div>
-    </div>
-    <div class="view-account-container animate__animated animate__fadeInDown">
-      <div class="view-account-top">
-        <div class="view-account-top-logo">
-          <span class="logo-text">ByteCode</span>
-        </div>
-        <div class="view-account-top-desc">{{ websiteConfig.loginDesc }}</div>
+  <div class="login-page">
+    <!-- Left: Brand Panel -->
+    <div class="brand-panel">
+      <div class="brand-bg-pattern">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
       </div>
-      <div class="view-account-form">
-        <h2 class="view-account-title">账号登录</h2>
-        <div class="login-welcome">欢迎回来，请登录您的账号</div>
+      <div class="brand-content">
+        <div class="brand-logo">
+          <div class="logo-icon">B</div>
+          <span class="logo-name">ByteCode</span>
+        </div>
+        <h1 class="brand-headline">AI-Native<br/>项目管理平台</h1>
+        <p class="brand-desc">
+          集成产品管理、任务追踪、测试管理与 AI 智能体，<br/>
+          开箱即用、零外部依赖。
+        </p>
+        <div class="brand-features">
+          <div class="feature-item">
+            <div class="feature-dot"></div>
+            <span>智能任务分配与追踪</span>
+          </div>
+          <div class="feature-item">
+            <div class="feature-dot"></div>
+            <span>可视化数据库模型管理</span>
+          </div>
+          <div class="feature-item">
+            <div class="feature-dot"></div>
+            <span>全流程测试管理</span>
+          </div>
+        </div>
+      </div>
+      <div class="brand-footer">
+        <span>&copy; {{ new Date().getFullYear() }} ByteCode</span>
+      </div>
+    </div>
+
+    <!-- Right: Login Form -->
+    <div class="form-panel">
+      <div class="form-container">
+        <div class="form-header">
+          <h2 class="form-title">欢迎回来</h2>
+          <p class="form-subtitle">登录您的账号以继续</p>
+        </div>
+
         <n-form
           ref="formRef"
-          label-placement="left"
+          label-placement="top"
           size="large"
           :model="formInline"
           :rules="rules"
           class="login-form"
         >
-          <n-form-item path="username" class="username-item">
-            <n-input 
-              v-model:value="formInline.username" 
+          <n-form-item label="用户名" path="username">
+            <n-input
+              v-model:value="formInline.username"
               placeholder="请输入用户名"
               class="login-input"
             >
               <template #prefix>
-                <n-icon size="18" color="#808695">
+                <n-icon size="18" color="#94a3b8">
                   <PersonOutline />
                 </n-icon>
               </template>
             </n-input>
           </n-form-item>
-          <n-form-item path="password" class="password-item">
+
+          <n-form-item label="密码" path="password">
             <n-input
               v-model:value="formInline.password"
               type="password"
@@ -52,36 +76,27 @@
               class="login-input"
             >
               <template #prefix>
-                <n-icon size="18" color="#808695">
+                <n-icon size="18" color="#94a3b8">
                   <LockClosedOutline />
                 </n-icon>
               </template>
             </n-input>
           </n-form-item>
-          <n-form-item class="default-color remember-forgot">
-            <div class="flex-between-wrapper">
-              <div class="left">
-                <n-checkbox v-model:checked="autoLogin">自动登录</n-checkbox>
-              </div>
-              <div class="right">
-                <a href="javascript:" class="forgot-link">忘记密码</a>
-              </div>
-            </div>
-          </n-form-item>
-          <n-form-item>
-            <n-button 
-              type="primary" 
-              @click="handleSubmit" 
-              size="large" 
-              :loading="loading" 
-              block
-              class="login-button"
-            >
-              登录
-            </n-button>
-          </n-form-item>
-          <n-form-item class="default-color other-item">
-          </n-form-item>
+
+          <div class="form-options">
+            <n-checkbox v-model:checked="autoLogin">记住登录</n-checkbox>
+          </div>
+
+          <n-button
+            type="primary"
+            @click="handleSubmit"
+            size="large"
+            :loading="loading"
+            block
+            class="login-button"
+          >
+            登录
+          </n-button>
         </n-form>
       </div>
     </div>
@@ -96,18 +111,16 @@
   import { ResultEnum } from '@/enums/httpEnum';
   import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5';
   import { PageEnum } from '@/enums/pageEnum';
-  import { websiteConfig } from '@/config/website.config';
-  
-  // 添加页面加载动画效果
+
   onMounted(() => {
-    // 聚焦用户名输入框
     setTimeout(() => {
       const usernameInput = document.querySelector('input[placeholder="请输入用户名"]');
       if (usernameInput) {
         (usernameInput as HTMLElement).focus();
       }
-    }, 500);
+    }, 300);
   });
+
   interface FormState {
     username: string;
     password: string;
@@ -131,7 +144,6 @@
   };
 
   const userStore = useUserStore();
-
   const router = useRouter();
   const route = useRoute();
 
@@ -143,10 +155,7 @@
         message.loading('登录中...');
         loading.value = true;
 
-        const params: FormState = {
-          username,
-          password,
-        };
+        const params: FormState = { username, password };
 
         try {
           const { code, message: msg } = await userStore.login(params);
@@ -164,470 +173,297 @@
           loading.value = false;
         }
       } else {
-        message.error('请填写完整信息，并且进行验证码校验');
+        message.error('请填写完整登录信息');
       }
     });
   };
 </script>
 
 <style lang="less" scoped>
-  .view-account {
+  .login-page {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: #f8fafc;
+  }
+
+  /* ─── Left: Brand Panel ─── */
+  .brand-panel {
+    position: relative;
+    flex: 0 0 45%;
+    background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%);
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: auto;
-    background-color: #f0f2f5;
-    background: linear-gradient(140deg, #e8f1fa, #c2d9ec, #a1c3e0, #80aed3);
-    position: relative;
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCI+CiAgPGNpcmNsZSBjeD0iMTAiIGN5PSIxMCIgcj0iMiIgZmlsbD0icmdiYSg0NSwgMTQwLCAyNDAsIDAuMSkiIC8+Cjwvc3ZnPg==');
-      opacity: 0.6;
-      z-index: 0;
-    }
-    
-    &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj4KICA8cmVjdCB4PSI1MCIgeT0iNTAiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgdHJhbnNmb3JtPSJyb3RhdGUoNDUgNTUgNTUpIiBmaWxsPSJyZ2JhKDQ1LCAxNDAsIDI0MCwgMC4wNSkiIC8+Cjwvc3ZnPg==');
-      opacity: 0.8;
-      z-index: 0;
-    }
-
-    &-container {
-      padding: 32px 40px 20px;
-      max-width: 580px;
-      min-width: 460px;
-      margin: 0 auto;
-      background-color: #fff;
-      border-radius: 12px;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-      margin-top: 10vh;
-      position: relative;
-      backdrop-filter: blur(10px);
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      transition: all 0.3s ease;
-      
-      &:hover {
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-        transform: translateY(-5px);
-      }
-      
-      // 移除圆形装饰元素
-      
-      @keyframes float {
-        0% {
-          transform: translateY(0px);
-        }
-        50% {
-          transform: translateY(-10px);
-        }
-        100% {
-          transform: translateY(0px);
-        }
-      }
-    }
-
-    &-title {
-      text-align: center;
-      font-size: 22px;
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 8px;
-      position: relative;
-      
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: -10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 40px;
-        height: 2px;
-        background: linear-gradient(to right, #2d8cf0, #0081ff);
-        border-radius: 2px;
-      }
-    }
-    
-    .login-welcome {
-      text-align: center;
-      font-size: 14px;
-      color: #606266;
-      margin-bottom: 30px;
-      margin-top: 20px;
-    }
-
-    &-top {
-      padding: 10px 0;
-      text-align: center;
-
-      &-logo {
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: center;
-
-        .logo-text {
-          font-size: 36px;
-          font-weight: 700;
-          background: linear-gradient(135deg, #2d8cf0, #0081ff);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          letter-spacing: 2px;
-        }
-      }
-
-      &-desc {
-        font-size: 14px;
-        color: #606266;
-      }
-    }
-
-    &-other {
-      width: 100%;
-      display: flex;
-      align-items: center;
-    }
-
-    .default-color {
-      color: #515a6e;
-
-      .ant-checkbox-wrapper {
-        color: #515a6e;
-      }
-    }
-
-    .login-button {
-      margin-top: 10px;
-      height: 42px;
-      font-size: 16px;
-      border-radius: 4px;
-      transition: all 0.3s;
-      position: relative;
-      overflow: hidden;
-      
-      &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
-      }
-      
-      &::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 5px;
-        height: 5px;
-        background: rgba(255, 255, 255, 0.5);
-        opacity: 0;
-        border-radius: 100%;
-        transform: scale(1, 1) translate(-50%);
-        transform-origin: 50% 50%;
-      }
-      
-      &:focus:not(:active)::after {
-        animation: ripple 1s ease-out;
-      }
-      
-      @keyframes ripple {
-        0% {
-          transform: scale(0, 0);
-          opacity: 0.5;
-        }
-        20% {
-          transform: scale(25, 25);
-          opacity: 0.3;
-        }
-        100% {
-          opacity: 0;
-          transform: scale(40, 40);
-        }
-      }
-    }
-    
-    .remember-forgot {
-      margin-bottom: 5px;
-      
-      .flex-between-wrapper {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-      }
-      
-      .right {
-        text-align: right;
-      }
-    }
-    
-    .forgot-link {
-      color: #606266;
-      transition: all 0.2s;
-      
-      &:hover {
-        color: #2d8cf0;
-      }
-    }
-
-    .login-form {
-      :deep(.n-form-item-feedback-wrapper) {
-        min-height: 18px;
-      }
-      
-      :deep(.n-input) {
-        border-radius: 4px;
-      }
-      
-      padding: 0;
-    }
-    
-    .login-input {
-      :deep(.n-input__input-el) {
-        padding-left: 5px;
-      }
-      
-      :deep(.n-input-wrapper) {
-        transition: all 0.3s ease;
-      }
-      
-      &:hover {
-        :deep(.n-input-wrapper) {
-          box-shadow: 0 0 0 1px rgba(45, 140, 240, 0.2);
-        }
-      }
-    }
-    
-    .username-item, .password-item {
-      margin-bottom: 24px;
-    }
-
-    .other-item {
-      margin-bottom: 0;
-    }
-  }
-
-  @media (min-width: 768px) {
-    .view-account {
-      background-image: url('../../assets/images/login.svg'), 
-                        radial-gradient(circle at 10% 20%, rgba(100, 149, 237, 0.25) 0%, rgba(65, 105, 225, 0.2) 40%, rgba(30, 144, 255, 0.1) 90%);
-      background-repeat: no-repeat;
-      background-position: 50%;
-      background-size: cover;
-      position: relative;
-      
-      &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(45, 140, 240, 0.1), rgba(45, 140, 240, 0.05));
-        backdrop-filter: blur(10px);
-        z-index: 0;
-      }
-      
-      &::after {
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        top: 0;
-        left: 0;
-        background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZGVmcz4KICA8cGF0dGVybiBpZD0icGF0dGVybiIgeD0iMCIgeT0iMCIgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj4KICAgIDxjaXJjbGUgY3g9IjMwIiBjeT0iMzAiIHI9IjEuNSIgZmlsbD0icmdiYSg0NSwgMTQwLCAyNDAsIDAuMikiIC8+CiAgPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjcGF0dGVybikiIC8+Cjwvc3ZnPg==');
-        opacity: 0.3;
-        z-index: 0;
-        pointer-events: none;
-      }
-      
-      &-container {
-        margin-top: 15vh;
-        z-index: 1;
-        position: relative;
-      }
-    }
-  }
-
-  @media (max-height: 650px) {
-    .view-account-container {
-      margin-top: 5vh;
-    }
-  }
-  
-  .view-account-background {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
+    justify-content: center;
+    padding: 60px 56px;
     overflow: hidden;
-    pointer-events: none;
-    z-index: 0;
-    
-    .line {
+
+    .brand-bg-pattern {
       position: absolute;
-      background: linear-gradient(90deg, rgba(45, 140, 240, 0.2), rgba(0, 129, 255, 0.1));
-      
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .circle {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.08;
+      background: #fff;
+
       &-1 {
-        width: 300px;
-        height: 2px;
-        top: 15%;
-        right: 5%;
-        transform: rotate(-30deg);
-        animation: pulse 8s ease-in-out infinite;
+        width: 400px;
+        height: 400px;
+        top: -120px;
+        left: -100px;
       }
-      
       &-2 {
-        width: 200px;
-        height: 2px;
-        bottom: 20%;
-        left: 10%;
-        transform: rotate(45deg);
-        animation: pulse 6s ease-in-out infinite 1s;
+        width: 300px;
+        height: 300px;
+        bottom: -80px;
+        right: -60px;
       }
-      
       &-3 {
         width: 150px;
-        height: 2px;
-        top: 40%;
-        left: 5%;
-        transform: rotate(-15deg);
-        animation: pulse 7s ease-in-out infinite 2s;
+        height: 150px;
+        top: 50%;
+        right: 15%;
+        opacity: 0.05;
       }
     }
-    
-    .square {
+
+    .brand-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 48px;
+
+      .logo-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 700;
+        color: #fff;
+      }
+
+      .logo-name {
+        font-size: 22px;
+        font-weight: 600;
+        color: #fff;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    .brand-headline {
+      font-size: 38px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+      margin: 0 0 20px;
+    }
+
+    .brand-desc {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.7;
+      margin: 0 0 40px;
+    }
+
+    .brand-features {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+
+      .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 14px;
+
+        .feature-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.6);
+          flex-shrink: 0;
+        }
+      }
+    }
+
+    .brand-footer {
       position: absolute;
-      
-      &-1 {
-        width: 80px;
-        height: 80px;
-        top: 10%;
-        left: 15%;
-        background: linear-gradient(45deg, rgba(45, 140, 240, 0.15), rgba(0, 129, 255, 0.05));
-        transform: rotate(30deg);
-        animation: rotate 15s linear infinite;
-      }
-      
-      &-2 {
-        width: 60px;
-        height: 60px;
-        bottom: 15%;
-        right: 10%;
-        border: 2px solid rgba(45, 140, 240, 0.1);
-        background: transparent;
-        animation: rotate 12s linear infinite reverse;
+      bottom: 32px;
+      left: 56px;
+      right: 56px;
+      z-index: 1;
+
+      span {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.4);
       }
     }
-    
-    .triangle {
-      position: absolute;
-      bottom: 30%;
-      right: 20%;
-      width: 0;
-      height: 0;
-      border-left: 50px solid transparent;
-      border-right: 50px solid transparent;
-      border-bottom: 80px solid rgba(45, 140, 240, 0.08);
-      animation: float 10s ease-in-out infinite;
+  }
+
+  /* ─── Right: Form Panel ─── */
+  .form-panel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background: #f8fafc;
+  }
+
+  .form-container {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .form-header {
+    margin-bottom: 36px;
+
+    .form-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0 0 8px;
     }
-    
-    @keyframes pulse {
-      0% {
-        opacity: 0.3;
+
+    .form-subtitle {
+      font-size: 15px;
+      color: #64748b;
+      margin: 0;
+    }
+  }
+
+  .login-form {
+    :deep(.n-form-item-label) {
+      font-size: 14px;
+      font-weight: 500;
+      color: #334155;
+      padding-bottom: 6px;
+    }
+
+    :deep(.n-form-item) {
+      margin-bottom: 20px;
+    }
+
+    :deep(.n-form-item-feedback-wrapper) {
+      min-height: 18px;
+    }
+
+    :deep(.n-input) {
+      border-radius: 8px;
+    }
+
+    :deep(.n-input .n-input__border),
+    :deep(.n-input .n-input__state-border) {
+      border-radius: 8px;
+    }
+  }
+
+  .login-input {
+    :deep(.n-input__input-el) {
+      padding-left: 5px;
+    }
+  }
+
+  .form-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+
+  .login-button {
+    height: 44px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 1024px) {
+    .brand-panel {
+      flex: 0 0 40%;
+      padding: 40px;
+
+      .brand-headline {
+        font-size: 30px;
       }
-      50% {
-        opacity: 0.6;
-      }
-      100% {
-        opacity: 0.3;
+
+      .brand-footer {
+        left: 40px;
+        right: 40px;
       }
     }
-    
-    @keyframes rotate {
-      0% {
-        transform: rotate(0deg);
+  }
+
+  @media (max-width: 768px) {
+    .login-page {
+      flex-direction: column;
+    }
+
+    .brand-panel {
+      flex: none;
+      padding: 32px 24px;
+      min-height: auto;
+
+      .brand-headline {
+        font-size: 24px;
+        margin-bottom: 12px;
       }
-      100% {
-        transform: rotate(360deg);
+
+      .brand-desc {
+        display: none;
+      }
+
+      .brand-features {
+        display: none;
+      }
+
+      .brand-logo {
+        margin-bottom: 16px;
+      }
+
+      .brand-footer {
+        display: none;
       }
     }
-    
-    .wave {
-      position: absolute;
-      opacity: 0.3;
-      transform-origin: bottom left;
-      
-      &-1 {
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 120px;
-        background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDQwIDMyMCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+PHBhdGggZmlsbD0icmdiYSg0NSwgMTQwLCAyNDAsIDAuMikiIGQ9Ik0wLDMyMEMwLDI0MCA0MCwxNjAgODAsMTYwQzEyMCwxNjAgMTYwLDI0MCAyMDAsMjQwQzI0MCwyNDAgMjgwLDE2MCAzMjAsMTYwQzM2MCwxNjAgNDAwLDI0MCA0NDAsMjQwQzQ4MCwyNDAgNTIwLDE2MCA1NjAsMTYwQzYwMCwxNjAgNjQwLDI0MCA2ODAsMjQwQzcyMCwyNDAgNzYwLDE2MCA4MDAsMTYwQzg0MCwxNjAgODgwLDI0MCA5MjAsMjQwQzk2MCwyNDAgMTAwMCwxNjAgMTA0MCwxNjBDMTA4MCwxNjAgMTEyMCwyNDAgMTE2MCwyNDBDMTIwMCwyNDAgMTI0MCwxNjAgMTI4MCwxNjBDMTMyMCwxNjAgMTM2MCwyNDAgMTQwMCwyNDBDMTQ0MCwyNDAgMTQ0MCwxNjAgMTQ0MCwxNjBMMTQ0MCwzMjBMMCwzMjBaIj48L3BhdGg+PC9zdmc+');
-        background-size: 100% 120px;
-        animation: wave-left-to-right 15s ease-in-out infinite;
-        transform: rotate(-2deg);
-      }
-      
-      &-2 {
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 100px;
-        background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDQwIDMyMCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+PHBhdGggZmlsbD0icmdiYSg0NSwgMTQwLCAyNDAsIDAuMTUpIiBkPSJNMCwzMjBDMCwyNDAgNjAsMTgwIDEyMCwxODBDMTgwLDE4MCAyNDAsMjQwIDMwMCwyNDBDMzYwLDI0MCA0MjAsMTgwIDQ4MCwxODBDNTQwLDE4MCA2MDAsMjQwIDY2MCwyNDBDNzIwLDI0MCA3ODAsMTgwIDg0MCwxODBDOTAwLDE4MCA5NjAsMjQwIDEwMjAsMjQwQzEwODAsMjQwIDExNDAsMTgwIDEyMDAsMTgwQzEyNjAsMTgwIDEzMjAsMjQwIDEzODAsMjQwQzE0NDAsMjQwIDE0NDAsMTgwIDE0NDAsMTgwTDE0NDAsMzIwTDAsMzIwWiI+PC9wYXRoPjwvc3ZnPg==');
-        background-size: 100% 100px;
-        animation: wave-left-to-right 18s ease-in-out infinite;
-        animation-delay: -5s;
-        transform: rotate(-1deg);
-      }
-      
-      &-3 {
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 80px;
-        background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDQwIDMyMCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+PHBhdGggZmlsbD0icmdiYSg0NSwgMTQwLCAyNDAsIDAuMSkiIGQ9Ik0wLDMyMEMwLDI2MCAzMCwyMDAgNjAsMjAwQzkwLDIwMCAxMjAsMjYwIDE1MCwyNjBDMTgwLDI2MCAyMTAsMjAwIDI0MCwyMDBDMjcwLDIwMCAzMDAsMjYwIDMzMCwyNjBDMzYwLDI2MCAzOTAsMjAwIDQyMCwyMDBDNDUwLDIwMCA0ODAsMjYwIDUxMCwyNjBDNTQwLDI2MCA1NzAsMjAwIDYwMCwyMDBDNjMwLDIwMCA2NjAsMjYwIDY5MCwyNjBDNzIwLDI2MCA3NTAsMjAwIDc4MCwyMDBDODEwLDIwMCA4NDAsMjYwIDg3MCwyNjBDOTAwLDI2MCA5MzAsMjAwIDk2MCwyMDBDOTkwLDIwMCAxMDIwLDI2MCAxMDUwLDI2MEMxMDgwLDI2MCAxMTEwLDIwMCAxMTQwLDIwMEMxMTcwLDIwMCAxMjAwLDI2MCAxMjMwLDI2MEMxMjYwLDI2MCAxMjkwLDIwMCAxMzIwLDIwMEMxMzUwLDIwMCAxMzgwLDI2MCAxNDEwLDI2MEMxNDQwLDI2MCAxNDQwLDIwMCAxNDQwLDIwMEwxNDQwLDMyMEwwLDMyMFoiPjwvcGF0aD48L3N2Zz4=');
-        background-size: 100% 80px;
-        animation: wave-left-to-right 20s ease-in-out infinite;
-        animation-delay: -2s;
+
+    .form-panel {
+      flex: 1;
+      padding: 32px 24px;
+      align-items: flex-start;
+      padding-top: 24px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .brand-panel {
+      padding: 24px 20px;
+
+      .brand-headline {
+        font-size: 20px;
       }
     }
-    
-    @keyframes wave-left-to-right {
-      0% {
-        background-position-x: 0;
-        background-position-y: 100%;
-      }
-      50% {
-        background-position-x: 720px;
-        background-position-y: 50%;
-      }
-      100% {
-        background-position-x: 1440px;
-        background-position-y: 0%;
-      }
-    }
-    
-    @keyframes float {
-      0% {
-        transform: translateY(0);
-      }
-      50% {
-        transform: translateY(-15px);
-      }
-      100% {
-        transform: translateY(0);
-      }
+
+    .form-panel {
+      padding: 24px 20px;
     }
   }
 </style>
