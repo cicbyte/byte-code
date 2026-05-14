@@ -1,4 +1,4 @@
-import logoImage from '@/assets/images/logo.png';
+import logoImage from '@/assets/images/logo.svg';
 
 export const websiteConfig = Object.freeze({
   title: 'ByteCode',
