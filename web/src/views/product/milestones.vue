@@ -39,7 +39,7 @@
           <n-input v-model:value="form.description" type="textarea" placeholder="描述" />
         </n-form-item>
         <n-form-item label="目标日期" path="targetDate">
-          <n-date-picker v-model:formatted-value="form.targetDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="form.targetDate" type="date" placeholder="选择目标日期" style="width: 100%" />
         </n-form-item>
       </n-form>
       <template #action>

@@ -17,7 +17,7 @@
               <n-input v-model:value="dbConfig.dbHost" placeholder="localhost" />
             </n-form-item>
             <n-form-item label="端口">
-              <n-input-number v-model:value="dbConfig.dbPort" :min="0" :max="65535" style="width: 150px" />
+              <n-input-number v-model:value="dbConfig.dbPort" :min="0" :max="65535" placeholder="如 3306" style="width: 150px" />
             </n-form-item>
           </template>
           <n-form-item :label="dbConfig.dbType === 'sqlite' ? '数据库路径' : '数据库名'">

@@ -224,10 +224,10 @@
           <n-input v-model:value="sprintFormData.goal" type="textarea" placeholder="请输入目标" :rows="2" />
         </n-form-item>
         <n-form-item label="开始日期" path="startDate">
-          <n-date-picker v-model:formatted-value="sprintFormData.startDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="sprintFormData.startDate" type="date" placeholder="选择开始日期" style="width: 100%" />
         </n-form-item>
         <n-form-item label="结束日期" path="endDate">
-          <n-date-picker v-model:formatted-value="sprintFormData.endDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="sprintFormData.endDate" type="date" placeholder="选择结束日期" style="width: 100%" />
         </n-form-item>
       </n-form>
     </n-modal>

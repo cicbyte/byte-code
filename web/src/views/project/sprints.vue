@@ -43,10 +43,10 @@
           <n-input v-model:value="form.goal" type="textarea" placeholder="Sprint 目标" />
         </n-form-item>
         <n-form-item label="开始日期" path="startDate">
-          <n-date-picker v-model:formatted-value="form.startDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="form.startDate" type="date" placeholder="选择开始日期" style="width: 100%" />
         </n-form-item>
         <n-form-item label="结束日期" path="endDate">
-          <n-date-picker v-model:formatted-value="form.endDate" type="date" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="form.endDate" type="date" placeholder="选择结束日期" style="width: 100%" />
         </n-form-item>
       </n-form>
       <template #action>
