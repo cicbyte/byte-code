@@ -47,12 +47,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.Health,
 			)
 
-			// 产品管理
-			group.Bind(
-				controller.ProductCtrl,
-			)
-
-			// 项目管理
+			// 项目管理（含需求/里程碑，B 类化后挂在项目下）
 			group.Bind(
 				controller.ProjectCtrl,
 			)

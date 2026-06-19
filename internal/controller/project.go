@@ -222,3 +222,51 @@ func (c *projectController) RemoveTaskFromSprint(ctx context.Context, req *api.S
 func (c *projectController) Burndown(ctx context.Context, req *api.BurndownReq) (res *api.BurndownRes, err error) {
 	return service.Project().GetBurndown(ctx, req.Id)
 }
+
+// ==================== 需求 ====================
+
+func (c *projectController) CreateRequirement(ctx context.Context, req *api.RequirementCreateReq) (res *api.RequirementCreateRes, err error) {
+	id, err := service.Project().CreateRequirement(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.RequirementCreateRes{Id: id}, nil
+}
+
+func (c *projectController) UpdateRequirement(ctx context.Context, req *api.RequirementUpdateReq) (res *api.RequirementUpdateRes, err error) {
+	err = service.Project().UpdateRequirement(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.RequirementUpdateRes{}, nil
+}
+
+func (c *projectController) DeleteRequirement(ctx context.Context, req *api.RequirementDeleteReq) (res *api.RequirementDeleteRes, err error) {
+	err = service.Project().DeleteRequirement(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &api.RequirementDeleteRes{}, nil
+}
+
+func (c *projectController) RequirementDetail(ctx context.Context, req *api.RequirementDetailReq) (res *api.RequirementDetailRes, err error) {
+	return service.Project().GetRequirement(ctx, req.Id)
+}
+
+func (c *projectController) RequirementList(ctx context.Context, req *api.RequirementListReq) (res *api.RequirementListRes, err error) {
+	return service.Project().ListRequirements(ctx, req)
+}
+
+// ==================== 里程碑 ====================
+
+func (c *projectController) CreateMilestone(ctx context.Context, req *api.MilestoneCreateReq) (res *api.MilestoneCreateRes, err error) {
+	id, err := service.Project().CreateMilestone(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.MilestoneCreateRes{Id: id}, nil
+}
+
+func (c *projectController) MilestoneList(ctx context.Context, req *api.MilestoneListReq) (res *api.MilestoneListRes, err error) {
+	return service.Project().ListMilestones(ctx, req.ProjectId)
+}

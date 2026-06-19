@@ -12,7 +12,6 @@ import (
 	_ "github.com/cicbyte/byte-code/internal/logic/menu"
 	_ "github.com/cicbyte/byte-code/internal/logic/middleware"
 	_ "github.com/cicbyte/byte-code/internal/logic/platform"
-	_ "github.com/cicbyte/byte-code/internal/logic/product"
 	_ "github.com/cicbyte/byte-code/internal/logic/project"
 	_ "github.com/cicbyte/byte-code/internal/logic/role"
 	_ "github.com/cicbyte/byte-code/internal/logic/setting"

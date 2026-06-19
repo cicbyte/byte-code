@@ -53,6 +53,17 @@ type IProject interface {
 
 	// 燃尽图
 	GetBurndown(ctx context.Context, sprintId int) (res *api.BurndownRes, err error)
+
+	// 需求 CRUD
+	CreateRequirement(ctx context.Context, req *api.RequirementCreateReq) (id int, err error)
+	UpdateRequirement(ctx context.Context, req *api.RequirementUpdateReq) (err error)
+	DeleteRequirement(ctx context.Context, id int) (err error)
+	GetRequirement(ctx context.Context, id int) (res *api.RequirementDetailRes, err error)
+	ListRequirements(ctx context.Context, req *api.RequirementListReq) (res *api.RequirementListRes, err error)
+
+	// 里程碑
+	CreateMilestone(ctx context.Context, req *api.MilestoneCreateReq) (id int, err error)
+	ListMilestones(ctx context.Context, projectId int) (res *api.MilestoneListRes, err error)
 }
 
 var localProject IProject
