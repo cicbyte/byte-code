@@ -14,6 +14,27 @@
         </n-button>
       </template>
 
+      <n-space class="mb-4" align="center">
+        <n-input
+          v-model:value="filter.keyword"
+          placeholder="项目名称 / 描述"
+          clearable
+          style="width: 220px"
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+        />
+        <n-select
+          v-model:value="filter.status"
+          :options="statusOptions"
+          placeholder="状态"
+          clearable
+          style="width: 140px"
+          @update:value="handleSearch"
+        />
+        <n-button type="primary" @click="handleSearch">查询</n-button>
+        <n-button @click="handleReset">重置</n-button>
+      </n-space>
+
       <n-spin :show="loading">
         <n-empty v-if="!loading && projectList.length === 0" description="暂无项目" />
         <n-grid v-else cols="1 s:2 m:2 l:3 xl:4 2xl:4" responsive="screen" :x-gap="12" :y-gap="12">
@@ -98,6 +119,11 @@
   const formRef = ref<any>(null);
 
   const pagination = reactive({ page: 1, size: 12 });
+  const filter = reactive({ keyword: '', status: null as number | null });
+  const statusOptions = [
+    { label: '进行中', value: 1 },
+    { label: '已结束', value: 2 },
+  ];
 
   const formData = reactive({
     name: '',
@@ -118,7 +144,12 @@
   async function loadData() {
     loading.value = true;
     try {
-      const res = await getProjects({ page: pagination.page, size: pagination.size });
+      const res = await getProjects({
+        page: pagination.page,
+        size: pagination.size,
+        keyword: filter.keyword || undefined,
+        status: filter.status ?? undefined,
+      });
       if (res) {
         projectList.value = res.list || [];
         total.value = res.total || 0;
@@ -126,6 +157,18 @@
     } finally {
       loading.value = false;
     }
+  }
+
+  function handleSearch() {
+    pagination.page = 1;
+    loadData();
+  }
+
+  function handleReset() {
+    filter.keyword = '';
+    filter.status = null;
+    pagination.page = 1;
+    loadData();
   }
 
   function handleDetail(item: ProjectItem) {

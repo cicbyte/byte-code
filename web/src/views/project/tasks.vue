@@ -2,22 +2,32 @@
   <div>
     <n-card :bordered="false" class="proCard">
       <n-space class="mb-4" align="center">
+        <n-input
+          v-model:value="filter.keyword"
+          placeholder="任务标题 / 描述"
+          clearable
+          style="width: 220px"
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+        />
         <n-select
           v-model:value="filter.status"
-          :options="[{ label: '全部', value: '' }, ...boardColumns.map((c) => ({ label: c.label, value: c.status }))]"
-          placeholder="状态筛选"
-          style="width: 140px"
+          :options="boardColumns.map((c) => ({ label: c.label, value: c.status }))"
+          placeholder="状态"
           clearable
-          @update:value="loadTasks"
+          style="width: 140px"
+          @update:value="handleSearch"
         />
         <n-select
           v-model:value="filter.type"
-          :options="[{ label: '全部', value: '' }, ...typeOptions]"
-          placeholder="类型筛选"
-          style="width: 140px"
+          :options="typeOptions"
+          placeholder="类型"
           clearable
-          @update:value="loadTasks"
+          style="width: 140px"
+          @update:value="handleSearch"
         />
+        <n-button type="primary" @click="handleSearch">查询</n-button>
+        <n-button @click="handleReset">重置</n-button>
         <n-button type="primary" @click="showCreateModal = true">新建任务</n-button>
       </n-space>
 
@@ -34,7 +44,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="task in filteredList" :key="task.id">
+          <tr v-for="task in taskList" :key="task.id">
             <td>
               <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
             </td>
@@ -109,7 +119,7 @@
   const taskList = ref<TaskItem[]>([]);
   const total = ref(0);
   const pagination = reactive({ page: 1, size: 20 });
-  const filter = reactive({ status: '', type: '' });
+  const filter = reactive({ keyword: '', status: '', type: '' });
   const taskDetailRef = ref();
 
   const boardColumns = [
@@ -143,13 +153,6 @@
     return 'default';
   }
 
-  const filteredList = computed(() => {
-    let list = taskList.value;
-    if (filter.status) list = list.filter((t) => t.status === filter.status);
-    if (filter.type) list = list.filter((t) => t.type === filter.type);
-    return list;
-  });
-
   function openTaskDetail(task: TaskItem) {
     taskDetailRef.value?.openModal(task.id);
   }
@@ -164,10 +167,25 @@
     try {
       const res = await getTasks(projectId.value, {
         page: pagination.page, size: pagination.size,
-        status: filter.status || undefined, type: filter.type || undefined,
+        status: filter.status || undefined,
+        type: filter.type || undefined,
+        keyword: filter.keyword || undefined,
       });
       if (res) { taskList.value = res.list || []; total.value = res.total || 0; }
     } catch { /* ignore */ }
+  }
+
+  function handleSearch() {
+    pagination.page = 1;
+    loadTasks();
+  }
+
+  function handleReset() {
+    filter.keyword = '';
+    filter.status = '';
+    filter.type = '';
+    pagination.page = 1;
+    loadTasks();
   }
 
   async function handleCreate() {

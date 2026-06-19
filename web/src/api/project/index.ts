@@ -26,6 +26,7 @@ export interface ProjectListResult {
 export interface ProjectListParams {
   status?: number;
   productId?: number;
+  keyword?: string;
   page?: number;
   size?: number;
 }
@@ -97,6 +98,7 @@ export interface TaskListParams {
   type?: string;
   sprintId?: number;
   assigneeId?: number;
+  keyword?: string;
   page?: number;
   size?: number;
 }

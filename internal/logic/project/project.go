@@ -154,6 +154,10 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	if req.ProductId > 0 {
 		countM = countM.Where("p.product_id", req.ProductId)
 	}
+	if req.Keyword != "" {
+		kw := "%" + req.Keyword + "%"
+		countM = countM.Where("(p.name LIKE ? OR p.description LIKE ?)", kw, kw)
+	}
 
 	total, err := countM.Count()
 	if err != nil {
@@ -171,6 +175,10 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	}
 	if req.ProductId > 0 {
 		m = m.Where("p.product_id", req.ProductId)
+	}
+	if req.Keyword != "" {
+		kw := "%" + req.Keyword + "%"
+		m = m.Where("(p.name LIKE ? OR p.description LIKE ?)", kw, kw)
 	}
 
 	var list []api.ProjectItem
@@ -370,6 +378,10 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	if req.AssigneeId > 0 {
 		countM = countM.Where("t.assignee_id", req.AssigneeId)
 	}
+	if req.Keyword != "" {
+		kw := "%" + req.Keyword + "%"
+		countM = countM.Where("(t.title LIKE ? OR t.description LIKE ?)", kw, kw)
+	}
 
 	total, err := countM.Count()
 	if err != nil {
@@ -394,6 +406,10 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	}
 	if req.AssigneeId > 0 {
 		m = m.Where("t.assignee_id", req.AssigneeId)
+	}
+	if req.Keyword != "" {
+		kw := "%" + req.Keyword + "%"
+		m = m.Where("(t.title LIKE ? OR t.description LIKE ?)", kw, kw)
 	}
 
 	var list []api.TaskItem

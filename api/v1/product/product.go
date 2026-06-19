@@ -36,10 +36,11 @@ type ProductDeleteRes struct {
 }
 
 type ProductListReq struct {
-	g.Meta `path:"/products" method:"get" tags:"产品管理" summary:"产品列表"`
-	Status string `json:"status" in:"query"`
-	Page   int    `json:"page" in:"query" d:"1"`
-	Size   int    `json:"size" in:"query" d:"20"`
+	g.Meta  `path:"/products" method:"get" tags:"产品管理" summary:"产品列表"`
+	Status  string `json:"status" in:"query"`
+	Keyword string `json:"keyword" in:"query"`
+	Page    int    `json:"page" in:"query" d:"1"`
+	Size    int    `json:"size" in:"query" d:"20"`
 }
 
 type ProductListRes struct {

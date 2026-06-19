@@ -91,10 +91,15 @@ func (s *sProduct) ListProducts(ctx context.Context, req *api.ProductListReq) (r
 		Page: req.Page,
 		Size: req.Size,
 	}
-	m := g.DB().Model("products p").Ctx(ctx)
+	m := g.DB().Model("products p").Ctx(ctx).
+		LeftJoin("sys_users u", "p.owner_id = u.id")
 
 	if req.Status != "" {
 		m = m.Where("p.status", req.Status)
+	}
+	if req.Keyword != "" {
+		kw := "%" + req.Keyword + "%"
+		m = m.Where("(p.name LIKE ? OR p.description LIKE ?)", kw, kw)
 	}
 
 	total, err := m.Count()
@@ -104,10 +109,7 @@ func (s *sProduct) ListProducts(ctx context.Context, req *api.ProductListReq) (r
 	res.Total = total
 
 	var list []api.ProductItem
-	err = g.DB().Model("products p").Ctx(ctx).
-		LeftJoin("sys_users u", "p.owner_id = u.id").
-		Fields("p.id, p.name, p.description, p.owner_id, p.status, p.created_at, p.updated_at, COALESCE(u.real_name, u.username) as owner_name").
-		Where("1=1").
+	err = m.Fields("p.id, p.name, p.description, p.owner_id, p.status, p.created_at, p.updated_at, COALESCE(u.real_name, u.username) as owner_name").
 		Page(req.Page, req.Size).Order("p.id DESC").Scan(&list)
 	if err != nil {
 		return nil, fmt.Errorf("查询产品列表失败: %v", err)

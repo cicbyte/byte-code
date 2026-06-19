@@ -38,11 +38,12 @@ type ProjectDeleteRes struct {
 }
 
 type ProjectListReq struct {
-	g.Meta   `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
-	Status   int    `json:"status" in:"query"`
-	ProductId int   `json:"productId" in:"query"`
-	Page     int    `json:"page" in:"query" d:"1"`
-	Size     int    `json:"size" in:"query" d:"20"`
+	g.Meta    `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
+	Status    int    `json:"status" in:"query"`
+	ProductId int    `json:"productId" in:"query"`
+	Keyword   string `json:"keyword" in:"query"`
+	Page      int    `json:"page" in:"query" d:"1"`
+	Size      int    `json:"size" in:"query" d:"20"`
 }
 
 type ProjectListRes struct {
@@ -168,6 +169,7 @@ type TaskListReq struct {
 	Type      string `json:"type" in:"query"`
 	SprintId  int    `json:"sprintId" in:"query"`
 	AssigneeId int   `json:"assigneeId" in:"query"`
+	Keyword   string `json:"keyword" in:"query"`
 	Page      int    `json:"page" in:"query" d:"1"`
 	Size      int    `json:"size" in:"query" d:"50"`
 }

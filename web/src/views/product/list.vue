@@ -14,6 +14,27 @@
         </n-button>
       </template>
 
+      <n-space class="mb-4" align="center">
+        <n-input
+          v-model:value="filter.keyword"
+          placeholder="产品名称 / 描述"
+          clearable
+          style="width: 220px"
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+        />
+        <n-select
+          v-model:value="filter.status"
+          :options="statusOptions"
+          placeholder="状态"
+          clearable
+          style="width: 140px"
+          @update:value="handleSearch"
+        />
+        <n-button type="primary" @click="handleSearch">查询</n-button>
+        <n-button @click="handleReset">重置</n-button>
+      </n-space>
+
       <n-spin :show="loading">
         <n-empty v-if="!loading && productList.length === 0" description="暂无产品" />
         <n-table v-else :bordered="false" :single-line="false">
@@ -117,6 +138,11 @@
   const formRef = ref<any>(null);
 
   const pagination = reactive({ page: 1, size: 10 });
+  const filter = reactive({ keyword: '', status: '' });
+  const statusOptions = [
+    { label: '启用', value: 'active' },
+    { label: '禁用', value: 'inactive' },
+  ];
 
   const formData = reactive({
     name: '',
@@ -137,7 +163,12 @@
   async function loadData() {
     loading.value = true;
     try {
-      const res = await getProducts({ page: pagination.page, size: pagination.size });
+      const res = await getProducts({
+        page: pagination.page,
+        size: pagination.size,
+        keyword: filter.keyword || undefined,
+        status: filter.status || undefined,
+      });
       if (res) {
         productList.value = res.list || [];
         total.value = res.total || 0;
@@ -147,6 +178,18 @@
     } finally {
       loading.value = false;
     }
+  }
+
+  function handleSearch() {
+    pagination.page = 1;
+    loadData();
+  }
+
+  function handleReset() {
+    filter.keyword = '';
+    filter.status = '';
+    pagination.page = 1;
+    loadData();
   }
 
   function handleCreate() {

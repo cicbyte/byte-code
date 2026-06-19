@@ -23,6 +23,7 @@ export interface ProductListResult {
 
 export interface ProductListParams {
   status?: string;
+  keyword?: string;
   page?: number;
   size?: number;
 }
