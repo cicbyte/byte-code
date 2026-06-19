@@ -227,7 +227,7 @@
   .layout-content-main {
     margin: 0 10px 10px;
     position: relative;
-    padding-top: 104px;
+    padding-top: 64px;
   }
 
   .fluid-header {
