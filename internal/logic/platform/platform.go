@@ -269,7 +269,10 @@ func escapeFts(q string) string {
 // ========== 仪表�?==========
 
 func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStatsRes, err error) {
-	res = &api.DashboardStatsRes{}
+	res = &api.DashboardStatsRes{
+		AiStats:     []api.AiStatItem{},
+		RecentTasks: []api.RecentTaskItem{},
+	}
 
 	// 需求总数
 	res.TotalRequirements, _ = g.DB().Model("requirements").Ctx(ctx).Count()

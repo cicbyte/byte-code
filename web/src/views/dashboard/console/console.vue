@@ -176,6 +176,8 @@
       const res = await getDashboardStats();
       if (res) {
         Object.assign(stats, res);
+        stats.aiStats = res.aiStats ?? [];
+        stats.recentTasks = res.recentTasks ?? [];
         await nextTick();
         initChart(stats.aiStats);
       }
