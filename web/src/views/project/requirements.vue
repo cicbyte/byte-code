@@ -7,14 +7,6 @@
     <n-card :bordered="false" class="mt-4 proCard">
       <template #header>
         <n-space align="center">
-          <n-select
-            v-model:value="selectedProduct"
-            :options="productOptions"
-            placeholder="选择产品"
-            style="width: 240px"
-            clearable
-            @update:value="loadRequirements"
-          />
           <n-button type="primary" @click="handleCreate">
             <template #icon>
               <n-icon><PlusOutlined /></n-icon>
@@ -36,7 +28,7 @@
       </n-spin>
     </n-card>
 
-    <!-- 新建需求弹窗 -->
+    <!-- 新建/编辑需求弹窗 -->
     <n-modal
       v-model:show="showModal"
       preset="dialog"
@@ -88,30 +80,24 @@
   import { useMessage, useDialog, NTag, NSpace, NButton } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {
-    getProducts,
     getRequirements,
     createRequirement,
     updateRequirement,
     deleteRequirement,
-  } from '@/api/product/index';
-  import type { ProductItem, RequirementItem } from '@/api/product/index';
+  } from '@/api/project/index';
+  import type { RequirementItem } from '@/api/project/index';
 
   const message = useMessage();
   const dialog = useDialog();
   const route = useRoute();
+  const projectId = computed(() => Number(route.params.projectId));
   const reqLoading = ref(false);
   const showModal = ref(false);
   const isEdit = ref(false);
   const editId = ref<number | null>(null);
   const formRef = ref<any>(null);
 
-  const selectedProduct = ref<number | null>(null);
-  const productList = ref<ProductItem[]>([]);
   const requirementList = ref<RequirementItem[]>([]);
-
-  const productOptions = computed(() =>
-    productList.value.map((p) => ({ label: p.name, value: p.id }))
-  );
 
   const parentOptions = computed(() =>
     requirementList.value
@@ -212,25 +198,10 @@
     editId.value = null;
   }
 
-  async function loadProducts() {
-    try {
-      const res = await getProducts({ size: 100 });
-      if (res) {
-        productList.value = res.list || [];
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
   async function loadRequirements() {
-    if (!selectedProduct.value) {
-      requirementList.value = [];
-      return;
-    }
     reqLoading.value = true;
     try {
-      const res = await getRequirements(selectedProduct.value);
+      const res = await getRequirements(projectId.value);
       if (res) {
         requirementList.value = res.list || [];
       }
@@ -301,8 +272,11 @@
           acceptanceCriteria: formData.acceptanceCriteria,
         });
         message.success('更新成功');
-      } else if (selectedProduct.value) {
-        await createRequirement(selectedProduct.value, { ...formData });
+      } else {
+        await createRequirement(projectId.value, {
+          ...formData,
+          parentId: formData.parentId ?? undefined,
+        });
         message.success('创建成功');
       }
       showModal.value = false;
@@ -313,13 +287,5 @@
     }
   }
 
-  onMounted(async () => {
-    await loadProducts();
-    // 如果在产品 workspace 内，自动选中产品
-    const routeProductId = Number(route.params.productId);
-    if (routeProductId) {
-      selectedProduct.value = routeProductId;
-      loadRequirements();
-    }
-  });
+  onMounted(loadRequirements);
 </script>

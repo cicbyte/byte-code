@@ -33,10 +33,10 @@
     <n-modal v-model:show="showCreate" title="新建里程碑" preset="card" style="width: 500px">
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
         <n-form-item label="名称" path="name">
-          <n-input v-model:value="form.name" placeholder="里程碑名称" />
+          <n-input v-model:value="form.name" placeholder="请输入里程碑名称" />
         </n-form-item>
         <n-form-item label="描述" path="description">
-          <n-input v-model:value="form.description" type="textarea" placeholder="描述" />
+          <n-input v-model:value="form.description" type="textarea" placeholder="请输入描述" />
         </n-form-item>
         <n-form-item label="目标日期" path="targetDate">
           <n-date-picker v-model:formatted-value="form.targetDate" type="date" placeholder="选择目标日期" style="width: 100%" />
@@ -56,12 +56,12 @@
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage } from 'naive-ui';
-  import { getMilestones, createMilestone } from '@/api/product/index';
-  import type { MilestoneItem } from '@/api/product/index';
+  import { getMilestones, createMilestone } from '@/api/project/index';
+  import type { MilestoneItem } from '@/api/project/index';
 
   const route = useRoute();
   const message = useMessage();
-  const productId = computed(() => Number(route.params.productId));
+  const projectId = computed(() => Number(route.params.projectId));
 
   const loading = ref(false);
   const submitting = ref(false);
@@ -74,7 +74,7 @@
   async function loadMilestones() {
     loading.value = true;
     try {
-      const res = await getMilestones(productId.value);
+      const res = await getMilestones(projectId.value);
       milestones.value = res?.list || [];
     } catch {
       // ignore
@@ -86,7 +86,7 @@
   async function handleCreate() {
     submitting.value = true;
     try {
-      await createMilestone(productId.value, { ...form.value });
+      await createMilestone(projectId.value, { ...form.value });
       message.success('创建成功');
       showCreate.value = false;
       form.value = { name: '', description: '', targetDate: '' };

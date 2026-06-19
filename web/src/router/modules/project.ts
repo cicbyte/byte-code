@@ -62,6 +62,24 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/tasks.vue'),
           },
           {
+            path: 'requirements',
+            name: `${routeName}_requirements`,
+            meta: {
+              title: '需求池',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/requirements.vue'),
+          },
+          {
+            path: 'milestones',
+            name: `${routeName}_milestones`,
+            meta: {
+              title: '里程碑',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/milestones.vue'),
+          },
+          {
             path: 'sprints',
             name: `${routeName}_sprints`,
             meta: {

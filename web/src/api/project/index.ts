@@ -224,6 +224,86 @@ export interface BurndownResult {
   items: BurndownItem[];
 }
 
+/** 需求 */
+export interface RequirementItem {
+  id: number;
+  projectId: number;
+  parentId: number;
+  type: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: number;
+  assigneeId: number;
+  assigneeName: string;
+  creatorId: number;
+  creatorName: string;
+  milestoneId: number;
+  sortOrder: number;
+  acceptanceCriteria: string;
+  source: string;
+  children?: RequirementItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RequirementListResult {
+  list: RequirementItem[];
+  total: number;
+}
+
+export interface RequirementListParams {
+  type?: string;
+  status?: string;
+  parentId?: number;
+  page?: number;
+  size?: number;
+}
+
+export interface RequirementCreateData {
+  parentId?: number;
+  type?: string;
+  title: string;
+  description?: string;
+  priority?: number;
+  assigneeId?: number;
+  milestoneId?: number;
+  acceptanceCriteria?: string;
+}
+
+export interface RequirementUpdateData {
+  title?: string;
+  description?: string;
+  type?: string;
+  status?: string;
+  priority?: number;
+  assigneeId?: number;
+  milestoneId?: number;
+  acceptanceCriteria?: string;
+  sortOrder?: number;
+}
+
+/** 里程碑 */
+export interface MilestoneItem {
+  id: number;
+  projectId: number;
+  name: string;
+  description: string;
+  targetDate: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface MilestoneListResult {
+  list: MilestoneItem[];
+}
+
+export interface MilestoneCreateData {
+  name: string;
+  description?: string;
+  targetDate?: string;
+}
+
 // ==================== 项目 API ====================
 
 /** 项目列表 */
@@ -379,4 +459,38 @@ export function removeTaskFromSprint(sprintId: number, taskId: number) {
 /** 燃尽图数据 */
 export function getSprintBurndown(id: number) {
   return Alova.Get<BurndownResult>(`/v1/sprints/${id}/burndown`);
+}
+
+// ==================== 需求 API ====================
+
+/** 需求列表 */
+export function getRequirements(projectId: number, params?: RequirementListParams) {
+  return Alova.Get<RequirementListResult>(`/v1/projects/${projectId}/requirements`, { params });
+}
+
+/** 创建需求 */
+export function createRequirement(projectId: number, data: RequirementCreateData) {
+  return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/requirements`, data);
+}
+
+/** 更新需求 */
+export function updateRequirement(id: number, data: RequirementUpdateData) {
+  return Alova.Put(`/v1/requirements/${id}`, data);
+}
+
+/** 删除需求 */
+export function deleteRequirement(id: number) {
+  return Alova.Delete(`/v1/requirements/${id}`);
+}
+
+// ==================== 里程碑 API ====================
+
+/** 里程碑列表 */
+export function getMilestones(projectId: number) {
+  return Alova.Get<MilestoneListResult>(`/v1/projects/${projectId}/milestones`);
+}
+
+/** 创建里程碑 */
+export function createMilestone(projectId: number, data: MilestoneCreateData) {
+  return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/milestones`, data);
 }

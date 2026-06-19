@@ -33,7 +33,7 @@
 
   const tabs = computed(() => {
     const type = entityContext.currentEntityType;
-    const id = entityContext.currentProject?.id || entityContext.currentProduct?.id;
+    const id = entityContext.currentProject?.id;
     if (!type || !id) return [];
     return getEntityTabs(type, id);
   });
