@@ -62,7 +62,7 @@
   const loading = ref(false);
   const activityList = ref<ActivityItem[]>([]);
   const total = ref(0);
-  const filterModule = ref('');
+  const filterModule = ref<string | null>(null);
   const pagination = reactive({ page: 1, size: 20 });
 
   const moduleOptions = [
@@ -86,7 +86,7 @@
     loading.value = true;
     try {
       const res = await getActivities({
-        module: filterModule.value || undefined,
+        module: filterModule.value ?? undefined,
         page: pagination.page,
         size: pagination.size,
       });

@@ -119,7 +119,7 @@
   const taskList = ref<TaskItem[]>([]);
   const total = ref(0);
   const pagination = reactive({ page: 1, size: 20 });
-  const filter = reactive({ keyword: '', status: '', type: '' });
+  const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null });
   const taskDetailRef = ref();
 
   const boardColumns = [
@@ -167,8 +167,8 @@
     try {
       const res = await getTasks(projectId.value, {
         page: pagination.page, size: pagination.size,
-        status: filter.status || undefined,
-        type: filter.type || undefined,
+        status: filter.status ?? undefined,
+        type: filter.type ?? undefined,
         keyword: filter.keyword || undefined,
       });
       if (res) { taskList.value = res.list || []; total.value = res.total || 0; }
@@ -182,8 +182,8 @@
 
   function handleReset() {
     filter.keyword = '';
-    filter.status = '';
-    filter.type = '';
+    filter.status = null;
+    filter.type = null;
     pagination.page = 1;
     loadTasks();
   }

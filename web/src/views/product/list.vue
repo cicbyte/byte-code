@@ -138,7 +138,7 @@
   const formRef = ref<any>(null);
 
   const pagination = reactive({ page: 1, size: 10 });
-  const filter = reactive({ keyword: '', status: '' });
+  const filter = reactive({ keyword: '', status: null as string | null });
   const statusOptions = [
     { label: '启用', value: 'active' },
     { label: '禁用', value: 'inactive' },
@@ -167,7 +167,7 @@
         page: pagination.page,
         size: pagination.size,
         keyword: filter.keyword || undefined,
-        status: filter.status || undefined,
+        status: filter.status ?? undefined,
       });
       if (res) {
         productList.value = res.list || [];
@@ -187,7 +187,7 @@
 
   function handleReset() {
     filter.keyword = '';
-    filter.status = '';
+    filter.status = null;
     pagination.page = 1;
     loadData();
   }

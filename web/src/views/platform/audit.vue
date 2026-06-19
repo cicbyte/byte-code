@@ -78,7 +78,7 @@
   const pagination = reactive({ page: 1, size: 20 });
   const filters = reactive({
     action: '',
-    targetType: '',
+    targetType: null as string | null,
   });
 
   const targetTypeOptions = [
@@ -96,7 +96,7 @@
     try {
       const res = await getAuditLogs({
         action: filters.action || undefined,
-        targetType: filters.targetType || undefined,
+        targetType: filters.targetType ?? undefined,
         page: pagination.page,
         size: pagination.size,
       });

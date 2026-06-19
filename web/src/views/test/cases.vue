@@ -158,7 +158,7 @@
   // 硬编码项目ID（后续可从路由或全局状态获取）
   const projectId = ref(1);
   const pagination = reactive({ page: 1, pageSize: 10 });
-  const filters = reactive({ category: '', status: '', keyword: '' });
+  const filters = reactive({ category: null as string | null, status: null as string | null, keyword: '' });
 
   const categoryOptions = [
     { label: '功能测试', value: 'functional' },
@@ -229,7 +229,9 @@
     loading.value = true;
     try {
       const res = await getTestCases(projectId.value, {
-        ...filters,
+        category: filters.category ?? undefined,
+        status: filters.status ?? undefined,
+        keyword: filters.keyword || undefined,
         pageNum: pagination.page,
         pageSize: pagination.pageSize,
       });
