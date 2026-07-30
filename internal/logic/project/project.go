@@ -92,24 +92,47 @@ func (s *sProject) UpdateProject(ctx context.Context, req *api.ProjectUpdateReq)
 
 func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		// 删除项目成员
-		_, err := tx.Delete("project_members", "project_id", id)
-		if err != nil {
-			return err
+		// 先清理依赖项目内实体的关联数据，再删实体与项目本身；
+		// foreign_keys 当前关闭，孤儿数据必须在这里显式清干净
+		cascadeStmts := []struct {
+			sql  string
+			args []interface{}
+		}{
+			{`DELETE FROM comments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, []interface{}{id}},
+			{`DELETE FROM ai_execution_logs WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, []interface{}{id}},
+			{`DELETE FROM test_plan_cases WHERE test_plan_id IN (SELECT id FROM test_plans WHERE project_id = ?)`, []interface{}{id}},
+			{`DELETE FROM doc_versions WHERE doc_id IN (SELECT id FROM docs WHERE project_id = ?)`, []interface{}{id}},
+			{`DELETE FROM doc_relations WHERE doc_id IN (SELECT id FROM docs WHERE project_id = ?)`, []interface{}{id}},
+			{`DELETE FROM db_columns WHERE table_id IN (SELECT id FROM db_tables WHERE project_id = ?)`, []interface{}{id}},
+			{`DELETE FROM entity_tags WHERE
+				(entity_type = 'task' AND entity_id IN (SELECT id FROM tasks WHERE project_id = ?)) OR
+				(entity_type = 'requirement' AND entity_id IN (SELECT id FROM requirements WHERE project_id = ?)) OR
+				(entity_type = 'test_case' AND entity_id IN (SELECT id FROM test_cases WHERE project_id = ?))`, []interface{}{id, id, id}},
+			{`DELETE FROM attachments WHERE
+				(entity_type = 'project' AND entity_id = ?) OR
+				(entity_type = 'task' AND entity_id IN (SELECT id FROM tasks WHERE project_id = ?)) OR
+				(entity_type = 'requirement' AND entity_id IN (SELECT id FROM requirements WHERE project_id = ?)) OR
+				(entity_type = 'doc' AND entity_id IN (SELECT id FROM docs WHERE project_id = ?)) OR
+				(entity_type = 'test_case' AND entity_id IN (SELECT id FROM test_cases WHERE project_id = ?))`, []interface{}{id, id, id, id, id}},
 		}
-		// 删除任务
-		_, err = tx.Delete("tasks", "project_id", id)
-		if err != nil {
-			return err
+		for _, stmt := range cascadeStmts {
+			if _, err := tx.Exec(stmt.sql, stmt.args...); err != nil {
+				return err
+			}
 		}
-		// 删除 Sprint
-		_, err = tx.Delete("sprints", "project_id", id)
-		if err != nil {
-			return err
+
+		// 项目级实体
+		for _, table := range []string{
+			"tasks", "sprints", "requirements", "milestones", "docs",
+			"test_cases", "test_plans", "project_databases", "db_tables",
+			"schema_versions", "project_members",
+		} {
+			if _, err := tx.Delete(table, "project_id", id); err != nil {
+				return err
+			}
 		}
-		// 删除项目
-		_, err = tx.Delete("projects", "id", id)
-		if err != nil {
+		// 项目本身
+		if _, err := tx.Delete("projects", "id", id); err != nil {
 			return err
 		}
 		return nil
@@ -334,10 +357,23 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 }
 
 func (s *sProject) DeleteTask(ctx context.Context, id int) (err error) {
-	// 先删除关联的评论和日志
-	_, _ = g.DB().Model("comments").Ctx(ctx).Where("task_id", id).Delete()
-	_, _ = g.DB().Model("ai_execution_logs").Ctx(ctx).Where("task_id", id).Delete()
-	_, err = g.DB().Model("tasks").Ctx(ctx).Where("id", id).Delete()
+	// 事务内清理任务的评论、AI 日志、标签与附件关联，最后删任务本身
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Delete("comments", "task_id", id); err != nil {
+			return err
+		}
+		if _, err := tx.Delete("ai_execution_logs", "task_id", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM entity_tags WHERE entity_type = 'task' AND entity_id = ?", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM attachments WHERE entity_type = 'task' AND entity_id = ?", id); err != nil {
+			return err
+		}
+		_, err := tx.Delete("tasks", "id", id)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("删除任务失败: %v", err)
 	}
@@ -736,9 +772,14 @@ func (s *sProject) UpdateSprint(ctx context.Context, req *api.SprintUpdateReq) (
 }
 
 func (s *sProject) DeleteSprint(ctx context.Context, id int) (err error) {
-	// 将 Sprint 下的任务的 sprint_id 置 0
-	_, _ = g.DB().Model("tasks").Ctx(ctx).Where("sprint_id", id).Data(g.Map{"sprint_id": 0}).Update()
-	_, err = g.DB().Model("sprints").Ctx(ctx).Where("id", id).Delete()
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 将 Sprint 下的任务的 sprint_id 置 0（解除绑定，任务保留）
+		if _, err := tx.Model("tasks").Where("sprint_id", id).Data(g.Map{"sprint_id": 0}).Update(); err != nil {
+			return err
+		}
+		_, err := tx.Delete("sprints", "id", id)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("删除Sprint失败: %v", err)
 	}
@@ -968,11 +1009,25 @@ func (s *sProject) UpdateRequirement(ctx context.Context, req *api.RequirementUp
 }
 
 func (s *sProject) DeleteRequirement(ctx context.Context, id int) (err error) {
-	_, err = g.DB().Model("requirements").Ctx(ctx).Where("parent_id", id).Delete()
-	if err != nil {
-		return fmt.Errorf("删除子需求失败: %v", err)
-	}
-	_, err = g.DB().Model("requirements").Ctx(ctx).Where("id", id).Delete()
+	// 递归 CTE 收集整棵子树（含自身），一并清理关联数据
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		subtree := `WITH RECURSIVE sub(id) AS (
+			SELECT id FROM requirements WHERE id = ?
+			UNION ALL
+			SELECT r.id FROM requirements r JOIN sub ON r.parent_id = sub.id
+		) SELECT id FROM sub`
+		if _, err := tx.Exec("UPDATE tasks SET requirement_id = 0 WHERE requirement_id IN ("+subtree+")", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM entity_tags WHERE entity_type = 'requirement' AND entity_id IN ("+subtree+")", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM attachments WHERE entity_type = 'requirement' AND entity_id IN ("+subtree+")", id); err != nil {
+			return err
+		}
+		_, err := tx.Exec("DELETE FROM requirements WHERE id IN ("+subtree+")", id)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("删除需求失败: %v", err)
 	}

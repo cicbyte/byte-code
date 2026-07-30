@@ -9,6 +9,7 @@ import (
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -44,9 +45,10 @@ func (s *sTest) CreateCase(ctx context.Context, req *api.TestCaseCreateReq) (id 
 			"priority":        req.Priority,
 			"source":          req.Source,
 			"creator_id":      uid,
-			"status":          "draft",
-			"created_at":      time.Now().Format("2006-01-02 15:04:05"),
-			"updated_at":      time.Now().Format("2006-01-02 15:04:05"),
+			// 表 CHECK 约束只允许 active/deprecated，新建用例即为 active
+			"status":     "active",
+			"created_at": time.Now().Format("2006-01-02 15:04:05"),
+			"updated_at": time.Now().Format("2006-01-02 15:04:05"),
 		})
 		liberr.ErrIsNil(ctx, err, "创建测试用例失败")
 		lastId, err := result.LastInsertId()
@@ -125,25 +127,36 @@ func (s *sTest) UpdateCase(ctx context.Context, req *api.TestCaseUpdateReq) (err
 }
 
 func (s *sTest) DeleteCase(ctx context.Context, id int) (err error) {
-	err = g.Try(ctx, func(ctx context.Context) {
-		userId := ctx.Value("userId")
-		uid, _ := userId.(int)
-		_, err = s.GetCase(ctx, id)
-		liberr.ErrIsNil(ctx, err, "测试用例不存在")
+	userId := ctx.Value("userId")
+	uid, _ := userId.(int)
+	if _, err = s.GetCase(ctx, id); err != nil {
+		return fmt.Errorf("测试用例不存在")
+	}
 
-		_, err = g.DB().Model("test_cases").Ctx(ctx).WherePri(id).Delete()
-		liberr.ErrIsNil(ctx, err, "删除测试用例失败")
-
-		activity.Record(ctx, activity.ActivityInput{
-			ActorID:    uid,
-			ActorType:  "human",
-			Action:     "test_case.deleted",
-			TargetType: "test_case",
-			TargetID:   id,
-			Detail:     fmt.Sprintf("删除测试用例: ID=%d", id),
-		})
+	// 计划用例关联、标签关联与用例本身在同一事务内删除
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Delete("test_plan_cases", "test_case_id", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM entity_tags WHERE entity_type = 'test_case' AND entity_id = ?", id); err != nil {
+			return err
+		}
+		_, err := tx.Delete("test_cases", "id", id)
+		return err
 	})
-	return
+	if err != nil {
+		return fmt.Errorf("删除测试用例失败: %v", err)
+	}
+
+	activity.Record(ctx, activity.ActivityInput{
+		ActorID:    uid,
+		ActorType:  "human",
+		Action:     "test_case.deleted",
+		TargetType: "test_case",
+		TargetID:   id,
+		Detail:     fmt.Sprintf("删除测试用例: ID=%d", id),
+	})
+	return nil
 }
 
 func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total int, list []api.TestCaseItem, err error) {

@@ -10,6 +10,7 @@ import (
 	"github.com/cicbyte/byte-code/utility/activity"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/perm"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -147,39 +148,45 @@ func (s *sDoc) Update(ctx context.Context, req *api.DocUpdateReq) (err error) {
 }
 
 func (s *sDoc) Delete(ctx context.Context, id int) (err error) {
-	err = g.Try(ctx, func(ctx context.Context) {
-		userId := ctx.Value("userId")
-		uid, _ := userId.(int)
+	userId := ctx.Value("userId")
+	uid, _ := userId.(int)
 
-		// 检查是否有子文档
-		count, err := g.DB().Model("docs").Ctx(ctx).Where("parent_id", id).Count()
-		liberr.ErrIsNil(ctx, err, "检查子文档失败")
-		if count > 0 {
-			panic("该文档下有子文档，不能删除")
+	// 检查是否有子文档
+	count, err := g.DB().Model("docs").Ctx(ctx).Where("parent_id", id).Count()
+	if err != nil {
+		return fmt.Errorf("检查子文档失败")
+	}
+	if count > 0 {
+		return fmt.Errorf("该文档下有子文档，不能删除")
+	}
+
+	// 关联、版本、附件与文档本身在同一事务内删除，避免半删状态
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Exec("DELETE FROM doc_relations WHERE doc_id = ?", id); err != nil {
+			return err
 		}
-
-		// 删除关联
-		_, err = g.DB().Model("doc_relations").Ctx(ctx).Where("doc_id", id).Delete()
-		liberr.ErrIsNil(ctx, err, "删除文档关联失败")
-
-		// 删除版本
-		_, err = g.DB().Model("doc_versions").Ctx(ctx).Where("doc_id", id).Delete()
-		liberr.ErrIsNil(ctx, err, "删除文档版本失败")
-
-		// 删除文档
-		_, err = g.DB().Model("docs").Ctx(ctx).WherePri(id).Delete()
-		liberr.ErrIsNil(ctx, err, "删除文档失败")
-
-		activity.Record(ctx, activity.ActivityInput{
-			ActorID:    uid,
-			ActorType:  "human",
-			Action:     "doc.deleted",
-			TargetType: "doc",
-			TargetID:   id,
-			Detail:     fmt.Sprintf("删除文档: ID=%d", id),
-		})
+		if _, err := tx.Exec("DELETE FROM attachments WHERE entity_type = 'doc' AND entity_id = ?", id); err != nil {
+			return err
+		}
+		if _, err := tx.Delete("doc_versions", "doc_id", id); err != nil {
+			return err
+		}
+		_, err := tx.Delete("docs", "id", id)
+		return err
 	})
-	return
+	if err != nil {
+		return fmt.Errorf("删除文档失败: %v", err)
+	}
+
+	activity.Record(ctx, activity.ActivityInput{
+		ActorID:    uid,
+		ActorType:  "human",
+		Action:     "doc.deleted",
+		TargetType: "doc",
+		TargetID:   id,
+		Detail:     fmt.Sprintf("删除文档: ID=%d", id),
+	})
+	return nil
 }
 
 func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list []api.DocItem, err error) {

@@ -7,6 +7,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/platform"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -44,10 +45,18 @@ func (s *sPlatform) UpdateTag(ctx context.Context, req *api.TagUpdateReq) (err e
 }
 
 func (s *sPlatform) DeleteTag(ctx context.Context, id int) (err error) {
-	// 删除关联
-	g.DB().Model("entity_tags").Ctx(ctx).Where("tag_id", id).Delete()
-	_, err = g.DB().Model("tags").Ctx(ctx).Where("id", id).Delete()
-	return
+	// 标签及其全部实体关联在同一事务内删除
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Delete("entity_tags", "tag_id", id); err != nil {
+			return err
+		}
+		_, err := tx.Delete("tags", "id", id)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("删除标签失败: %v", err)
+	}
+	return nil
 }
 
 func (s *sPlatform) ListTags(ctx context.Context) (res *api.TagListRes, err error) {

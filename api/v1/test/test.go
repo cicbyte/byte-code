@@ -19,7 +19,7 @@ type TestCaseCreateReq struct {
 	Category      string `json:"category" dc:"分类:功能/性能/安全/兼容性"`
 	Module        string `json:"module" dc:"所属模块"`
 	Priority      string `json:"priority" v:"required|in:P0,P1,P2,P3#优先级不能为空|优先级必须是P0/P1/P2/P3"`
-	Source        string `json:"source" dc:"来源:manual/ai"`
+	Source        string `json:"source" dc:"来源:human/ai_generated" d:"human" v:"in:human,ai_generated#来源必须是human/ai_generated"`
 }
 
 type TestCaseCreateRes struct {
@@ -39,7 +39,7 @@ type TestCaseUpdateReq struct {
 	Category       string `json:"category"`
 	Module         string `json:"module"`
 	Priority       string `json:"priority" v:"in:P0,P1,P2,P3#优先级必须是P0/P1/P2/P3"`
-	Status         string `json:"status" v:"in:draft,active,deprecated#状态必须是draft/active/deprecated"`
+	Status         string `json:"status" v:"in:active,deprecated#状态必须是active/deprecated"`
 }
 
 type TestCaseUpdateRes struct {
