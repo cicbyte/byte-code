@@ -109,6 +109,7 @@ byte-code/
 | `server.openapiPath` | OpenAPI 文档路径 | `/api.json` |
 | `server.swaggerPath` | Swagger UI 路径 | `/swagger` |
 | `database.default.link` | 数据库连接 | `sqlite::@file(./resource/data/app.db)` |
+| `database.default.extra` | SQLite 连接 PRAGMA（WAL、busy_timeout） | `busy_timeout=10000&journal_mode=WAL` |
 | `token.secret` | JWT 签名秘钥，留空则自动生成到 `resource/data/jwt.secret`（也可用环境变量 `JWT_SECRET`） | 空（自动生成） |
 
 ## 构建

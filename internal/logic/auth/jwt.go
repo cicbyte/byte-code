@@ -12,6 +12,7 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // jwtSecretFile 首次启动自动生成的随机秘钥落盘位置，随数据文件一同保存
@@ -65,7 +66,10 @@ func GenerateToken(userId int, username string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
-			Issuer:    "byte-code",
+			// iat/exp 只有秒级精度，同一秒内多次登录会生成完全相同的 token，
+			// 撞 sys_tokens 的 UNIQUE 约束；用随机 jti 保证每次签发唯一
+			ID:     uuid.NewString(),
+			Issuer: "byte-code",
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
