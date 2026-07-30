@@ -13,6 +13,8 @@ type LoginReq struct {
 
 type LoginRes struct {
 	Token string `json:"token"`
+	// MustChangePassword 为 true 时账号仍在使用初始默认密码，前端应引导跳转改密页
+	MustChangePassword bool `json:"mustChangePassword"`
 }
 
 // AdminInfoReq 获取用户信息

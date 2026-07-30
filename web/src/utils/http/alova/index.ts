@@ -55,6 +55,16 @@ export const Alova = createAlova({
         throw new Error(message || '登录已过期');
       }
 
+      // 强制改密：账号仍在使用初始密码，跳转到账号安全页完成修改
+      if (code === ResultEnum.MUST_CHANGE_PASSWORD) {
+        const Message = window.$message;
+        Message?.error(message || '首次登录请先修改初始密码');
+        if (!window.location.pathname.startsWith('/setting/account')) {
+          window.location.href = '/setting/account';
+        }
+        throw new Error(message || '首次登录请先修改初始密码');
+      }
+
       if (method.meta?.isReturnNativeResponse) {
         return res;
       }

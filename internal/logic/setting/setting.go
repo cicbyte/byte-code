@@ -76,7 +76,8 @@ func (s *sSetting) ChangePassword(ctx context.Context, req *api.ChangePasswordRe
 		return fmt.Errorf("密码加密失败")
 	}
 	_, err = g.DB().Model("sys_users").Where("id", userId).Data(g.Map{
-		"password": string(hash),
+		"password":             string(hash),
+		"must_change_password": 0,
 	}).Update()
 	if err != nil {
 		return fmt.Errorf("密码更新失败")

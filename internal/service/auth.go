@@ -7,7 +7,7 @@ import (
 )
 
 type IAuth interface {
-	Login(ctx context.Context, req *api.LoginReq) (token string, err error)
+	Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes, err error)
 	AdminInfo(ctx context.Context) (res *api.AdminInfoRes, err error)
 	Logout(ctx context.Context) (err error)
 	ValidateToken(ctx context.Context, tokenStr string) (userId int, err error)

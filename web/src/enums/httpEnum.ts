@@ -6,6 +6,8 @@ export enum ResultEnum {
   ERROR = -1,
   TIMEOUT = 10042,
   TYPE = 'success',
+  // 首次登录未修改初始密码，后端拦截业务请求
+  MUST_CHANGE_PASSWORD = 1001,
 }
 
 /**

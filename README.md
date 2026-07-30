@@ -55,7 +55,7 @@ pnpm dev
 
 后端运行在 [http://localhost:8000](http://localhost:8000)，前端开发服务器默认 [http://localhost:8002](http://localhost:8002)。
 
-默认管理员账号：`admin` / `123456`
+默认管理员账号：`admin` / `admin123`（首次登录会强制要求修改密码，未修改前仅能访问改密相关页面）
 
 ## 技术栈
 

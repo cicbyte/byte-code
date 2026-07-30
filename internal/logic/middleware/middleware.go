@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/cicbyte/byte-code/internal/service"
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 )
 
@@ -54,11 +55,29 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 		r.ExitAll()
 		return
 	}
+	// 仍在使用初始默认密码的账号只放行改密/登出/用户信息接口，防止默认口令账号被直接使用
+	mustChange, _ := g.DB().Model("sys_users").Where("id", userId).Fields("must_change_password").Value()
+	if mustChange != nil && mustChange.Int() == 1 && !passwordChangeAllowed(r.URL.Path) {
+		r.Response.WriteHeader(http.StatusOK)
+		r.Response.Header().Set("Content-Type", "application/json")
+		r.Response.Write(jsonStr(1001, nil, "首次登录请先修改初始密码"))
+		r.ExitAll()
+		return
+	}
 	ctx := r.Context()
 	ctx = context.WithValue(ctx, "userId", userId)
 	ctx = context.WithValue(ctx, "token", tokenStr)
 	r.SetCtx(ctx)
 	r.Middleware.Next()
+}
+
+// passwordChangeAllowed 强制改密状态下仍可访问的接口：修改密码、登出、获取用户信息
+func passwordChangeAllowed(path string) bool {
+	switch path {
+	case "/api/account/password", "/api/login/logout", "/api/admin_info":
+		return true
+	}
+	return false
 }
 
 // MiddlewareResponse 统一响应格式为 {code: 200, result: ..., message: "ok"}

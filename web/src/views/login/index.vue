@@ -133,8 +133,8 @@
   const LOGIN_NAME = PageEnum.BASE_LOGIN_NAME;
 
   const formInline = reactive({
-    username: 'admin',
-    password: 'admin123',
+    username: '',
+    password: '',
     isCaptcha: true,
   });
 
@@ -158,9 +158,15 @@
         const params: FormState = { username, password };
 
         try {
-          const { code, message: msg } = await userStore.login(params);
+          const { code, message: msg, result } = await userStore.login(params);
           message.destroyAll();
           if (code == ResultEnum.SUCCESS) {
+            // 仍在使用初始默认密码的账号，先引导完成改密
+            if (result?.mustChangePassword) {
+              message.warning('首次登录请先修改初始密码');
+              router.replace('/setting/account');
+              return;
+            }
             const toPath = decodeURIComponent((route.query?.redirect || '/') as string);
             message.success('登录成功，即将进入系统');
             if (route.name === LOGIN_NAME) {

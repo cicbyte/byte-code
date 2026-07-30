@@ -14,11 +14,7 @@ type authController struct {
 }
 
 func (c *authController) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes, err error) {
-	token, err := service.Auth().Login(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return &api.LoginRes{Token: token}, nil
+	return service.Auth().Login(ctx, req)
 }
 
 func (c *authController) AdminInfo(ctx context.Context, req *api.AdminInfoReq) (res *api.AdminInfoRes, err error) {

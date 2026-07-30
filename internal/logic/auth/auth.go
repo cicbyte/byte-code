@@ -22,29 +22,30 @@ func New() *sAuth {
 
 type sAuth struct{}
 
-func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (token string, err error) {
+func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes, err error) {
 	var user struct {
-		Id       int
-		Username string
-		Password string
-		Status   int
+		Id                 int
+		Username           string
+		Password           string
+		Status             int
+		MustChangePassword int
 	}
 	err = g.DB().Model("sys_users").Where("username", req.Username).Scan(&user)
 	if err != nil {
-		return "", fmt.Errorf("查询用户失败")
+		return nil, fmt.Errorf("查询用户失败")
 	}
 	if user.Id == 0 {
-		return "", fmt.Errorf("用户名或密码错误")
+		return nil, fmt.Errorf("用户名或密码错误")
 	}
 	if user.Status != 1 {
-		return "", fmt.Errorf("用户已被禁用")
+		return nil, fmt.Errorf("用户已被禁用")
 	}
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return "", fmt.Errorf("用户名或密码错误")
+		return nil, fmt.Errorf("用户名或密码错误")
 	}
-	token, err = GenerateToken(user.Id, user.Username)
+	token, err := GenerateToken(user.Id, user.Username)
 	if err != nil {
-		return "", fmt.Errorf("生成token失败")
+		return nil, fmt.Errorf("生成token失败")
 	}
 	_, err = g.DB().Model("sys_tokens").Insert(g.Map{
 		"user_id":    user.Id,
@@ -52,9 +53,12 @@ func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (token string, err
 		"expired_at": time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02 15:04:05"),
 	})
 	if err != nil {
-		return "", fmt.Errorf("保存token失败")
+		return nil, fmt.Errorf("保存token失败")
 	}
-	return token, nil
+	return &api.LoginRes{
+		Token:              token,
+		MustChangePassword: user.MustChangePassword == 1,
+	}, nil
 }
 
 func (s *sAuth) AdminInfo(ctx context.Context) (res *api.AdminInfoRes, err error) {
