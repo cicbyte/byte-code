@@ -24,6 +24,15 @@ func New() *sCategories {
 type sCategories struct {
 }
 
+// orderByWhiteList 分类列表允许的排序字段（入参小写名 -> 实际列名）
+var orderByWhiteList = map[string]string{
+	"id":         "id",
+	"name":       "name",
+	"sort":       "sort",
+	"created_at": "created_at",
+	"updated_at": "updated_at",
+}
+
 func (s sCategories) List(ctx context.Context, req *api.CategoriesListReq) (total interface{}, categoriesList []*model.CategoriesInfo, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
 		m := dao.Categories.Ctx(ctx)
@@ -33,10 +42,7 @@ func (s sCategories) List(ctx context.Context, req *api.CategoriesListReq) (tota
 		}
 		total, err = m.Count()
 		liberr.ErrIsNil(ctx, err, "获取分类列表失败")
-		orderBy := req.OrderBy
-		if orderBy == "" {
-			orderBy = "created_at desc"
-		}
+		orderBy := model.SafeOrderBy(req.OrderBy, orderByWhiteList, "created_at desc")
 		err = m.Page(req.PageNum, req.PageSize).Order(orderBy).Scan(&categoriesList)
 		liberr.ErrIsNil(ctx, err, "获取分类列表失败")
 	})
