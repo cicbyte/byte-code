@@ -9,6 +9,7 @@ import (
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -183,8 +184,20 @@ func (s *sDoc) Delete(ctx context.Context, id int) (err error) {
 
 func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list []api.DocItem, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
+		// 按项目过滤时校验当前用户对该项目的访问权限（列表接口不走路径中间件）；
+		// 不带 projectId 时非管理员只返回自己所在项目的文档
+		uid := perm.UserId(ctx)
+		if req.ProjectId != 0 && !perm.CanAccessProject(ctx, uid, req.ProjectId) {
+			liberr.ErrIsNil(ctx, fmt.Errorf("无权限访问该项目文档"), "无权限访问该项目文档")
+			return
+		}
+		memberOnly := uid > 0 && req.ProjectId == 0 && !perm.IsAdmin(ctx, uid)
+		memberScope := "EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = d.project_id AND pm.user_id = ?)"
 		// Count 查询（不带 Fields，兼容 SQLite）
 		countM := g.DB().Model("docs d").Ctx(ctx)
+		if memberOnly {
+			countM = countM.Where(memberScope, uid)
+		}
 		if req.ProjectId != 0 {
 			countM = countM.Where("d.project_id", req.ProjectId)
 		}
@@ -209,6 +222,9 @@ func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list [
 			LeftJoin("sys_users cu", "d.creator_id = cu.id").
 			LeftJoin("sys_users eu", "d.last_editor_id = eu.id").
 			Fields("d.*, cu.real_name as creator_name, eu.real_name as editor_name")
+		if memberOnly {
+			m = m.Where(memberScope, uid)
+		}
 		if req.ProjectId != 0 {
 			m = m.Where("d.project_id", req.ProjectId)
 		}

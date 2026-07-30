@@ -8,6 +8,7 @@ import (
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
 	"github.com/cicbyte/byte-code/utility/notify"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -141,8 +142,16 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 		Size: req.Size,
 	}
 
+	// 非管理员只能看到自己所在的项目
+	uid := perm.UserId(ctx)
+	memberOnly := uid > 0 && !perm.IsAdmin(ctx, uid)
+
 	// Count 查询（不带 Fields，兼容 SQLite）
 	countM := g.DB().Model("projects p").Ctx(ctx)
+	if memberOnly {
+		countM = countM.Where(
+			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)
+	}
 	if req.Status > 0 {
 		countM = countM.Where("p.status", req.Status)
 	}
@@ -161,6 +170,10 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	m := g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
 		Fields("p.id, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
+	if memberOnly {
+		m = m.Where(
+			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)
+	}
 	if req.Status > 0 {
 		m = m.Where("p.status", req.Status)
 	}

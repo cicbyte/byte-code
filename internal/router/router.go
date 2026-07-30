@@ -25,6 +25,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 	group.Group("/api", func(group *ghttp.RouterGroup) {
 		group.Middleware(service.Middleware().MiddlewareCORS)
 		group.Middleware(service.Middleware().MiddlewareTokenAuth)
+		group.Middleware(service.Middleware().MiddlewareProjectAuth)
 
 		group.Bind(
 			controller.Auth.AdminInfo,

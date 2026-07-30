@@ -25,13 +25,14 @@ type sDatabase struct{}
 
 // ==================== 数据库连接配置 ====================
 
-func (s *sDatabase) GetDatabase(ctx context.Context, projectId int) (res *api.DatabaseGetRes, err error) {
-	var record map[string]interface{}
-	err = g.DB().Model("project_databases").Ctx(ctx).Where("project_id", projectId).Scan(&record)
+// getRawDatabase 读取原始配置（含明文密码），仅供内部逻辑使用（如测试连接）
+func (s *sDatabase) getRawDatabase(ctx context.Context, projectId int) (res *api.DatabaseGetRes, err error) {
+	// 注意：GoFrame 的 Scan 不支持 map 目标，此处必须用 One()
+	record, err := g.DB().Model("project_databases").Ctx(ctx).Where("project_id", projectId).One()
 	if err != nil {
 		return nil, fmt.Errorf("查询数据库配置失败: %v", err)
 	}
-	if record == nil {
+	if record.IsEmpty() {
 		return &api.DatabaseGetRes{DbType: "none"}, nil
 	}
 	return &api.DatabaseGetRes{
@@ -48,21 +49,35 @@ func (s *sDatabase) GetDatabase(ctx context.Context, projectId int) (res *api.Da
 	}, nil
 }
 
+// GetDatabase 对外查询：数据库密码属敏感凭据，一律不回显给前端
+func (s *sDatabase) GetDatabase(ctx context.Context, projectId int) (res *api.DatabaseGetRes, err error) {
+	res, err = s.getRawDatabase(ctx, projectId)
+	if err != nil || res == nil {
+		return
+	}
+	res.DbPassword = ""
+	return
+}
+
 func (s *sDatabase) SaveDatabase(ctx context.Context, req *api.DatabaseSaveReq) (err error) {
 	count, _ := g.DB().Model("project_databases").Ctx(ctx).Where("project_id", req.ProjectId).Count()
 	data := g.Map{
-		"db_type":     req.DbType,
-		"db_name":     req.DbName,
-		"db_host":     req.DbHost,
-		"db_port":     req.DbPort,
-		"db_user":     req.DbUser,
-		"db_password": req.DbPassword,
-		"db_options":  req.DbOptions,
+		"db_type":    req.DbType,
+		"db_name":    req.DbName,
+		"db_host":    req.DbHost,
+		"db_port":    req.DbPort,
+		"db_user":    req.DbUser,
+		"db_options": req.DbOptions,
+	}
+	// 密码为空表示保持原密码不变（前端不再回显密码，编辑时留空即不修改）
+	if req.DbPassword != "" {
+		data["db_password"] = req.DbPassword
 	}
 	if count > 0 {
 		_, err = g.DB().Model("project_databases").Ctx(ctx).Where("project_id", req.ProjectId).Data(data).Update()
 	} else {
 		data["project_id"] = req.ProjectId
+		data["db_password"] = req.DbPassword
 		_, err = g.DB().Model("project_databases").Ctx(ctx).Data(data).Insert()
 	}
 	if err != nil {
@@ -72,7 +87,7 @@ func (s *sDatabase) SaveDatabase(ctx context.Context, req *api.DatabaseSaveReq) 
 }
 
 func (s *sDatabase) TestConnection(ctx context.Context, projectId int) (res *api.DatabaseTestConnRes, err error) {
-	dbConfig, err := s.GetDatabase(ctx, projectId)
+	dbConfig, err := s.getRawDatabase(ctx, projectId)
 	if err != nil {
 		return nil, err
 	}
@@ -200,9 +215,8 @@ func (s *sDatabase) UpdateTable(ctx context.Context, req *api.TableUpdateReq) (e
 }
 
 func (s *sDatabase) DeleteTable(ctx context.Context, id int) (err error) {
-	var table map[string]interface{}
-	err = g.DB().Model("db_tables").Ctx(ctx).Where("id", id).Scan(&table)
-	if err != nil || table == nil {
+	table, err := g.DB().Model("db_tables").Ctx(ctx).Where("id", id).One()
+	if err != nil || table.IsEmpty() {
 		return fmt.Errorf("表不存在")
 	}
 
@@ -231,9 +245,8 @@ func (s *sDatabase) DeleteTable(ctx context.Context, id int) (err error) {
 // ==================== 列管理 ====================
 
 func (s *sDatabase) SaveColumns(ctx context.Context, req *api.ColumnsSaveReq) (err error) {
-	var table map[string]interface{}
-	err = g.DB().Model("db_tables").Ctx(ctx).Where("id", req.TableId).Scan(&table)
-	if err != nil || table == nil {
+	table, err := g.DB().Model("db_tables").Ctx(ctx).Where("id", req.TableId).One()
+	if err != nil || table.IsEmpty() {
 		return fmt.Errorf("表不存在")
 	}
 
@@ -420,23 +433,16 @@ func joinStrings(ss []string, sep string) string {
 	return result
 }
 
-func getStr(m map[string]interface{}, key string) string {
-	if v, ok := m[key]; ok && v != nil {
-		return fmt.Sprintf("%v", v)
+func getStr(m gdb.Record, key string) string {
+	if v := m[key]; v != nil {
+		return v.String()
 	}
 	return ""
 }
 
-func getInt(m map[string]interface{}, key string) int {
-	if v, ok := m[key]; ok && v != nil {
-		switch val := v.(type) {
-		case int:
-			return val
-		case int64:
-			return int(val)
-		case float64:
-			return int(val)
-		}
+func getInt(m gdb.Record, key string) int {
+	if v := m[key]; v != nil {
+		return v.Int()
 	}
 	return 0
 }

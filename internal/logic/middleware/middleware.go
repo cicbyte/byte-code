@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
+	"strconv"
 
 	"github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 )
@@ -74,9 +77,7 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 // MiddlewareAdminAuth 管理接口鉴权：仅超级管理员可访问，
 // 防止普通登录用户调用系统配置、存储凭据、AI 用户管理等管理功能
 func (s *sMiddleware) MiddlewareAdminAuth(r *ghttp.Request) {
-	userId := r.Context().Value("userId")
-	uid, ok := userId.(int)
-	if !ok || !isAdmin(r.Context(), uid) {
+	if !perm.IsAdmin(r.Context(), perm.UserId(r.Context())) {
 		r.Response.WriteHeader(http.StatusOK)
 		r.Response.Header().Set("Content-Type", "application/json")
 		r.Response.Write(jsonStr(403, nil, "无权限访问该功能"))
@@ -86,14 +87,74 @@ func (s *sMiddleware) MiddlewareAdminAuth(r *ghttp.Request) {
 	r.Middleware.Next()
 }
 
-// isAdmin 判断用户是否拥有超级管理员角色（种子数据中 sys_roles.id=1）
-func isAdmin(ctx context.Context, userId int) bool {
-	count, err := g.DB().Model("sys_user_roles ur").
-		InnerJoin("sys_roles r", "ur.role_id = r.id").
-		Where("ur.user_id", userId).
-		Where("r.id", 1).
-		Count()
-	return err == nil && count > 0
+// projectDirectRe /api/v1/projects/{projectId}/... 路径直接提取项目 id
+var projectDirectRe = regexp.MustCompile(`^/api/v1/projects/(\d+)`)
+
+// projectEntityRules 实体路径前缀 -> 含 project_id 列的表，
+// 用于把 /tasks/{id} 这类顶层实体操作解析回所属项目做成员校验
+var projectEntityRules = []struct {
+	re    *regexp.Regexp
+	table string
+}{
+	{regexp.MustCompile(`^/api/v1/tasks/(\d+)`), "tasks"},
+	{regexp.MustCompile(`^/api/v1/sprints/(\d+)`), "sprints"},
+	{regexp.MustCompile(`^/api/v1/requirements/(\d+)`), "requirements"},
+	{regexp.MustCompile(`^/api/v1/test-cases/(\d+)`), "test_cases"},
+	{regexp.MustCompile(`^/api/v1/test-plans/(\d+)`), "test_plans"},
+	{regexp.MustCompile(`^/api/v1/docs/(\d+)`), "docs"},
+	{regexp.MustCompile(`^/api/v1/db-tables/(\d+)`), "db_tables"},
+	{regexp.MustCompile(`^/api/v1/schema-changes/(\d+)`), "schema_versions"},
+}
+
+// testPlanCaseRe /test-plan-cases/{id} 需两跳解析（test_plan_cases.test_plan_id -> test_plans.project_id）
+var testPlanCaseRe = regexp.MustCompile(`^/api/v1/test-plan-cases/(\d+)`)
+
+// resolveProjectId 从请求路径解析所属项目 id：直接项目路径、两跳计划用例、
+// 或按实体前缀表查 project_id。非项目资源路径返回 0（不校验）。
+func resolveProjectId(ctx context.Context, path string) int {
+	if m := projectDirectRe.FindStringSubmatch(path); m != nil {
+		id, _ := strconv.Atoi(m[1])
+		return id
+	}
+	if m := testPlanCaseRe.FindStringSubmatch(path); m != nil {
+		id, _ := strconv.Atoi(m[1])
+		planId := perm.EntityFieldInt(ctx, "test_plan_cases", id, "test_plan_id")
+		return perm.EntityProjectId(ctx, "test_plans", planId)
+	}
+	for _, rule := range projectEntityRules {
+		if m := rule.re.FindStringSubmatch(path); m != nil {
+			id, _ := strconv.Atoi(m[1])
+			return perm.EntityProjectId(ctx, rule.table, id)
+		}
+	}
+	return 0
+}
+
+// MiddlewareProjectAuth 项目资源归属校验：项目及其下属实体的读写仅对
+// 超级管理员与 project_members 成员开放，防止登录用户跨项目越权操作
+func (s *sMiddleware) MiddlewareProjectAuth(r *ghttp.Request) {
+	uid := perm.UserId(r.Context())
+	if uid == 0 {
+		r.Response.WriteHeader(http.StatusOK)
+		r.Response.Header().Set("Content-Type", "application/json")
+		r.Response.Write(jsonStr(401, nil, "未登录或登录已过期"))
+		r.ExitAll()
+		return
+	}
+	projectId := resolveProjectId(r.Context(), r.URL.Path)
+	if projectId == 0 {
+		// 非项目资源路径，或目标记录不存在（后者由业务层返回不存在）
+		r.Middleware.Next()
+		return
+	}
+	if perm.CanAccessProject(r.Context(), uid, projectId) {
+		r.Middleware.Next()
+		return
+	}
+	r.Response.WriteHeader(http.StatusOK)
+	r.Response.Header().Set("Content-Type", "application/json")
+	r.Response.Write(jsonStr(403, nil, "无权限访问该项目资源"))
+	r.ExitAll()
 }
 
 // passwordChangeAllowed 强制改密状态下仍可访问的接口：修改密码、登出、获取用户信息

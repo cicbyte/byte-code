@@ -20,6 +20,8 @@ type (
 		MiddlewareAuditLog(r *ghttp.Request)
 		// MiddlewareAdminAuth 管理接口鉴权，仅超级管理员可访问
 		MiddlewareAdminAuth(r *ghttp.Request)
+		// MiddlewareProjectAuth 项目资源归属校验，仅超管与项目成员可访问
+		MiddlewareProjectAuth(r *ghttp.Request)
 	}
 )
 
