@@ -3,14 +3,22 @@ package dbinit
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gfile"
 )
+
+// migrationPrefixRe 提取文件名前缀数字；
+// 必须按数字排序执行：字典序会把 "100_x.sql" 排在 "40_x.sql" 之前导致顺序错乱
+var migrationPrefixRe = regexp.MustCompile(`^(\d+)_`)
 
 func AutoMigrate(ctx context.Context) error {
 	db := g.DB()
@@ -49,7 +57,13 @@ func AutoMigrate(ctx context.Context) error {
 			sqlFiles = append(sqlFiles, f.Name())
 		}
 	}
-	sort.Strings(sqlFiles)
+	sort.Slice(sqlFiles, func(i, j int) bool {
+		ni, nj := migrationNumber(sqlFiles[i]), migrationNumber(sqlFiles[j])
+		if ni != nj {
+			return ni < nj
+		}
+		return sqlFiles[i] < sqlFiles[j]
+	})
 
 	for _, filename := range sqlFiles {
 		if executedMap[filename] {
@@ -61,22 +75,32 @@ func AutoMigrate(ctx context.Context) error {
 		}
 
 		g.Log().Infof(ctx, "Executing migration: %s", filename)
-		_, err = db.Exec(ctx, content)
-		if err != nil {
-			// SQLite ALTER TABLE 不支持 IF NOT EXISTS 的某些情况，忽略重复列错误
-			if strings.Contains(err.Error(), "duplicate column name") {
-				g.Log().Warningf(ctx, "Migration %s: column already exists, skipping", filename)
-			} else {
-				return fmt.Errorf("execute migration %s: %w", filename, err)
+		// 单文件整体事务：SQL 与 _migrations 记录同生共死，中途失败整体回滚
+		// 且不记录执行，下次启动可完整重试，不会留下半成品 schema 导致启动死循环。
+		// 注意：迁移文件内不要再写 BEGIN/COMMIT 或 PRAGMA（PRAGMA 在事务内是空操作）
+		err = db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+			if _, err := tx.Exec(content); err != nil {
+				return err
 			}
-		}
-
-		_, err = db.Exec(ctx, "INSERT INTO _migrations (filename) VALUES (?)", filename)
+			if _, err := tx.Exec("INSERT INTO _migrations (filename) VALUES (?)", filename); err != nil {
+				return err
+			}
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("record migration %s: %w", filename, err)
+			return fmt.Errorf("execute migration %s: %w", filename, err)
 		}
 		g.Log().Infof(ctx, "Migration completed: %s", filename)
 	}
 
 	return nil
+}
+
+// migrationNumber 取文件名前缀数字；无数字前缀的文件排在最后执行
+func migrationNumber(name string) int {
+	if m := migrationPrefixRe.FindStringSubmatch(name); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return math.MaxInt32
 }

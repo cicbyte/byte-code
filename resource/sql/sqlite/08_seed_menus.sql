@@ -1,5 +1,5 @@
 -- 菜单种子数据（精简版：仅保留核心管理页面）
-INSERT INTO `sys_menus` (`id`, `parent_id`, `name`, `path`, `component`, `redirect`, `title`, `icon`, `sort`, `status`, `hidden`, `type`, `auth`) VALUES
+INSERT OR IGNORE INTO `sys_menus` (`id`, `parent_id`, `name`, `path`, `component`, `redirect`, `title`, `icon`, `sort`, `status`, `hidden`, `type`, `auth`) VALUES
 -- Dashboard
 (1,  0, 'Dashboard',           '/dashboard', 'LAYOUT', '/dashboard/console', 'Dashboard', 'DashboardOutlined', 100, 1, 0, 1, ''),
 (2,  1, 'dashboard_console',   'console',    '/dashboard/console/console', '', '仪表盘', '', 100, 1, 0, 2, 'dashboard_console'),

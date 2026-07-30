@@ -7,10 +7,9 @@
 --   3. 从旧表复制数据，project_id 通过 projects.product_id 反查（取 MIN(id)）
 --   4. DROP 旧表
 --   5. 重建索引和 trigger
-
-PRAGMA foreign_keys = off;
-
-BEGIN TRANSACTION;
+--
+-- 注意：事务由迁移执行器（dbinit）统一包裹，本文件不再包含
+-- BEGIN/COMMIT/PRAGMA（PRAGMA 在事务内是空操作，写在这里只会造成误导）
 
 -- ============ requirements ============
 
@@ -91,9 +90,5 @@ SELECT
 FROM `milestones_old`;
 
 DROP TABLE `milestones_old`;
-
-COMMIT;
-
-PRAGMA foreign_keys = on;
 
 -- 注：projects.product_id 字段保留，前端/后端不再使用，留作回滚备份。
