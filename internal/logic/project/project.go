@@ -425,13 +425,10 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 // ==================== 任务特殊操作 ====================
 
 func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err error) {
-	// 检查任务状态是否为 open
+	// 预取任务信息用于存在性校验与活动记录
 	task, err := s.GetTask(ctx, req.Id)
 	if err != nil {
 		return err
-	}
-	if task.Status != "open" {
-		return fmt.Errorf("只有状态为 open 的任务才能被认领")
 	}
 
 	userId := 0
@@ -439,14 +436,20 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 		userId = uid.(int)
 	}
 
-	_, err = g.DB().Model("tasks").Ctx(ctx).
+	// 条件更新防并发认领：仅当任务仍为 open 时生效，以影响行数判断成败。
+	// 先查后改在并发下会让两个认领者同时成功（后者覆盖前者的 assignee）
+	result, err := g.DB().Model("tasks").Ctx(ctx).
 		Where("id", req.Id).
+		Where("status", "open").
 		Data(g.Map{
 			"status":      "in_progress",
 			"assignee_id": userId,
 		}).Update()
 	if err != nil {
 		return fmt.Errorf("认领任务失败: %v", err)
+	}
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		return fmt.Errorf("任务已被认领或状态不可认领")
 	}
 
 	// 记录活动
