@@ -433,10 +433,10 @@ func (s *sTest) ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (e
 		if req.BugTaskId != 0 {
 			data["bug_task_id"] = req.BugTaskId
 		}
-		if req.Status == "passed" || req.Status == "failed" || req.Status == "blocked" || req.Status == "skipped" {
-			data["executed_at"] = time.Now().Format("2006-01-02 15:04:05")
-			data["assignee_id"] = uid
-		}
+		// 接口校验保证 status 只能是 pass/fail/blocked/skip（与表 CHECK 约束一致），
+		// 执行即记录执行时间与执行人
+		data["executed_at"] = time.Now().Format("2006-01-02 15:04:05")
+		data["assignee_id"] = uid
 
 		_, err = g.DB().Model("test_plan_cases").Ctx(ctx).WherePri(req.Id).Update(data)
 		liberr.ErrIsNil(ctx, err, "执行用例失败")
@@ -473,13 +473,13 @@ func (s *sTest) GetPlanResults(ctx context.Context, req *api.TestPlanResultsReq)
 		res.Total = len(results)
 		for _, r := range results {
 			switch r.Status {
-			case "passed":
+			case "pass":
 				res.Passed++
-			case "failed":
+			case "fail":
 				res.Failed++
 			case "blocked":
 				res.Blocked++
-			case "skipped":
+			case "skip":
 				res.Skipped++
 			default:
 				res.Pending++

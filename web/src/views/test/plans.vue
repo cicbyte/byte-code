@@ -175,8 +175,8 @@
   }
 
   function resultType(s: string): 'success' | 'error' | 'warning' | 'default' {
-    if (s === 'passed') return 'success';
-    if (s === 'failed') return 'error';
+    if (s === 'pass') return 'success';
+    if (s === 'fail') return 'error';
     if (s === 'blocked') return 'warning';
     return 'default';
   }

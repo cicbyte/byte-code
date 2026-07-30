@@ -190,7 +190,7 @@ type TestPlanAddCaseRes struct {
 type TestCaseExecuteReq struct {
 	g.Meta       `path:"/test-plan-cases/{id}/execute" method:"put" tags:"测试管理" summary:"执行用例"`
 	Id           int    `json:"-" in:"path" v:"required#计划用例ID不能为空"`
-	Status       string `json:"status" v:"required|in:passed,failed,blocked,skipped#执行状态不能为空|状态必须是passed/failed/blocked/skipped"`
+	Status       string `json:"status" v:"required|in:pass,fail,blocked,skip#执行状态不能为空|状态必须是pass/fail/blocked/skip"`
 	ActualResult string `json:"actualResult" dc:"实际结果"`
 	BugTaskId    int    `json:"bugTaskId" dc:"关联缺陷任务ID"`
 }

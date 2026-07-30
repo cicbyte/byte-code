@@ -111,7 +111,7 @@ export interface TestPlanAddCaseData {
 
 /** 测试执行 */
 export interface TestCaseExecuteData {
-  status: 'passed' | 'failed' | 'blocked' | 'skipped';
+  status: 'pass' | 'fail' | 'blocked' | 'skip';
   actualResult?: string;
   bugTaskId?: number;
 }
