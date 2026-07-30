@@ -82,6 +82,11 @@ func (s *sSetting) ChangePassword(ctx context.Context, req *api.ChangePasswordRe
 	if err != nil {
 		return fmt.Errorf("密码更新失败")
 	}
+	// 改密成功后踢掉该用户全部已发 token（含当前会话），
+	// 防止密码泄露后改密而攻击者的旧会话仍继续有效
+	if _, err = g.DB().Model("sys_tokens").Where("user_id", userId).Delete(); err != nil {
+		return fmt.Errorf("密码已更新，但注销旧登录态失败，请重新登录")
+	}
 	return nil
 }
 

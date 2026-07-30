@@ -150,7 +150,13 @@ func (s *sAuth) ValidateToken(ctx context.Context, tokenStr string) (userId int,
 	if err != nil {
 		return 0, fmt.Errorf("token无效")
 	}
-	count, err := g.DB().Model("sys_tokens").Where("token", tokenStr).Count()
+	// expired_at 由登录时以本地时间字符串写入，须用同时区参数比较
+	// （SQLite 无 now() 且 datetime('now') 为 UTC，会有时区偏差）；
+	// 除存在性外同时校验过期时间，使主动注销/改密踢出即时生效
+	count, err := g.DB().Model("sys_tokens").
+		Where("token", tokenStr).
+		Where("expired_at > ?", time.Now().Format("2006-01-02 15:04:05")).
+		Count()
 	if err != nil || count == 0 {
 		return 0, fmt.Errorf("token已失效")
 	}

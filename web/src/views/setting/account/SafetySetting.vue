@@ -42,9 +42,13 @@
 <script lang="ts" setup>
   import { ref, reactive } from 'vue';
   import { useMessage } from 'naive-ui';
+  import { useRouter } from 'vue-router';
   import { changePassword } from '@/api/setting/profile';
+  import { useUserStore } from '@/store/modules/user';
 
   const message = useMessage();
+  const router = useRouter();
+  const userStore = useUserStore();
   const showPasswordModal = ref(false);
   const submitting = ref(false);
   const pwdFormRef: any = ref(null);
@@ -81,11 +85,14 @@
         oldPassword: pwdForm.oldPassword,
         newPassword: pwdForm.newPassword,
       });
-      message.success('密码修改成功');
+      // 后端已踢掉全部登录态（含当前会话），清理本地并回登录页重新登录
+      message.success('密码修改成功，请重新登录');
       showPasswordModal.value = false;
       pwdForm.oldPassword = '';
       pwdForm.newPassword = '';
       pwdForm.confirmPassword = '';
+      await userStore.logout();
+      router.replace('/login');
     } catch (e: any) {
       message.error(e.message || '密码修改失败');
       return false;
