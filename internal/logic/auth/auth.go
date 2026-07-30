@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/auth"
@@ -22,7 +23,64 @@ func New() *sAuth {
 
 type sAuth struct{}
 
+// ==================== 登录防爆破 ====================
+
+const (
+	loginMaxFailures  = 5                // 同一用户名连续失败阈值
+	loginLockDuration = 15 * time.Minute // 达到阈值后的锁定时长
+)
+
+type loginFailRecord struct {
+	count       int
+	lockedUntil time.Time
+}
+
+// 进程内失败计数：锁定按输入的用户名计（无论账号是否存在，防止借此枚举探测）
+var loginGuard = struct {
+	sync.Mutex
+	failures map[string]*loginFailRecord
+}{failures: make(map[string]*loginFailRecord)}
+
+// loginDummyHash 用户不存在时也执行一次同代价的 bcrypt 比较，消除通过响应时间差枚举用户名
+var loginDummyHash, _ = bcrypt.GenerateFromPassword([]byte("byte-code-dummy-password"), 10)
+
+func loginLockCheck(username string) error {
+	loginGuard.Lock()
+	defer loginGuard.Unlock()
+	rec := loginGuard.failures[username]
+	if rec != nil && !rec.lockedUntil.IsZero() && time.Now().Before(rec.lockedUntil) {
+		minutes := int(time.Until(rec.lockedUntil).Minutes()) + 1
+		return fmt.Errorf("失败次数过多，请约%d分钟后再试", minutes)
+	}
+	return nil
+}
+
+func loginRecordFailure(username string) {
+	loginGuard.Lock()
+	defer loginGuard.Unlock()
+	rec := loginGuard.failures[username]
+	if rec == nil {
+		rec = &loginFailRecord{}
+		loginGuard.failures[username] = rec
+	}
+	rec.count++
+	if rec.count >= loginMaxFailures {
+		rec.lockedUntil = time.Now().Add(loginLockDuration)
+		rec.count = 0
+	}
+}
+
+func loginResetFailures(username string) {
+	loginGuard.Lock()
+	defer loginGuard.Unlock()
+	delete(loginGuard.failures, username)
+}
+
 func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes, err error) {
+	// 连续失败锁定期内直接拒绝
+	if err = loginLockCheck(req.Username); err != nil {
+		return nil, err
+	}
 	var user struct {
 		Id                 int
 		Username           string
@@ -31,17 +89,20 @@ func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes
 		MustChangePassword int
 	}
 	err = g.DB().Model("sys_users").Where("username", req.Username).Scan(&user)
-	if err != nil {
-		return nil, fmt.Errorf("查询用户失败")
+	// 注意：GoFrame 对 struct 目标查不到行会返回 sql.ErrNoRows，须与真实查询错误
+	// 一律按"用户名或密码错误"处理，避免借此区分用户名是否存在
+	if err != nil || user.Id == 0 {
+		_ = bcrypt.CompareHashAndPassword(loginDummyHash, []byte(req.Password))
+		loginRecordFailure(req.Username)
+		return nil, fmt.Errorf("用户名或密码错误")
 	}
-	if user.Id == 0 {
+	// 先验证密码再判断禁用状态，否则无需密码即可确认某用户名存在
+	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		loginRecordFailure(req.Username)
 		return nil, fmt.Errorf("用户名或密码错误")
 	}
 	if user.Status != 1 {
 		return nil, fmt.Errorf("用户已被禁用")
-	}
-	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, fmt.Errorf("用户名或密码错误")
 	}
 	token, err := GenerateToken(user.Id, user.Username)
 	if err != nil {
@@ -55,6 +116,7 @@ func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes
 	if err != nil {
 		return nil, fmt.Errorf("保存token失败")
 	}
+	loginResetFailures(req.Username)
 	return &api.LoginRes{
 		Token:              token,
 		MustChangePassword: user.MustChangePassword == 1,
