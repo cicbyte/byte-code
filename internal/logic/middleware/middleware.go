@@ -71,6 +71,31 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 	r.Middleware.Next()
 }
 
+// MiddlewareAdminAuth 管理接口鉴权：仅超级管理员可访问，
+// 防止普通登录用户调用系统配置、存储凭据、AI 用户管理等管理功能
+func (s *sMiddleware) MiddlewareAdminAuth(r *ghttp.Request) {
+	userId := r.Context().Value("userId")
+	uid, ok := userId.(int)
+	if !ok || !isAdmin(r.Context(), uid) {
+		r.Response.WriteHeader(http.StatusOK)
+		r.Response.Header().Set("Content-Type", "application/json")
+		r.Response.Write(jsonStr(403, nil, "无权限访问该功能"))
+		r.ExitAll()
+		return
+	}
+	r.Middleware.Next()
+}
+
+// isAdmin 判断用户是否拥有超级管理员角色（种子数据中 sys_roles.id=1）
+func isAdmin(ctx context.Context, userId int) bool {
+	count, err := g.DB().Model("sys_user_roles ur").
+		InnerJoin("sys_roles r", "ur.role_id = r.id").
+		Where("ur.user_id", userId).
+		Where("r.id", 1).
+		Count()
+	return err == nil && count > 0
+}
+
 // passwordChangeAllowed 强制改密状态下仍可访问的接口：修改密码、登出、获取用户信息
 func passwordChangeAllowed(path string) bool {
 	switch path {

@@ -21,7 +21,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		)
 	})
 
-	// 需要 Token 认证的 API
+	// 需要 Token 认证的 API（所有登录用户）
 	group.Group("/api", func(group *ghttp.RouterGroup) {
 		group.Middleware(service.Middleware().MiddlewareCORS)
 		group.Middleware(service.Middleware().MiddlewareTokenAuth)
@@ -30,14 +30,10 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			controller.Auth.AdminInfo,
 			controller.Auth.Logout,
 			controller.Menu.Menus,
-			controller.Menu.MenuList,
-			controller.Role.List,
 			controller.DashboardCtrl.Console,
 			controller.Setting.GetProfile,
 			controller.Setting.UpdateProfile,
 			controller.Setting.ChangePassword,
-			controller.Setting.GetSystemConfig,
-			controller.Setting.UpdateSystemConfig,
 		)
 
 		// v1 版本 API（需要认证）
@@ -67,19 +63,33 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.Doc,
 			)
 
-			// 附件管理
+			// 附件：上传/下载/列表对所有登录用户开放（存储配置在管理组）
 			group.Bind(
-				controller.AttachmentCtrl,
+				controller.AttachmentCtrl.AttachmentUpload,
+				controller.AttachmentCtrl.AttachmentGet,
+				controller.AttachmentCtrl.AttachmentDownload,
+				controller.AttachmentCtrl.AttachmentPreview,
+				controller.AttachmentCtrl.AttachmentDelete,
+				controller.AttachmentCtrl.AttachmentList,
+				controller.AttachmentCtrl.AttachmentUpdate,
 			)
 
-			// AI 用户管理
+			// 平台功能（标签、活动流、通知、搜索、统计；审计日志在管理组）
 			group.Bind(
-				controller.AiUserCtrl,
-			)
-
-			// 平台功能（标签、活动流、通知、搜索、仪表盘、审计日志）
-			group.Bind(
-				controller.PlatformCtrl,
+				controller.PlatformCtrl.CreateTag,
+				controller.PlatformCtrl.UpdateTag,
+				controller.PlatformCtrl.DeleteTag,
+				controller.PlatformCtrl.ListTags,
+				controller.PlatformCtrl.AttachTag,
+				controller.PlatformCtrl.DetachTag,
+				controller.PlatformCtrl.GetTagEntities,
+				controller.PlatformCtrl.ListActivities,
+				controller.PlatformCtrl.ListNotifications,
+				controller.PlatformCtrl.ReadNotification,
+				controller.PlatformCtrl.ReadAllNotifications,
+				controller.PlatformCtrl.UnreadCount,
+				controller.PlatformCtrl.Search,
+				controller.PlatformCtrl.DashboardStats,
 			)
 		})
 
@@ -87,5 +97,42 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		if err := libRouter.RouterAutoBind(ctx, router, group); err != nil {
 			panic(err)
 		}
+	})
+
+	// 管理 API（需要认证 + 超级管理员）
+	group.Group("/api", func(group *ghttp.RouterGroup) {
+		group.Middleware(service.Middleware().MiddlewareCORS)
+		group.Middleware(service.Middleware().MiddlewareTokenAuth)
+		group.Middleware(service.Middleware().MiddlewareAdminAuth)
+
+		group.Bind(
+			controller.Menu.MenuList,
+			controller.Role.List,
+			controller.Setting.GetSystemConfig,
+			controller.Setting.UpdateSystemConfig,
+		)
+
+		group.Group("/v1", func(group *ghttp.RouterGroup) {
+			// AI 用户管理（AiLogin 已在公开组）
+			group.Bind(
+				controller.AiUserCtrl.Create,
+				controller.AiUserCtrl.Update,
+				controller.AiUserCtrl.Delete,
+				controller.AiUserCtrl.List,
+				controller.AiUserCtrl.ResetKey,
+			)
+
+			// S3 存储配置（含凭据）
+			group.Bind(
+				controller.AttachmentCtrl.StorageConfigGet,
+				controller.AttachmentCtrl.StorageConfigUpdate,
+				controller.AttachmentCtrl.StorageTest,
+			)
+
+			// 审计日志
+			group.Bind(
+				controller.PlatformCtrl.ListAuditLogs,
+			)
+		})
 	})
 }
