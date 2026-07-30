@@ -36,6 +36,9 @@ logs/
 *.db
 *.sqlite
 
+# 运行时自动生成的 JWT 秘钥
+resource/data/jwt.secret
+
 # 缓存文件
 .cache/
 
@@ -161,3 +164,4 @@ dev-docs/
 REASONIX.md
 rewrite.json
 .reference/
+.zcode/

@@ -13,3 +13,9 @@ logger:
 database:
   default:
     link: "sqlite::@file(./resource/data/app.db)"
+
+# Token 认证配置
+token:
+  # JWT 签名秘钥：留空则首次启动自动生成随机秘钥并保存到 resource/data/jwt.secret
+  # 生产环境建议通过环境变量 JWT_SECRET 或此处配置不少于 32 位的随机字符串
+  secret: ""
