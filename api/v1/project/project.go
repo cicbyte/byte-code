@@ -6,7 +6,6 @@ import "github.com/gogf/gf/v2/frame/g"
 
 type ProjectCreateReq struct {
 	g.Meta      `path:"/projects" method:"post" tags:"项目管理" summary:"创建项目"`
-	ProductId   int    `json:"productId"`
 	Name        string `json:"name" v:"required#项目名称不能为空"`
 	Description string `json:"description"`
 }
@@ -21,7 +20,6 @@ type ProjectUpdateReq struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Status      int    `json:"status"`
-	ProductId   int    `json:"productId"`
 }
 
 type ProjectUpdateRes struct {
@@ -38,12 +36,11 @@ type ProjectDeleteRes struct {
 }
 
 type ProjectListReq struct {
-	g.Meta    `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
-	Status    int    `json:"status" in:"query"`
-	ProductId int    `json:"productId" in:"query"`
-	Keyword   string `json:"keyword" in:"query"`
-	Page      int    `json:"page" in:"query" d:"1"`
-	Size      int    `json:"size" in:"query" d:"20"`
+	g.Meta   `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
+	Status   int    `json:"status" in:"query"`
+	Keyword  string `json:"keyword" in:"query"`
+	Page     int    `json:"page" in:"query" d:"1"`
+	Size     int    `json:"size" in:"query" d:"20"`
 }
 
 type ProjectListRes struct {
@@ -55,8 +52,6 @@ type ProjectListRes struct {
 
 type ProjectItem struct {
 	Id          int    `json:"id"`
-	ProductId   int    `json:"productId"`
-	ProductName string `json:"productName"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	CreatedBy   int    `json:"createdBy"`

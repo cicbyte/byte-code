@@ -36,7 +36,6 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// 创建项目
 		result, err := tx.Insert("projects", g.Map{
-			"product_id":  req.ProductId,
 			"name":        req.Name,
 			"description": req.Description,
 			"created_by":  uid,
@@ -79,9 +78,6 @@ func (s *sProject) UpdateProject(ctx context.Context, req *api.ProjectUpdateReq)
 	}
 	if req.Status > 0 {
 		data["status"] = req.Status
-	}
-	if req.ProductId > 0 {
-		data["product_id"] = req.ProductId
 	}
 	if len(data) == 0 {
 		return nil
@@ -127,8 +123,7 @@ func (s *sProject) GetProject(ctx context.Context, id int) (res *api.ProjectDeta
 	var item api.ProjectItem
 	err = g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
-		LeftJoin("products pd", "p.product_id = pd.id").
-		Fields("p.id, p.product_id, COALESCE(pd.name, '') as product_name, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at").
+		Fields("p.id, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at").
 		Where("p.id", id).
 		Scan(&item)
 	if err != nil {
@@ -151,9 +146,6 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	if req.Status > 0 {
 		countM = countM.Where("p.status", req.Status)
 	}
-	if req.ProductId > 0 {
-		countM = countM.Where("p.product_id", req.ProductId)
-	}
 	if req.Keyword != "" {
 		kw := "%" + req.Keyword + "%"
 		countM = countM.Where("(p.name LIKE ? OR p.description LIKE ?)", kw, kw)
@@ -168,13 +160,9 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	// 数据查询
 	m := g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
-		LeftJoin("products pd", "p.product_id = pd.id").
-		Fields("p.id, p.product_id, COALESCE(pd.name, '') as product_name, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
+		Fields("p.id, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
 	if req.Status > 0 {
 		m = m.Where("p.status", req.Status)
-	}
-	if req.ProductId > 0 {
-		m = m.Where("p.product_id", req.ProductId)
 	}
 	if req.Keyword != "" {
 		kw := "%" + req.Keyword + "%"

@@ -82,7 +82,6 @@
   });
 
   const targetTypeOptions = [
-    { label: '产品', value: 'product' },
     { label: '需求', value: 'requirement' },
     { label: '项目', value: 'project' },
     { label: '任务', value: 'task' },

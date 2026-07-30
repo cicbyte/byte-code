@@ -5,8 +5,6 @@ import { Alova } from '@/utils/http/alova/index';
 /** 项目 */
 export interface ProjectItem {
   id: number;
-  productId: number;
-  productName: string;
   name: string;
   description: string;
   createdBy: number;
@@ -25,14 +23,12 @@ export interface ProjectListResult {
 
 export interface ProjectListParams {
   status?: number;
-  productId?: number;
   keyword?: string;
   page?: number;
   size?: number;
 }
 
 export interface ProjectCreateData {
-  productId?: number;
   name: string;
   description?: string;
 }
@@ -41,7 +37,6 @@ export interface ProjectUpdateData {
   name?: string;
   description?: string;
   status?: number;
-  productId?: number;
 }
 
 /** 项目成员 */

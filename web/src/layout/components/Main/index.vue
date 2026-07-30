@@ -51,8 +51,8 @@
 
       // Layout 是 matched[0]，MainView 渲染 matched[1] 的组件。
       // 用 matched[1] 实际路径段作为 key：
-      //   /product/1/overview 与 /product/1/requirements 都映射到 /product/1，不重建 ProductWorkspace；
-      //   /product/1 与 /product/2 不同 key，仍会重建。
+      //   /project/1/board 与 /project/1/tasks 都映射到 /project/1，不重建 ProjectWorkspace；
+      //   /project/1 与 /project/2 不同 key，仍会重建。
       const routeKey = (route) => {
         const m = route.matched[1];
         if (!m) return route.fullPath;

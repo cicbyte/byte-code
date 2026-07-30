@@ -13,7 +13,6 @@
               </n-tag>
             </n-descriptions-item>
             <n-descriptions-item label="创建人">{{ project.creatorName || '-' }}</n-descriptions-item>
-            <n-descriptions-item label="产品">{{ project.productName || '-' }}</n-descriptions-item>
             <n-descriptions-item label="创建时间">{{ project.createdAt }}</n-descriptions-item>
             <n-descriptions-item label="描述" :span="2">
               {{ project.description || '暂无描述' }}

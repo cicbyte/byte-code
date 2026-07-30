@@ -29,6 +29,6 @@ export function getEntityTabs(entityType: string, entityId: number): NavTab[] {
   if (!config) return [];
   return config.tabs.map((tab) => ({
     ...tab,
-    path: tab.path.replace(':projectId', String(entityId)).replace(':productId', String(entityId)),
+    path: tab.path.replace(':projectId', String(entityId)),
   }));
 }

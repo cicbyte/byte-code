@@ -66,7 +66,6 @@
   const pagination = reactive({ page: 1, size: 20 });
 
   const moduleOptions = [
-    { label: '产品', value: 'product' },
     { label: '需求', value: 'requirement' },
     { label: '项目', value: 'project' },
     { label: '任务', value: 'task' },
