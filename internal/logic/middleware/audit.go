@@ -1,61 +1,102 @@
 package middleware
 
 import (
+	"context"
+	"encoding/json"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/cicbyte/byte-code/utility/auditwriter"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 )
 
+// MiddlewareAuditLog 审计写操作（POST/PUT/DELETE）：异步批量落盘 audit_logs。
+// 挂载在 TokenAuth 之后；actor 类型取 sys_users.type。
+// 项目归属必须在请求执行前解析——删除类操作执行后实体已不存在，事后解析必为空。
 func (s *sMiddleware) MiddlewareAuditLog(r *ghttp.Request) {
+	path := r.URL.Path
+	projectId := resolveProjectId(r.Context(), path)
+
 	r.Middleware.Next()
 
-	method := r.Method
-	if method != "POST" && method != "PUT" && method != "DELETE" {
+	if r.Method != "POST" && r.Method != "PUT" && r.Method != "DELETE" {
 		return
 	}
 
-	ctx := r.Context()
-	userId, _ := ctx.Value("userId").(int)
-	if userId == 0 {
+	uid := perm.UserId(r.Context())
+	if uid == 0 {
 		return
 	}
 
-	path := r.URL.Path
 	action := "create"
-	if method == "PUT" {
+	if r.Method == "PUT" {
 		action = "update"
-	} else if method == "DELETE" {
+	} else if r.Method == "DELETE" {
 		action = "delete"
 	}
 
-	target := parseTarget(path)
-
-	actorType := "human"
-	actor, _ := ctx.Value("actorType").(string)
-	if actor == "ai" {
-		actorType = "ai"
+	var target targetInfo
+	if r.Method == "POST" {
+		// POST 路径中的 id 是父资源（如 /projects/5/tasks 的 5 是项目），不能当作
+		// 操作目标；目标类型取路径最后的资源段，新实体 id 从响应体 data.id 补全
+		target = targetInfo{entityType: lastResourceSegment(path)}
+		if target.entityId = createdIdFromBody(r.Response.Buffer()); target.entityType == "projects" {
+			// 创建项目时项目即目标，归属项目就是它自己
+			projectId = target.entityId
+		}
+	} else {
+		target = parseTarget(path)
 	}
 
-	projectId, _ := ctx.Value("projectId").(int)
-
-	_, err := g.DB().Model("audit_logs").Ctx(ctx).Insert(g.Map{
-		"actor_id":    userId,
-		"actor_type":  actorType,
-		"action":      action,
-		"target_type": target.entityType,
-		"target_id":   target.entityId,
-		"target_name": "",
-		"ip_address":  r.GetClientIp(),
-		"user_agent":  r.UserAgent(),
-		"project_id":  projectId,
-		"created_at":  time.Now().Format("2006-01-02 15:04:05"),
+	auditwriter.Record(auditwriter.Entry{
+		ActorID:    uid,
+		ActorType:  userActorType(r.Context(), uid),
+		Action:     action,
+		TargetType: target.entityType,
+		TargetID:   target.entityId,
+		IpAddress:  r.GetClientIp(),
+		UserAgent:  r.UserAgent(),
+		ProjectId:  projectId,
 	})
-	if err != nil {
-		g.Log().Warningf(ctx, "Failed to write audit log: %v", err)
+}
+
+// userActorType 操作者类型：AI 账号（sys_users.type=ai）记为 ai，其余 human
+func userActorType(ctx context.Context, userId int) string {
+	if v, _ := g.DB().Model("sys_users").Where("id", userId).Fields("type").Value(); v != nil && v.String() == "ai" {
+		return "ai"
 	}
+	return "human"
+}
+
+// createdIdFromBody 从 GoFrame 默认响应 {code,message,data:{id}} 中提取新建实体 id
+func createdIdFromBody(buf []byte) int {
+	if len(buf) == 0 {
+		return 0
+	}
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Id int `json:"id"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(buf, &resp) != nil || resp.Code != 0 {
+		return 0
+	}
+	return resp.Data.Id
+}
+
+// lastResourceSegment 取路径最后的资源段作为目标类型：/api/v1/projects -> projects，
+// /api/v1/projects/5/tasks -> tasks（末段为数字时取前一段）
+func lastResourceSegment(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if !isNumeric(parts[i]) {
+			return parts[i]
+		}
+	}
+	return ""
 }
 
 type targetInfo struct {

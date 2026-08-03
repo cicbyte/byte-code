@@ -6,6 +6,8 @@ import (
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
 	"github.com/cicbyte/byte-code/internal/router"
+	"github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/auditwriter"
 	"github.com/cicbyte/byte-code/utility/dbclean"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
@@ -34,8 +36,15 @@ var (
 				g.Log().Warningf(ctx, "schedule dbclean failed: %v", err)
 			}
 
+			// 审计日志异步落盘协程
+			auditwriter.Start()
+
 			s := g.Server()
 			s.Group("/", func(group *ghttp.RouterGroup) {
+				// 审计中间件须挂在 HandlerResponse 之外：标准控制器的响应体由
+				// HandlerResponse 在链条 unwind 时写入，内层恢复时读不到（创建类
+				// 操作无法从响应体补全新实体 id）
+				group.Middleware(service.Middleware().MiddlewareAuditLog)
 				group.Middleware(ghttp.MiddlewareHandlerResponse)
 				r := &router.Router{}
 				r.BindController(ctx, group)
