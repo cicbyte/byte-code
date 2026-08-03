@@ -6,11 +6,13 @@ import (
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
 	"github.com/cicbyte/byte-code/internal/router"
+	"github.com/cicbyte/byte-code/utility/dbclean"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
+	"github.com/gogf/gf/v2/os/gcron"
 )
 
 var (
@@ -22,6 +24,14 @@ var (
 			// 自动数据库迁移
 			if err := dbinit.AutoMigrate(ctx); err != nil {
 				g.Log().Fatalf(ctx, "Database migration failed: %v", err)
+			}
+
+			// 只增表定期清理：启动即执行一次，此后每天 03:00 执行
+			dbclean.Run(ctx)
+			if _, err := gcron.AddSingleton(ctx, "0 0 3 * * *", func(ctx context.Context) {
+				dbclean.Run(ctx)
+			}); err != nil {
+				g.Log().Warningf(ctx, "schedule dbclean failed: %v", err)
 			}
 
 			s := g.Server()
