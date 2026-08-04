@@ -10,6 +10,23 @@ import { isUrl } from '@/utils';
 
 const { apiUrl, urlPrefix } = useGlobSetting();
 
+// 会话过期跳转中标记：并发多个 401 时只清理/跳转一次（整页跳转会自动重置）
+let sessionExpiredRedirecting = false;
+
+function handleSessionExpired(message?: string) {
+  const Message = window.$message;
+  Message?.error(message || '登录已过期，请重新登录');
+  if (sessionExpiredRedirecting || window.location.pathname.startsWith('/login')) {
+    return;
+  }
+  sessionExpiredRedirecting = true;
+  const userStore = useUser();
+  userStore.logout();
+  // 整页跳转保证 Pinia 与本地缓存彻底重置，并携带回跳地址
+  const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.href = `/login?redirect=${redirect}`;
+}
+
 function normalizeResponse(res: any) {
   if (res.result !== undefined) {
     return res;
@@ -52,6 +69,7 @@ export const Alova = createAlova({
       const { message, code, result } = res;
 
       if (code === 401 || code === 912) {
+        handleSessionExpired(message);
         throw new Error(message || '登录已过期');
       }
 

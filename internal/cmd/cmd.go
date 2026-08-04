@@ -40,6 +40,8 @@ var (
 			auditwriter.Start()
 
 			s := g.Server()
+			// 前端构建产物静态服务：resource/public 作为站点静态根
+			s.SetServerRoot("resource/public")
 			s.Group("/", func(group *ghttp.RouterGroup) {
 				// 审计中间件须挂在 HandlerResponse 之外：标准控制器的响应体由
 				// HandlerResponse 在链条 unwind 时写入，内层恢复时读不到（创建类
@@ -49,26 +51,24 @@ var (
 				r := &router.Router{}
 				r.BindController(ctx, group)
 
-				// 添加SPA路由回退支持，处理Vue Router的HTML5 History模式
-				group.Hook("/*", ghttp.HookBeforeServe, func(r *ghttp.Request) {
-					path := r.URL.Path
+			// 添加SPA路由回退支持，处理Vue Router的HTML5 History模式
+			group.Hook("/*", ghttp.HookBeforeServe, func(r *ghttp.Request) {
+				path := r.URL.Path
 
-					// 如果是API请求，跳过SPA回退
-					if strings.HasPrefix(path, "/api/") {
-						return
-					}
+				// 如果是API请求，跳过SPA回退
+				if strings.HasPrefix(path, "/api/") {
+					return
+				}
 
-					// 如果是静态资源文件（有文件扩展名），跳过SPA回退
-					if strings.Contains(path, ".") && !strings.HasSuffix(path, "/") {
-						return
-					}
+				// 如果是静态资源文件（有文件扩展名），跳过SPA回退
+				if strings.Contains(path, ".") && !strings.HasSuffix(path, "/") {
+					return
+				}
 
-					// 对于其他所有路径，都返回index.html，让Vue Router处理
-					if path != "/" && !strings.HasPrefix(path, "/api/") {
-						r.Response.ServeFile("resource/public/html/index.html")
-						r.ExitAll()
-					}
-				})
+				// 其余路径（含站点根路径 /）都返回 index.html，让 Vue Router 处理
+				r.Response.ServeFile("resource/public/index.html")
+				r.ExitAll()
+			})
 			})
 			s.Run()
 			return nil
