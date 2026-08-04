@@ -89,6 +89,8 @@
           <span>{{ item.tips }}</span>
         </n-tooltip>
       </div>
+      <!--通知中心-->
+      <NotificationIcon />
       <!--切换全屏-->
       <div class="layout-header-trigger layout-header-trigger-min">
         <n-tooltip placement="bottom">
@@ -144,10 +146,11 @@
   import { useRoute, useRouter } from 'vue-router';
   import components from './components';
   import ProjectSetting from './ProjectSetting.vue';
+  import NotificationIcon from './NotificationIcon.vue';
 
   export default defineComponent({
     name: 'PageHeader',
-    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu },
+    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon },
     props: {
       collapsed: {
         type: Boolean,
