@@ -175,10 +175,11 @@ type SearchRes struct {
 }
 
 type SearchResult struct {
-	Module  string `json:"module"`
-	Id      int    `json:"id"`
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
+	Module    string `json:"module"`
+	Id        int    `json:"id"`
+	ProjectId int    `json:"projectId"`
+	Title     string `json:"title"`
+	Summary   string `json:"summary"`
 }
 
 // 仪表盘

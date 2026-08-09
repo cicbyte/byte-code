@@ -131,6 +131,8 @@
   </div>
   <!--项目配置-->
   <ProjectSetting ref="drawerSetting" />
+  <!--全局搜索-->
+  <SearchModal ref="searchRef" />
 </template>
 
 <script lang="ts">
@@ -147,10 +149,12 @@
   import components from './components';
   import ProjectSetting from './ProjectSetting.vue';
   import NotificationIcon from './NotificationIcon.vue';
+  import SearchModal from './SearchModal.vue';
+  import { ref as vueRef } from 'vue';
 
   export default defineComponent({
     name: 'PageHeader',
-    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon },
+    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, SearchModal },
     props: {
       collapsed: {
         type: Boolean,
@@ -166,6 +170,7 @@
       const useLockscreen = useScreenLockStore();
       const message = useMessage();
       const dialog = useDialog();
+      const searchRef = vueRef(null);
       const { navMode, navTheme, headerSetting, menuSetting, crumbsSetting } = useProjectSetting();
 
       const drawerSetting = ref();
@@ -285,6 +290,9 @@
         {
           icon: 'SearchOutlined',
           tips: '搜索',
+          eventObject: {
+            click: () => searchRef.value?.open(),
+          },
         },
         {
           icon: 'GithubOutlined',
@@ -336,6 +344,7 @@
       return {
         ...toRefs(state),
         iconList,
+        searchRef,
         toggleFullScreen,
         doLogout,
         route,

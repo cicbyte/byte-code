@@ -182,85 +182,56 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 	res = &api.SearchRes{}
 	keyword := "%" + req.Q + "%"
 
+	// 各模块统一 LIKE 检索，返回所属项目便于前端跳转；
+	// docs 的 FTS5 分支已移除：docs_fts 表从未创建，原实现恒降级到 LIKE
+	searchMap := map[string]struct {
+		table string
+		where string
+	}{
+		"task":        {"tasks", "title LIKE ? OR description LIKE ?"},
+		"requirement": {"requirements", "title LIKE ? OR description LIKE ?"},
+		"doc":         {"docs", "title LIKE ? OR content LIKE ?"},
+		"test_case":   {"test_cases", "title LIKE ? OR steps LIKE ?"},
+	}
 	modules := []string{"task", "requirement", "doc", "test_case"}
 	if req.Module != "" {
 		modules = []string{req.Module}
 	}
 
 	for _, mod := range modules {
-		var results []api.SearchResult
-
-		switch mod {
-		case "task":
-			var items []struct {
-				Id    int
-				Title string
-			}
-			err = g.DB().Model("tasks").Ctx(ctx).
-				Where("title LIKE ? OR description LIKE ?", keyword, keyword).
-				Page(req.Page, req.Size).
-				Scan(&items)
-			if err == nil {
-				for _, item := range items {
-					results = append(results, api.SearchResult{Module: "task", Id: item.Id, Title: item.Title})
-				}
-			}
-
-		case "requirement":
-			var items []struct {
-				Id    int
-				Title string
-			}
-			err = g.DB().Model("requirements").Ctx(ctx).
-				Where("title LIKE ? OR description LIKE ?", keyword, keyword).
-				Page(req.Page, req.Size).
-				Scan(&items)
-			if err == nil {
-				for _, item := range items {
-					results = append(results, api.SearchResult{Module: "requirement", Id: item.Id, Title: item.Title})
-				}
-			}
-
-		case "doc":
-			var items []struct {
-				Id    int
-				Title string
-			}
-			// FTS5 全文搜索
-			ftsQuery := fmt.Sprintf(
-				"SELECT rowid as id, title FROM docs_fts WHERE docs_fts MATCH ? LIMIT %d",
-				req.Size,
-			)
-			ftsErr := g.DB().Ctx(ctx).Raw(ftsQuery, req.Q).Scan(&items)
-			if ftsErr != nil || len(items) == 0 {
-				// FTS5 失败或无结果，降级到 LIKE
-				g.DB().Model("docs").Ctx(ctx).
-					Where("title LIKE ? OR content LIKE ?", keyword, keyword).
-					Page(req.Page, req.Size).
-					Scan(&items)
-			}
-			for _, item := range items {
-				results = append(results, api.SearchResult{Module: "doc", Id: item.Id, Title: item.Title})
-			}
-
-		case "test_case":
-			var items []struct {
-				Id    int
-				Title string
-			}
-			err = g.DB().Model("test_cases").Ctx(ctx).
-				Where("title LIKE ? OR steps LIKE ?", keyword, keyword).
-				Page(req.Page, req.Size).
-				Scan(&items)
-			if err == nil {
-				for _, item := range items {
-					results = append(results, api.SearchResult{Module: "test_case", Id: item.Id, Title: item.Title})
-				}
-			}
+		ms, ok := searchMap[mod]
+		if !ok {
+			continue
 		}
+		// Total 汇总各模块的总命中数（此前误把当页条数当总数）
+		total, err := g.DB().Model(ms.table).Ctx(ctx).Where(ms.where, keyword, keyword).Count()
+		if err != nil {
+			return nil, fmt.Errorf("搜索失败: %v", err)
+		}
+		res.Total += total
 
-		res.List = append(res.List, results...)
-		res.Total += len(results)
+		var items []struct {
+			Id        int
+			ProjectId int
+			Title     string
+		}
+		err = g.DB().Model(ms.table).Ctx(ctx).
+			Fields("id, project_id, title").
+			Where(ms.where, keyword, keyword).
+			Page(req.Page, req.Size).
+			Order("id DESC").
+			Scan(&items)
+		if err != nil {
+			return nil, fmt.Errorf("搜索失败: %v", err)
+		}
+		for _, item := range items {
+			res.List = append(res.List, api.SearchResult{
+				Module:    mod,
+				Id:        item.Id,
+				ProjectId: item.ProjectId,
+				Title:     item.Title,
+			})
+		}
 	}
 
 	return

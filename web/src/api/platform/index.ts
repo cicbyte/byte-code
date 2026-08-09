@@ -91,6 +91,7 @@ export interface NotificationListParams {
 export interface SearchResult {
   module: string;
   id: number;
+  projectId: number;
   title: string;
   summary: string;
 }
