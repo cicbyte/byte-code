@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/attachment"
@@ -27,6 +28,28 @@ func New() *sAttachment {
 
 type sAttachment struct{}
 
+// 附件扩展名白名单与存储 MIME：MIME 由扩展名推导而非信任客户端 Content-Type，
+// 防止伪造 text/html 等类型经预签名 URL 直开造成存储型 XSS；
+// html/htm/svg/js 等可执行/可渲染类型一律禁止上传
+var attachmentExtMime = map[string]string{
+	".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+	".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+	".pdf": "application/pdf", ".txt": "text/plain", ".md": "text/markdown",
+	".csv": "text/csv", ".log": "text/plain", ".json": "application/json",
+	".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	".xls": "application/vnd.ms-excel",
+	".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	".doc": "application/msword",
+	".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	".ppt": "application/vnd.ms-powerpoint",
+	".zip": "application/zip", ".rar": "application/vnd.rar",
+	".7z": "application/x-7z-compressed", ".tar": "application/x-tar",
+	".gz": "application/gzip",
+}
+
+// 单文件大小上限 20MB（须配合 server.clientMaxBodySize 配置）
+const attachmentMaxSize = 20 << 20
+
 func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) (id int, err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
 		userId := ctx.Value("userId")
@@ -45,6 +68,16 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 			panic("上传文件不能为空")
 		}
 
+		// 类型白名单校验（在触达存储之前）
+		fileExt := strings.ToLower(filepath.Ext(file.Filename))
+		mime, ok := attachmentExtMime[fileExt]
+		if !ok {
+			panic("不支持的文件类型: " + fileExt)
+		}
+		if file.Size > attachmentMaxSize {
+			panic("文件超过大小上限 20MB")
+		}
+
 		// 打开文件
 		f, err := file.Open()
 		if err != nil {
@@ -54,10 +87,6 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		defer f.Close()
 
 		// 生成 S3 key
-		fileExt := filepath.Ext(file.Filename)
-		if fileExt == "" {
-			fileExt = ".bin"
-		}
 		monthStr := time.Now().Format("2006-01")
 		s3Key := fmt.Sprintf("%s/%d/%s/%s%s", req.EntityType, req.EntityId, monthStr, uuid.New().String(), fileExt)
 
@@ -76,12 +105,12 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 			panic("上传文件失败")
 		}
 
-		// 创建附件记录
+		// 创建附件记录（MIME 用扩展名推导值，不信任客户端声明）
 		result, err := g.DB().Model("attachments").Ctx(ctx).Insert(g.Map{
 			"s3_key":         s3Key,
 			"original_name":  file.Filename,
 			"file_size":      file.Size,
-			"mime_type":      file.Header.Get("Content-Type"),
+			"mime_type":      mime,
 			"file_ext":       fileExt,
 			"entity_type":    req.EntityType,
 			"entity_id":      req.EntityId,

@@ -23,12 +23,16 @@ func New() *sMiddleware {
 
 type sMiddleware struct{}
 
+// MiddlewareCORS 跨域处理。凭证未使用（token 走自定义 header），
+// 默认通配符源；如未来引入 cookie 会话，须在配置 cors.origins 里
+// 给出显式域名列表（非 * 时按请求 Origin 匹配回显，且不再返回通配符）
 func (s *sMiddleware) MiddlewareCORS(r *ghttp.Request) {
-	r.Response.Header().Set("Access-Control-Allow-Origin", "*")
+	if allowOrigin := corsAllowedOrigin(r); allowOrigin != "" {
+		r.Response.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+	}
 	r.Response.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	r.Response.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, token")
 	r.Response.Header().Set("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
-	r.Response.Header().Set("Access-Control-Allow-Credentials", "true")
 
 	if r.Method == "OPTIONS" {
 		r.Response.WriteHeader(200)
@@ -36,6 +40,33 @@ func (s *sMiddleware) MiddlewareCORS(r *ghttp.Request) {
 	}
 
 	r.Middleware.Next()
+}
+
+// corsAllowedOrigin 依据配置 cors.origins（默认 *）返回允许的 Origin 值；
+// 未命中返回空串（不加 CORS 头，由浏览器拦截）
+func corsAllowedOrigin(r *ghttp.Request) string {
+	cfg, err := g.Cfg().Get(r.Context(), "cors.origins")
+	if err != nil || cfg == nil {
+		return "*"
+	}
+	origins := cfg.Strings()
+	if len(origins) == 0 {
+		return "*"
+	}
+	for _, o := range origins {
+		if o == "*" {
+			return "*"
+		}
+	}
+	reqOrigin := r.Header.Get("Origin")
+	if reqOrigin != "" {
+		for _, o := range origins {
+			if o == reqOrigin {
+				return reqOrigin
+			}
+		}
+	}
+	return ""
 }
 
 func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
