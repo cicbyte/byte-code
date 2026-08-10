@@ -39,10 +39,8 @@ func (s *sMiddleware) MiddlewareCORS(r *ghttp.Request) {
 }
 
 func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
+	// 只接受请求头携带 token：URL query 传 token 会进入访问日志/浏览器历史/代理日志
 	tokenStr := r.Header.Get("token")
-	if tokenStr == "" {
-		tokenStr = r.Get("token").String()
-	}
 	if tokenStr == "" {
 		r.Response.WriteHeader(http.StatusOK)
 		r.Response.Header().Set("Content-Type", "application/json")

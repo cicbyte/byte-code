@@ -48,7 +48,8 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		// 打开文件
 		f, err := file.Open()
 		if err != nil {
-			panic(fmt.Sprintf("打开上传文件失败: %v", err))
+			g.Log().Errorf(ctx, "打开上传文件失败: %v", err)
+			panic("打开上传文件失败")
 		}
 		defer f.Close()
 
@@ -63,13 +64,16 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		// 获取 S3 存储实例
 		s3Storage, err := storage.NewS3StorageFromCtx(ctx)
 		if err != nil {
-			panic(fmt.Sprintf("获取存储实例失败: %v", err))
+			// S3 错误可能含 endpoint/凭据校验细节，只进服务端日志
+			g.Log().Errorf(ctx, "获取存储实例失败: %v", err)
+			panic("存储服务不可用，请联系管理员检查存储配置")
 		}
 
 		// 上传到 S3
 		err = s3Storage.Upload(ctx, s3Key, f, file.Size, file.Header.Get("Content-Type"))
 		if err != nil {
-			panic(fmt.Sprintf("上传文件到S3失败: %v", err))
+			g.Log().Errorf(ctx, "上传文件到S3失败: %v", err)
+			panic("上传文件失败")
 		}
 
 		// 创建附件记录

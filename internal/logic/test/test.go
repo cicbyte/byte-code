@@ -145,7 +145,7 @@ func (s *sTest) DeleteCase(ctx context.Context, id int) (err error) {
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("删除测试用例失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除测试用例失败")
 	}
 
 	activity.Record(ctx, activity.ActivityInput{

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/database"
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/gogf/gf/v2/frame/g"
@@ -30,7 +31,7 @@ func (s *sDatabase) getRawDatabase(ctx context.Context, projectId int) (res *api
 	// 注意：GoFrame 的 Scan 不支持 map 目标，此处必须用 One()
 	record, err := g.DB().Model("project_databases").Ctx(ctx).Where("project_id", projectId).One()
 	if err != nil {
-		return nil, fmt.Errorf("查询数据库配置失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询数据库配置失败")
 	}
 	if record.IsEmpty() {
 		return &api.DatabaseGetRes{DbType: "none"}, nil
@@ -81,7 +82,7 @@ func (s *sDatabase) SaveDatabase(ctx context.Context, req *api.DatabaseSaveReq) 
 		_, err = g.DB().Model("project_databases").Ctx(ctx).Data(data).Insert()
 	}
 	if err != nil {
-		return fmt.Errorf("保存数据库配置失败: %v", err)
+		return liberr.WrapDb(ctx, err, "保存数据库配置失败")
 	}
 	return nil
 }
@@ -138,7 +139,7 @@ func (s *sDatabase) ListTables(ctx context.Context, projectId int) (res *api.Tab
 		Order("sort_order ASC, id ASC").
 		Scan(&tables)
 	if err != nil {
-		return nil, fmt.Errorf("查询表列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询表列表失败")
 	}
 
 	for i := range tables {
@@ -153,7 +154,7 @@ func (s *sDatabase) GetTable(ctx context.Context, id int) (res *api.TableDetailR
 	var table api.TableItem
 	err = g.DB().Model("db_tables").Ctx(ctx).Where("id", id).Scan(&table)
 	if err != nil {
-		return nil, fmt.Errorf("查询表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询表失败")
 	}
 
 	var columns []api.ColumnItem
@@ -162,7 +163,7 @@ func (s *sDatabase) GetTable(ctx context.Context, id int) (res *api.TableDetailR
 		Order("sort_order ASC, id ASC").
 		Scan(&columns)
 	if err != nil {
-		return nil, fmt.Errorf("查询列失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询列失败")
 	}
 	if columns == nil {
 		columns = []api.ColumnItem{}
@@ -182,7 +183,7 @@ func (s *sDatabase) CreateTable(ctx context.Context, req *api.TableCreateReq) (i
 		"charset":    req.Charset,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建表失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建表失败")
 	}
 	lastId, _ := result.LastInsertId()
 
@@ -209,7 +210,7 @@ func (s *sDatabase) UpdateTable(ctx context.Context, req *api.TableUpdateReq) (e
 
 	_, err = g.DB().Model("db_tables").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
-		return fmt.Errorf("更新表失败: %v", err)
+		return liberr.WrapDb(ctx, err, "更新表失败")
 	}
 	return nil
 }
@@ -234,7 +235,7 @@ func (s *sDatabase) DeleteTable(ctx context.Context, id int) (err error) {
 		return e
 	})
 	if err != nil {
-		return fmt.Errorf("删除表失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除表失败")
 	}
 
 	s.recordSchemaChange(ctx, projectId, "drop_table", tableName, "删除表 "+tableName, before, "")
@@ -279,7 +280,7 @@ func (s *sDatabase) SaveColumns(ctx context.Context, req *api.ColumnsSaveReq) (e
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("保存列失败: %v", err)
+		return liberr.WrapDb(ctx, err, "保存列失败")
 	}
 
 	after := s.serializeTable(ctx, req.TableId)
@@ -303,7 +304,7 @@ func (s *sDatabase) ListSchemaChanges(ctx context.Context, req *api.SchemaChange
 	var list []api.SchemaChangeItem
 	err = model.Page(req.Page, req.Size).Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询变更历史失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询变更历史失败")
 	}
 	if list == nil {
 		list = []api.SchemaChangeItem{}
@@ -320,7 +321,7 @@ func (s *sDatabase) GetSchemaChange(ctx context.Context, id int) (res *api.Schem
 		Where("sv.id", id).
 		Scan(&item)
 	if err != nil {
-		return nil, fmt.Errorf("查询变更详情失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询变更详情失败")
 	}
 	return &api.SchemaChangeDetailRes{SchemaChangeItem: item}, nil
 }

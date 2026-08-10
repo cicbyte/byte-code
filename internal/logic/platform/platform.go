@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/platform"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -30,7 +32,7 @@ func (s *sPlatform) CreateTag(ctx context.Context, req *api.TagCreateReq) (id in
 		"creator_id": ctx.Value("userId").(int),
 	})
 	if err != nil {
-		return 0, err
+		return 0, liberr.WrapDb(ctx, err, "创建标签失败")
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
@@ -41,7 +43,10 @@ func (s *sPlatform) UpdateTag(ctx context.Context, req *api.TagUpdateReq) (err e
 		"name":  req.Name,
 		"color": req.Color,
 	}).Update()
-	return
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "更新标签失败")
+	}
+	return nil
 }
 
 func (s *sPlatform) DeleteTag(ctx context.Context, id int) (err error) {
@@ -54,7 +59,7 @@ func (s *sPlatform) DeleteTag(ctx context.Context, id int) (err error) {
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("删除标签失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除标签失败")
 	}
 	return nil
 }
@@ -114,6 +119,17 @@ func (s *sPlatform) ListActivities(ctx context.Context, req *api.ActivityListReq
 	res = &api.ActivityListRes{}
 	m := g.DB().Model("activities").Ctx(ctx)
 
+	// 指定项目须是成员/管理员；未指定时非管理员仅见自己所在项目的动态
+	uid := perm.UserId(ctx)
+	if req.ProjectId > 0 {
+		if !perm.CanAccessProject(ctx, uid, req.ProjectId) {
+			return nil, fmt.Errorf("无权限查看该项目动态")
+		}
+	} else if !perm.IsAdmin(ctx, uid) {
+		m = m.Where(
+			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = activities.project_id AND pm.user_id = ?)", uid)
+	}
+
 	if req.Module != "" {
 		m = m.Where("target_type", req.Module)
 	}
@@ -154,10 +170,19 @@ func (s *sPlatform) ListNotifications(ctx context.Context, req *api.Notification
 }
 
 func (s *sPlatform) ReadNotification(ctx context.Context, id int) (err error) {
-	_, err = g.DB().Model("notifications").Ctx(ctx).
+	// 只能操作自己的通知：无 user_id 条件会允许标记他人通知已读
+	userId := perm.UserId(ctx)
+	result, err := g.DB().Model("notifications").Ctx(ctx).
 		Where("id", id).
+		Where("user_id", userId).
 		Data("is_read", 1).Update()
-	return
+	if err != nil {
+		return fmt.Errorf("标记已读失败")
+	}
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		return fmt.Errorf("通知不存在")
+	}
+	return nil
 }
 
 func (s *sPlatform) ReadAllNotifications(ctx context.Context) (err error) {
@@ -206,7 +231,7 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		// Total 汇总各模块的总命中数（此前误把当页条数当总数）
 		total, err := g.DB().Model(ms.table).Ctx(ctx).Where(ms.where, keyword, keyword).Count()
 		if err != nil {
-			return nil, fmt.Errorf("搜索失败: %v", err)
+			return nil, liberr.WrapDb(ctx, err, "搜索失败")
 		}
 		res.Total += total
 
@@ -222,7 +247,7 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 			Order("id DESC").
 			Scan(&items)
 		if err != nil {
-			return nil, fmt.Errorf("搜索失败: %v", err)
+			return nil, liberr.WrapDb(ctx, err, "搜索失败")
 		}
 		for _, item := range items {
 			res.List = append(res.List, api.SearchResult{
@@ -254,18 +279,46 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 		RecentTasks: []api.RecentTaskItem{},
 	}
 
+	// 非管理员统计范围限定在自己所在的项目，避免跨项目数据（含任务标题）泄露
+	uid := perm.UserId(ctx)
+	memberOnly := uid > 0 && !perm.IsAdmin(ctx, uid)
+	taskScope := "EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = tasks.project_id AND pm.user_id = ?)"
+	reqScope := "EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = requirements.project_id AND pm.user_id = ?)"
+	tpcScope := "EXISTS (SELECT 1 FROM test_plans tp JOIN project_members pm ON pm.project_id = tp.project_id WHERE tp.id = test_plan_cases.test_plan_id AND pm.user_id = ?)"
+
 	// 需求总数
-	res.TotalRequirements, _ = g.DB().Model("requirements").Ctx(ctx).Count()
+	reqM := g.DB().Model("requirements").Ctx(ctx)
+	if memberOnly {
+		reqM = reqM.Where(reqScope, uid)
+	}
+	res.TotalRequirements, _ = reqM.Count()
 
 	// 任务统计
-	res.TotalTasks, _ = g.DB().Model("tasks").Ctx(ctx).Count()
-	res.InProgressTasks, _ = g.DB().Model("tasks").Ctx(ctx).Where("status", "in_progress").Count()
-	res.ReviewTasks, _ = g.DB().Model("tasks").Ctx(ctx).Where("status", "review").Count()
+	scopedTasks := func(status string) *gdb.Model {
+		m := g.DB().Model("tasks").Ctx(ctx)
+		if status != "" {
+			m = m.Where("status", status)
+		}
+		if memberOnly {
+			m = m.Where(taskScope, uid)
+		}
+		return m
+	}
+	res.TotalTasks, _ = scopedTasks("").Count()
+	res.InProgressTasks, _ = scopedTasks("in_progress").Count()
+	res.ReviewTasks, _ = scopedTasks("review").Count()
 
-	// 测试通过�?
+	// 测试通过率
+	tpcScoped := func() *gdb.Model {
+		m := g.DB().Model("test_plan_cases").Ctx(ctx)
+		if memberOnly {
+			m = m.Where(tpcScope, uid)
+		}
+		return m
+	}
 	var passCount, totalCount int
-	totalCount, _ = g.DB().Model("test_plan_cases").Ctx(ctx).Where("status != ?", "pending").Count()
-	passCount, _ = g.DB().Model("test_plan_cases").Ctx(ctx).Where("status", "pass").Count()
+	totalCount, _ = tpcScoped().Where("status != ?", "pending").Count()
+	passCount, _ = tpcScoped().Where("status", "pass").Count()
 	if totalCount > 0 {
 		res.TestPassRate = float64(passCount) / float64(totalCount) * 100
 	}
@@ -276,23 +329,31 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 		TaskCount int
 	}
 	var aiStats []aiStat
-	g.DB().Ctx(ctx).Raw(`
+	aiSql := `
 		SELECT u.real_name as ai_name, COUNT(t.id) as task_count
 		FROM tasks t
-		JOIN sys_users u ON t.assignee_id = u.id AND u.type = 'ai'
-		GROUP BY t.assignee_id
-		ORDER BY task_count DESC
-		LIMIT 10
-	`).Scan(&aiStats)
+		JOIN sys_users u ON t.assignee_id = u.id AND u.type = 'ai'`
+	if memberOnly {
+		aiSql += ` WHERE EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = ?)`
+	}
+	aiSql += ` GROUP BY t.assignee_id ORDER BY task_count DESC LIMIT 10`
+	if memberOnly {
+		g.DB().Ctx(ctx).Raw(aiSql, uid).Scan(&aiStats)
+	} else {
+		g.DB().Ctx(ctx).Raw(aiSql).Scan(&aiStats)
+	}
 	for _, s := range aiStats {
 		res.AiStats = append(res.AiStats, api.AiStatItem{AiName: s.AiName, TaskCount: s.TaskCount})
 	}
 
-	// 最近任�?
-	err = g.DB().Model("tasks").Ctx(ctx).
+	// 最近任务
+	recentM := g.DB().Model("tasks").Ctx(ctx).
 		Fields("id, title, status, updated_at").
-		Order("updated_at DESC").Limit(5).
-		Scan(&res.RecentTasks)
+		Order("updated_at DESC").Limit(5)
+	if memberOnly {
+		recentM = recentM.Where(taskScope, uid)
+	}
+	err = recentM.Scan(&res.RecentTasks)
 
 	return
 }

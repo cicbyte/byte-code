@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
@@ -43,7 +44,7 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 			"status":      1,
 		})
 		if err != nil {
-			return fmt.Errorf("创建项目失败: %v", err)
+			return liberr.WrapDb(ctx, err, "创建项目失败")
 		}
 		lastId, _ := result.LastInsertId()
 		id = int(lastId)
@@ -55,7 +56,7 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 			"role":       "owner",
 		})
 		if err != nil {
-			return fmt.Errorf("添加项目成员失败: %v", err)
+			return liberr.WrapDb(ctx, err, "添加项目成员失败")
 		}
 
 		return nil
@@ -85,7 +86,7 @@ func (s *sProject) UpdateProject(ctx context.Context, req *api.ProjectUpdateReq)
 	}
 	_, err = g.DB().Model("projects").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
-		return fmt.Errorf("更新项目失败: %v", err)
+		return liberr.WrapDb(ctx, err, "更新项目失败")
 	}
 	return nil
 }
@@ -138,7 +139,7 @@ func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("删除项目失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除项目失败")
 	}
 	return nil
 }
@@ -151,7 +152,7 @@ func (s *sProject) GetProject(ctx context.Context, id int) (res *api.ProjectDeta
 		Where("p.id", id).
 		Scan(&item)
 	if err != nil {
-		return nil, fmt.Errorf("查询项目失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询项目失败")
 	}
 	if item.Id == 0 {
 		return nil, fmt.Errorf("项目不存在")
@@ -185,7 +186,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 
 	total, err := countM.Count()
 	if err != nil {
-		return nil, fmt.Errorf("查询项目数量失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询项目数量失败")
 	}
 	res.Total = total
 
@@ -208,7 +209,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	var list []api.ProjectItem
 	err = m.Page(req.Page, req.Size).Order("p.id DESC").Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询项目列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询项目列表失败")
 	}
 	res.List = list
 	return res, nil
@@ -223,7 +224,7 @@ func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err er
 		"role":       req.Role,
 	})
 	if err != nil {
-		return fmt.Errorf("添加成员失败: %v", err)
+		return liberr.WrapDb(ctx, err, "添加成员失败")
 	}
 
 	// 发送通知
@@ -237,7 +238,7 @@ func (s *sProject) RemoveMember(ctx context.Context, projectId, userId int) (err
 		Where("user_id", userId).
 		Delete()
 	if err != nil {
-		return fmt.Errorf("移除成员失败: %v", err)
+		return liberr.WrapDb(ctx, err, "移除成员失败")
 	}
 	return nil
 }
@@ -252,7 +253,7 @@ func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.Mem
 		Order("pm.id ASC").
 		Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询成员列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询成员列表失败")
 	}
 	res.List = list
 	return res, nil
@@ -282,7 +283,7 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 		"source":         "human",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建任务失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建任务失败")
 	}
 	lastId, _ := result.LastInsertId()
 	taskId := int(lastId)
@@ -333,7 +334,7 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 
 	_, err = g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
-		return fmt.Errorf("更新任务失败: %v", err)
+		return liberr.WrapDb(ctx, err, "更新任务失败")
 	}
 
 	// 状态变更时记录活动
@@ -375,7 +376,7 @@ func (s *sProject) DeleteTask(ctx context.Context, id int) (err error) {
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("删除任务失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除任务失败")
 	}
 	return nil
 }
@@ -389,7 +390,7 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 		Where("t.id", id).
 		Scan(&item)
 	if err != nil {
-		return nil, fmt.Errorf("查询任务失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
 	}
 	if item.Id == 0 {
 		return nil, fmt.Errorf("任务不存在")
@@ -422,7 +423,7 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 
 	total, err := countM.Count()
 	if err != nil {
-		return nil, fmt.Errorf("查询任务数量失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询任务数量失败")
 	}
 	res.Total = total
 
@@ -452,7 +453,7 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	var list []api.TaskItem
 	err = m.Page(req.Page, req.Size).Order("t.sort_order ASC, t.id DESC").Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询任务列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询任务列表失败")
 	}
 	res.List = list
 	return res, nil
@@ -482,7 +483,7 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 			"assignee_id": userId,
 		}).Update()
 	if err != nil {
-		return fmt.Errorf("认领任务失败: %v", err)
+		return liberr.WrapDb(ctx, err, "认领任务失败")
 	}
 	if rows, _ := result.RowsAffected(); rows == 0 {
 		return fmt.Errorf("任务已被认领或状态不可认领")
@@ -515,7 +516,7 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 		Where("id", req.Id).
 		Data(data).Update()
 	if err != nil {
-		return fmt.Errorf("完成任务失败: %v", err)
+		return liberr.WrapDb(ctx, err, "完成任务失败")
 	}
 
 	// 记录活动
@@ -552,7 +553,7 @@ func (s *sProject) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err 
 			"human_review_status": req.Status,
 		}).Update()
 	if err != nil {
-		return fmt.Errorf("审核任务失败: %v", err)
+		return liberr.WrapDb(ctx, err, "审核任务失败")
 	}
 
 	// 如果有评论，添加审核评论
@@ -594,7 +595,7 @@ func (s *sProject) ImportTasks(ctx context.Context, req *api.TaskImportReq) (tas
 		Order("parent_id ASC, sort_order ASC").
 		Scan(&requirements)
 	if err != nil {
-		return nil, fmt.Errorf("查询需求失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询需求失败")
 	}
 	if len(requirements) == 0 {
 		return nil, fmt.Errorf("未找到需求或子需求")
@@ -626,7 +627,7 @@ func (s *sProject) ImportTasks(ctx context.Context, req *api.TaskImportReq) (tas
 			"source":         "pm_import",
 		})
 		if err != nil {
-			return taskIds, fmt.Errorf("导入任务失败: %v", err)
+			return taskIds, liberr.WrapDb(ctx, err, "导入任务失败")
 		}
 		lastId, _ := result.LastInsertId()
 		tid := int(lastId)
@@ -666,7 +667,7 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 		"user_type": req.UserType,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建评论失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建评论失败")
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
@@ -682,7 +683,7 @@ func (s *sProject) ListComments(ctx context.Context, taskId int) (res *api.Comme
 		Order("c.id ASC").
 		Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询评论失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询评论失败")
 	}
 	res.List = list
 	return res, nil
@@ -699,7 +700,7 @@ func (s *sProject) CreateAiLog(ctx context.Context, req *api.AiLogCreateReq) (id
 		"status":     req.Status,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建AI执行日志失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建AI执行日志失败")
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
@@ -713,7 +714,7 @@ func (s *sProject) ListAiLogs(ctx context.Context, taskId int) (res *api.AiLogLi
 		Order("id DESC").
 		Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询AI执行日志失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询AI执行日志失败")
 	}
 	res.List = list
 	return res, nil
@@ -731,7 +732,7 @@ func (s *sProject) CreateSprint(ctx context.Context, req *api.SprintCreateReq) (
 		"status":     "planning",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建Sprint失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建Sprint失败")
 	}
 	lastId, _ := result.LastInsertId()
 	sprintId := int(lastId)
@@ -766,7 +767,7 @@ func (s *sProject) UpdateSprint(ctx context.Context, req *api.SprintUpdateReq) (
 	}
 	_, err = g.DB().Model("sprints").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
-		return fmt.Errorf("更新Sprint失败: %v", err)
+		return liberr.WrapDb(ctx, err, "更新Sprint失败")
 	}
 	return nil
 }
@@ -781,7 +782,7 @@ func (s *sProject) DeleteSprint(ctx context.Context, id int) (err error) {
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("删除Sprint失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除Sprint失败")
 	}
 	return nil
 }
@@ -792,7 +793,7 @@ func (s *sProject) GetSprint(ctx context.Context, id int) (res *api.SprintDetail
 		Where("id", id).
 		Scan(&item)
 	if err != nil {
-		return nil, fmt.Errorf("查询Sprint失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询Sprint失败")
 	}
 	if item.Id == 0 {
 		return nil, fmt.Errorf("Sprint不存在")
@@ -812,7 +813,7 @@ func (s *sProject) ListSprints(ctx context.Context, req *api.SprintListReq) (res
 	var list []api.SprintItem
 	err = m.Order("id DESC").Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询Sprint列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询Sprint列表失败")
 	}
 	res.List = list
 	return res, nil
@@ -826,7 +827,7 @@ func (s *sProject) AddTaskToSprint(ctx context.Context, sprintId, taskId int) (e
 		Data(g.Map{"sprint_id": sprintId}).
 		Update()
 	if err != nil {
-		return fmt.Errorf("添加任务到Sprint失败: %v", err)
+		return liberr.WrapDb(ctx, err, "添加任务到Sprint失败")
 	}
 	return nil
 }
@@ -838,7 +839,7 @@ func (s *sProject) RemoveTaskFromSprint(ctx context.Context, sprintId, taskId in
 		Data(g.Map{"sprint_id": 0}).
 		Update()
 	if err != nil {
-		return fmt.Errorf("从Sprint移除任务失败: %v", err)
+		return liberr.WrapDb(ctx, err, "从Sprint移除任务失败")
 	}
 	return nil
 }
@@ -860,7 +861,7 @@ func (s *sProject) GetBurndown(ctx context.Context, sprintId int) (res *api.Burn
 		Where("sprint_id", sprintId).
 		Count()
 	if err != nil {
-		return nil, fmt.Errorf("查询任务数量失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询任务数量失败")
 	}
 
 	// 按天统计完成的任务数
@@ -877,7 +878,7 @@ func (s *sProject) GetBurndown(ctx context.Context, sprintId int) (res *api.Burn
 		Order("date ASC").
 		Scan(&completedByDay)
 	if err != nil {
-		return nil, fmt.Errorf("统计燃尽图数据失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "统计燃尽图数据失败")
 	}
 
 	// 构建按天的数据
@@ -966,7 +967,7 @@ func (s *sProject) CreateRequirement(ctx context.Context, req *api.RequirementCr
 		"source":              "human",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建需求失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建需求失败")
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
@@ -1003,7 +1004,7 @@ func (s *sProject) UpdateRequirement(ctx context.Context, req *api.RequirementUp
 	}
 	_, err = g.DB().Model("requirements").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
-		return fmt.Errorf("更新需求失败: %v", err)
+		return liberr.WrapDb(ctx, err, "更新需求失败")
 	}
 	return nil
 }
@@ -1029,7 +1030,7 @@ func (s *sProject) DeleteRequirement(ctx context.Context, id int) (err error) {
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("删除需求失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除需求失败")
 	}
 	return nil
 }
@@ -1043,7 +1044,7 @@ func (s *sProject) GetRequirement(ctx context.Context, id int) (res *api.Require
 		Where("r.id", id).
 		Scan(&item)
 	if err != nil {
-		return nil, fmt.Errorf("查询需求失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询需求失败")
 	}
 	if item.Id == 0 {
 		return nil, fmt.Errorf("需求不存在")
@@ -1068,7 +1069,7 @@ func (s *sProject) ListRequirements(ctx context.Context, req *api.RequirementLis
 
 	total, err := countM.Count()
 	if err != nil {
-		return nil, fmt.Errorf("查询需求数量失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询需求数量失败")
 	}
 	res.Total = total
 
@@ -1090,7 +1091,7 @@ func (s *sProject) ListRequirements(ctx context.Context, req *api.RequirementLis
 	var list []api.RequirementItem
 	err = m.Page(req.Page, req.Size).Order("r.sort_order ASC, r.id DESC").Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询需求列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询需求列表失败")
 	}
 
 	if req.ParentId == 0 {
@@ -1145,7 +1146,7 @@ func (s *sProject) CreateMilestone(ctx context.Context, req *api.MilestoneCreate
 		"status":      "planning",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("创建里程碑失败: %v", err)
+		return 0, liberr.WrapDb(ctx, err, "创建里程碑失败")
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
@@ -1159,7 +1160,7 @@ func (s *sProject) ListMilestones(ctx context.Context, projectId int) (res *api.
 		Order("id DESC").
 		Scan(&list)
 	if err != nil {
-		return nil, fmt.Errorf("查询里程碑列表失败: %v", err)
+		return nil, liberr.WrapDb(ctx, err, "查询里程碑列表失败")
 	}
 	res.List = list
 	return res, nil

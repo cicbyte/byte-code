@@ -175,7 +175,7 @@ func (s *sDoc) Delete(ctx context.Context, id int) (err error) {
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("删除文档失败: %v", err)
+		return liberr.WrapDb(ctx, err, "删除文档失败")
 	}
 
 	activity.Record(ctx, activity.ActivityInput{
