@@ -64,7 +64,9 @@
       });
 
       const inverted = computed(() => {
-        return ['dark', 'header-dark'].includes(settingStore.navTheme);
+        // 视觉基线为浅色白卡（悬浮栏布局），菜单不做深色反转；
+        // 若未来恢复深色主题，这里应重新跟随 navTheme
+        return false && ['dark', 'header-dark'].includes(settingStore.navTheme);
       });
 
       const getSelectedKeys = computed(() => {

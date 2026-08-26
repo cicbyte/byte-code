@@ -13,7 +13,7 @@
       :collapsed-width="64"
       :width="leftMenuWidth"
       :native-scrollbar="false"
-      :inverted="inverted"
+      :inverted="false"
       class="layout-sider"
     >
       <Logo :collapsed="collapsed" />
@@ -31,7 +31,7 @@
         :collapsed="false"
         :width="menuWidth"
         :native-scrollbar="false"
-        :inverted="inverted"
+        :inverted="false"
         class="layout-sider"
       >
         <Logo :collapsed="collapsed" />
@@ -40,8 +40,8 @@
     </n-drawer>
 
     <n-layout :inverted="inverted">
-      <n-layout-header :inverted="getHeaderInverted" :position="fixedHeader">
-        <PageHeader v-model:collapsed="collapsed" :inverted="inverted" />
+      <n-layout-header :inverted="false" :position="fixedHeader">
+        <PageHeader v-model:collapsed="collapsed" :inverted="false" />
       </n-layout-header>
 
       <n-layout-content
