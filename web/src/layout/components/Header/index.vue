@@ -140,7 +140,6 @@
   import { useProjectSetting } from '@/hooks/setting/useProjectSetting';
   import { AsideMenu } from '@/layout/components/Menu';
   import { RedirectName } from '@/router/constant';
-  import { useScreenLockStore } from '@/store/modules/screenLock';
   import { useEntityContext } from '@/store/modules/entityContext';
   import { useUserStore } from '@/store/modules/user';
   import { NDialogProvider, useDialog, useMessage } from 'naive-ui';
@@ -167,7 +166,6 @@
     setup(props, { emit }) {
       const userStore = useUserStore();
       const entityContext = useEntityContext();
-      const useLockscreen = useScreenLockStore();
       const message = useMessage();
       const dialog = useDialog();
       const searchRef = vueRef(null);
@@ -299,13 +297,6 @@
           tips: 'github',
           eventObject: {
             click: () => window.open('https://github.com/cicbyte/byte-code'),
-          },
-        },
-        {
-          icon: 'LockOutlined',
-          tips: '锁屏',
-          eventObject: {
-            click: () => useLockscreen.setLock(true),
           },
         },
       ];
