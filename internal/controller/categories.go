@@ -36,8 +36,13 @@ func (c *categoriesController) List(ctx context.Context, req *api.CategoriesList
 }
 
 func (c *categoriesController) Get(ctx context.Context, req *api.CategoriesDetailReq) (res *api.CategoriesDetailRes, err error) {
+	// 原实现丢弃了查询结果，接口恒返回空对象
+	info, err := service.Categories().GetById(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
 	res = new(api.CategoriesDetailRes)
-	service.Categories().GetById(ctx, req.Id)
+	res.CategoriesInfo = info
 	return
 }
 

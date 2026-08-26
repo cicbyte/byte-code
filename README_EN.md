@@ -55,7 +55,7 @@ pnpm dev
 
 Backend runs at [http://localhost:8000](http://localhost:8000), frontend dev server at [http://localhost:8002](http://localhost:8002).
 
-Default admin credentials: `admin` / `123456`
+Default admin credentials: `admin` / `admin123` (forced password change on first login; only password-related pages are accessible until changed)
 
 ## Tech Stack
 
@@ -109,6 +109,8 @@ Config file: `manifest/config/config.yaml`
 | `server.openapiPath` | OpenAPI doc path | `/api.json` |
 | `server.swaggerPath` | Swagger UI path | `/swagger` |
 | `database.default.link` | Database connection | `sqlite::@file(./resource/data/app.db)` |
+| `database.default.extra` | SQLite connection PRAGMAs (WAL, busy_timeout) | `busy_timeout=10000&journal_mode=WAL` |
+| `token.secret` | JWT signing secret; empty = auto-generated to `resource/data/jwt.secret` (or use env `JWT_SECRET`) | empty (auto) |
 
 ## Build
 
