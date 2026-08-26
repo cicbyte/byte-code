@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card :bordered="false" class="proCard">
+    <n-card :bordered="false" title="里程碑" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="showCreate = true">新建里程碑</n-button>
       </template>

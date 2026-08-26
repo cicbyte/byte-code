@@ -1,10 +1,6 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" title="AI 用户管理" />
-    </div>
-
-    <n-card :bordered="false" class="mt-4 proCard">
+    <n-card :bordered="false" title="AI 用户管理" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="handleCreate">
           <template #icon>

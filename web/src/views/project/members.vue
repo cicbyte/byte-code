@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card :bordered="false" class="proCard">
+    <n-card :bordered="false" title="项目成员" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="showAddModal = true">添加成员</n-button>
       </template>

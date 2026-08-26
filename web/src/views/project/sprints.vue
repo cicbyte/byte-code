@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card :bordered="false" class="proCard">
+    <n-card :bordered="false" title="Sprint 管理" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="showCreate = true">新建 Sprint</n-button>
       </template>
