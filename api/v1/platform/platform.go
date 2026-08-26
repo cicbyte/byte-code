@@ -53,7 +53,7 @@ type TagAttachReq struct {
 	g.Meta      `path:"/tags/{id}/attach" method:"post" tags:"标签" summary:"给实体打标签"`
 	Id          int    `json:"id" v:"required" in:"path"`
 	EntityType  string `json:"entityType" v:"required|in:task,requirement,test_case#实体类型不能为空"`
-	EntityId    int    `json:"entityId" v:"required#实体ID不能为空"`
+	EntityId    int    `json:"entityId" v:"required|min:1#实体ID不能为空|实体ID必须大于0"`
 }
 
 type TagAttachRes struct {
@@ -64,7 +64,7 @@ type TagDetachReq struct {
 	g.Meta      `path:"/tags/{id}/detach" method:"delete" tags:"标签" summary:"移除实体标签"`
 	Id          int    `json:"id" v:"required" in:"path"`
 	EntityType  string `json:"entityType" v:"required" in:"query"`
-	EntityId    int    `json:"entityId" v:"required" in:"query"`
+	EntityId    int    `json:"entityId" v:"required|min:1" in:"query"`
 }
 
 type TagDetachRes struct {

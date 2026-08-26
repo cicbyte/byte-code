@@ -71,6 +71,19 @@ func (s *sSetting) ChangePassword(ctx context.Context, req *api.ChangePasswordRe
 	if err = bcrypt.CompareHashAndPassword([]byte(record["password"].String()), []byte(req.OldPassword)); err != nil {
 		return fmt.Errorf("旧密码不正确")
 	}
+	// 密码复杂度：须同时包含字母与数字（长度由 API 校验为 8-20 位）
+	hasLetter, hasDigit := false, false
+	for _, c := range req.NewPassword {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+			hasLetter = true
+		}
+		if c >= '0' && c <= '9' {
+			hasDigit = true
+		}
+	}
+	if !hasLetter || !hasDigit {
+		return fmt.Errorf("新密码必须同时包含字母和数字")
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 10)
 	if err != nil {
 		return fmt.Errorf("密码加密失败")

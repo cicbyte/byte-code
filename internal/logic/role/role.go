@@ -6,6 +6,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/role"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/escape"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -34,7 +35,7 @@ func (s *sRole) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 	err = g.Try(ctx, func(ctx context.Context) {
 		m := g.DB().Model("sys_roles")
 		if req.Name != "" {
-			m = m.Where("name like ?", "%"+req.Name+"%")
+			m = m.Where("name like ? ESCAPE '\\'", "%"+escape.Like(req.Name)+"%")
 		}
 		if req.PageSize == 0 {
 			req.PageSize = 10

@@ -9,6 +9,7 @@ import (
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -176,7 +177,7 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 			countM = countM.Where("test_cases.status", req.Status)
 		}
 		if req.Keyword != "" {
-			countM = countM.Where("test_cases.title LIKE ?", "%"+req.Keyword+"%")
+			countM = countM.Where("test_cases.title LIKE ? ESCAPE '\\'", "%"+escape.Like(req.Keyword)+"%")
 		}
 
 		total, err = countM.Count()
@@ -199,7 +200,7 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 			m = m.Where("test_cases.status", req.Status)
 		}
 		if req.Keyword != "" {
-			m = m.Where("test_cases.title LIKE ?", "%"+req.Keyword+"%")
+			m = m.Where("test_cases.title LIKE ? ESCAPE '\\'", "%"+escape.Like(req.Keyword)+"%")
 		}
 
 		pageNum := req.PageNum

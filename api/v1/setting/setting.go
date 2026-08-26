@@ -34,7 +34,7 @@ type UpdateProfileRes struct {
 type ChangePasswordReq struct {
 	g.Meta      `path:"/account/password" method:"put" tags:"个人设置" summary:"修改密码"`
 	OldPassword string `json:"oldPassword" v:"required#请输入旧密码"`
-	NewPassword string `json:"newPassword" v:"required|length:6,20#请输入新密码|密码长度为6-20位"`
+	NewPassword string `json:"newPassword" v:"required|length:8,20#请输入新密码|密码长度为8-20位"`
 }
 
 type ChangePasswordRes struct {

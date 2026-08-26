@@ -9,6 +9,7 @@ import (
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -218,7 +219,7 @@ func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list [
 			countM = countM.Where("d.status", req.Status)
 		}
 		if req.Keyword != "" {
-			countM = countM.Where("d.title LIKE ?", "%"+req.Keyword+"%")
+			countM = countM.Where("d.title LIKE ? ESCAPE '\\'", "%"+escape.Like(req.Keyword)+"%")
 		}
 
 		total, err = countM.Count()
@@ -245,7 +246,7 @@ func (s *sDoc) List(ctx context.Context, req *api.DocListReq) (total int, list [
 			m = m.Where("d.status", req.Status)
 		}
 		if req.Keyword != "" {
-			m = m.Where("d.title LIKE ?", "%"+req.Keyword+"%")
+			m = m.Where("d.title LIKE ? ESCAPE '\\'", "%"+escape.Like(req.Keyword)+"%")
 		}
 
 		pageNum := req.PageNum
@@ -557,7 +558,7 @@ func (s *sDoc) searchDocs(ctx context.Context, keyword string, results *[]api.Se
 		Title string
 	}
 	err := g.DB().Model("docs").Ctx(ctx).
-		Where("title LIKE ? OR content LIKE ?", "%"+keyword+"%", "%"+keyword+"%").
+		Where("title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\'", "%"+escape.Like(keyword)+"%", "%"+escape.Like(keyword)+"%").
 		Fields("id, title").
 		Limit(50).
 		Scan(&docs)
@@ -580,7 +581,7 @@ func (s *sDoc) searchTable(ctx context.Context, tableName, module, keyword strin
 		Title string
 	}
 	err := g.DB().Model(tableName).Ctx(ctx).
-		Where("title LIKE ?", "%"+keyword+"%").
+		Where("title LIKE ? ESCAPE '\\'", "%"+escape.Like(keyword)+"%").
 		Fields("id, title").
 		Limit(50).
 		Scan(&items)

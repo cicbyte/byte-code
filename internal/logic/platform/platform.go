@@ -3,11 +3,11 @@ package platform
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/platform"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -205,7 +205,7 @@ func (s *sPlatform) UnreadCount(ctx context.Context) (count int, err error) {
 
 func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.SearchRes, err error) {
 	res = &api.SearchRes{}
-	keyword := "%" + req.Q + "%"
+	keyword := "%" + escape.Like(req.Q) + "%"
 
 	// 各模块统一 LIKE 检索，返回所属项目便于前端跳转；
 	// docs 的 FTS5 分支已移除：docs_fts 表从未创建，原实现恒降级到 LIKE
@@ -213,10 +213,10 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		table string
 		where string
 	}{
-		"task":        {"tasks", "title LIKE ? OR description LIKE ?"},
-		"requirement": {"requirements", "title LIKE ? OR description LIKE ?"},
-		"doc":         {"docs", "title LIKE ? OR content LIKE ?"},
-		"test_case":   {"test_cases", "title LIKE ? OR steps LIKE ?"},
+		"task":        {"tasks", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
+		"requirement": {"requirements", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
+		"doc":         {"docs", "title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\'"},
+		"test_case":   {"test_cases", "title LIKE ? ESCAPE '\\' OR steps LIKE ? ESCAPE '\\'"},
 	}
 	modules := []string{"task", "requirement", "doc", "test_case"}
 	if req.Module != "" {
@@ -261,17 +261,6 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 
 	return
 }
-
-func escapeFts(q string) string {
-	// FTS5 特殊字符转义
-	replacer := strings.NewReplacer(
-		`"`, `""`,
-		`'`, `''`,
-	)
-	return replacer.Replace(q)
-}
-
-// ========== 仪表�?==========
 
 func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStatsRes, err error) {
 	res = &api.DashboardStatsRes{

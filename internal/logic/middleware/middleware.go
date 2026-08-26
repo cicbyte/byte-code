@@ -73,7 +73,7 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 	// 只接受请求头携带 token：URL query 传 token 会进入访问日志/浏览器历史/代理日志
 	tokenStr := r.Header.Get("token")
 	if tokenStr == "" {
-		r.Response.WriteHeader(http.StatusOK)
+		r.Response.WriteHeader(http.StatusUnauthorized)
 		r.Response.Header().Set("Content-Type", "application/json")
 		r.Response.Write(jsonStr(401, nil, "未登录或登录已过期"))
 		r.ExitAll()
@@ -81,7 +81,7 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 	}
 	userId, err := service.Auth().ValidateToken(r.Context(), tokenStr)
 	if err != nil {
-		r.Response.WriteHeader(http.StatusOK)
+		r.Response.WriteHeader(http.StatusUnauthorized)
 		r.Response.Header().Set("Content-Type", "application/json")
 		r.Response.Write(jsonStr(401, nil, "登录已过期，请重新登录"))
 		r.ExitAll()
@@ -164,7 +164,7 @@ func resolveProjectId(ctx context.Context, path string) int {
 func (s *sMiddleware) MiddlewareProjectAuth(r *ghttp.Request) {
 	uid := perm.UserId(r.Context())
 	if uid == 0 {
-		r.Response.WriteHeader(http.StatusOK)
+		r.Response.WriteHeader(http.StatusUnauthorized)
 		r.Response.Header().Set("Content-Type", "application/json")
 		r.Response.Write(jsonStr(401, nil, "未登录或登录已过期"))
 		r.ExitAll()

@@ -8,6 +8,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
+	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/cicbyte/byte-code/utility/notify"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
@@ -180,8 +181,8 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 		countM = countM.Where("p.status", req.Status)
 	}
 	if req.Keyword != "" {
-		kw := "%" + req.Keyword + "%"
-		countM = countM.Where("(p.name LIKE ? OR p.description LIKE ?)", kw, kw)
+		kw := "%" + escape.Like(req.Keyword) + "%"
+		countM = countM.Where("(p.name LIKE ? ESCAPE '\\' OR p.description LIKE ? ESCAPE '\\')", kw, kw)
 	}
 
 	total, err := countM.Count()
@@ -202,8 +203,8 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 		m = m.Where("p.status", req.Status)
 	}
 	if req.Keyword != "" {
-		kw := "%" + req.Keyword + "%"
-		m = m.Where("(p.name LIKE ? OR p.description LIKE ?)", kw, kw)
+		kw := "%" + escape.Like(req.Keyword) + "%"
+		m = m.Where("(p.name LIKE ? ESCAPE '\\' OR p.description LIKE ? ESCAPE '\\')", kw, kw)
 	}
 
 	var list []api.ProjectItem
@@ -417,8 +418,8 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 		countM = countM.Where("t.assignee_id", req.AssigneeId)
 	}
 	if req.Keyword != "" {
-		kw := "%" + req.Keyword + "%"
-		countM = countM.Where("(t.title LIKE ? OR t.description LIKE ?)", kw, kw)
+		kw := "%" + escape.Like(req.Keyword) + "%"
+		countM = countM.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
 	}
 
 	total, err := countM.Count()
@@ -446,8 +447,8 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 		m = m.Where("t.assignee_id", req.AssigneeId)
 	}
 	if req.Keyword != "" {
-		kw := "%" + req.Keyword + "%"
-		m = m.Where("(t.title LIKE ? OR t.description LIKE ?)", kw, kw)
+		kw := "%" + escape.Like(req.Keyword) + "%"
+		m = m.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
 	}
 
 	var list []api.TaskItem
@@ -660,11 +661,18 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 		userId = uid.(int)
 	}
 
+	// user_type 由服务端按账号类型推导（AI 账号经 Key 登录记为 ai），
+	// 不信任客户端声明，防止伪造 AI 评论
+	userType := "human"
+	if v, _ := g.DB().Model("sys_users").Where("id", userId).Fields("type").Value(); v != nil && v.String() == "ai" {
+		userType = "ai"
+	}
+
 	result, err := g.DB().Model("comments").Ctx(ctx).Insert(g.Map{
 		"task_id":   req.TaskId,
 		"user_id":   userId,
 		"content":   req.Content,
-		"user_type": req.UserType,
+		"user_type": userType,
 	})
 	if err != nil {
 		return 0, liberr.WrapDb(ctx, err, "创建评论失败")

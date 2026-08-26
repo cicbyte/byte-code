@@ -77,9 +77,10 @@ func GenerateToken(userId int, username string) (string, error) {
 }
 
 func ParseToken(tokenString string) (*Claims, error) {
+	// 锁定 HS256：拒绝任何其他算法（防御 alg 混淆类攻击）
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return loadJwtSecret(), nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, err
 	}
