@@ -17,7 +17,8 @@
       class="layout-sider"
     >
       <Logo :collapsed="collapsed" />
-      <AsideMenu v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
+      <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
+      <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
     </n-layout-sider>
 
     <n-drawer
@@ -34,8 +35,9 @@
         :inverted="false"
         class="layout-sider"
       >
-        <Logo :collapsed="collapsed" />
-        <AsideMenu v-model:location="getMenuLocation" />
+        <Logo :collapsed="false" />
+        <ProjectMenu v-if="inProjectContext" :collapsed="false" />
+        <AsideMenu v-else v-model:location="getMenuLocation" />
       </n-layout-sider>
     </n-drawer>
 
@@ -48,7 +50,7 @@
         class="layout-content"
         :class="{ 'layout-default-background': getDarkTheme === false }"
       >
-        <Entity-nav-bar />
+        <!-- 实体子导航已改为左侧项目专属菜单（EntityNavBar 保留组件以备恢复） -->
         <div
           class="layout-content-main"
           :class="{
@@ -72,6 +74,8 @@
   import { AsideMenu } from './components/Menu';
   import { PageHeader } from './components/Header';
   import EntityNavBar from './components/EntityNavBar/index.vue';
+  import ProjectMenu from './components/Menu/ProjectMenu.vue';
+  import { useEntityContext } from '@/store/modules/entityContext';
   import { useProjectSetting } from '@/hooks/setting/useProjectSetting';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import { useRoute } from 'vue-router';
@@ -86,6 +90,9 @@
   } = useProjectSetting();
 
   const settingStore = useProjectSettingStore();
+  const entityContext = useEntityContext();
+  // 项目工作台内左侧菜单整体替换为该项目专属导航
+  const inProjectContext = computed(() => entityContext.currentEntityType === 'project');
 
   const collapsed = ref<boolean>(false);
 
@@ -232,8 +239,8 @@
   .layout-content-main {
     margin: 0 16px 16px;
     position: relative;
-    // header 浮卡带 8px 上边距，内容需让出对应高度
-    padding-top: 72px;
+    // header 浮卡带 8px 上边距，内容需让出对应高度（原 40px 实体导航条已移除）
+    padding-top: 80px;
   }
 
   .fluid-header {
