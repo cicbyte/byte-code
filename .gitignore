@@ -39,6 +39,9 @@ logs/
 # 运行时自动生成的 JWT 秘钥
 resource/data/jwt.secret
 
+# 数据库备份文件
+resource/backup/
+
 # 缓存文件
 .cache/
 

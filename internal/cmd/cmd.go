@@ -9,6 +9,7 @@ import (
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/auditwriter"
 	"github.com/cicbyte/byte-code/utility/dbclean"
+	"github.com/cicbyte/byte-code/utility/dbbackup"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/frame/g"
@@ -34,6 +35,14 @@ var (
 				dbclean.Run(ctx)
 			}); err != nil {
 				g.Log().Warningf(ctx, "schedule dbclean failed: %v", err)
+			}
+
+			// 数据库在线备份：启动即执行一次，此后每天 03:30 执行（错开清理任务）
+			dbbackup.Run(ctx)
+			if _, err := gcron.AddSingleton(ctx, "0 30 3 * * *", func(ctx context.Context) {
+				dbbackup.Run(ctx)
+			}); err != nil {
+				g.Log().Warningf(ctx, "schedule dbbackup failed: %v", err)
 			}
 
 			// 审计日志异步落盘协程

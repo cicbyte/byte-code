@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"time"
 
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/project"
@@ -34,6 +35,11 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 		return 0, fmt.Errorf("未获取到用户信息")
 	}
 	uid := userId.(int)
+
+	// 同名项目查重（projects.name 不设 DB 唯一约束，由业务层保证）
+	if cnt, _ := g.DB().Model("projects").Ctx(ctx).Where("name", req.Name).Count(); cnt > 0 {
+		return 0, fmt.Errorf("项目名称已存在")
+	}
 
 	// 开启事务
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
@@ -123,11 +129,11 @@ func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
 			}
 		}
 
-		// 项目级实体
+		// 项目级实体（activities 无外键但同属项目数据，一并清理避免孤儿）
 		for _, table := range []string{
 			"tasks", "sprints", "requirements", "milestones", "docs",
 			"test_cases", "test_plans", "project_databases", "db_tables",
-			"schema_versions", "project_members",
+			"schema_versions", "project_members", "activities",
 		} {
 			if _, err := tx.Delete(table, "project_id", id); err != nil {
 				return err
@@ -313,6 +319,15 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	}
 	if req.Status != "" {
 		data["status"] = req.Status
+		switch req.Status {
+		case "done", "closed":
+			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur == nil || cur.String() == "" {
+				data["completed_at"] = time.Now().Format("2006-01-02 15:04:05")
+			}
+		default:
+			// 重开任务清空完成时间，再次完成后重新记录
+			data["completed_at"] = ""
+		}
 	}
 	if req.Priority > 0 {
 		data["priority"] = req.Priority
@@ -508,6 +523,8 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 
 	data := g.Map{
 		"status": "review",
+		// 完成时间独立记录：燃尽图按此统计，任务后续编辑不会重写历史
+		"completed_at": time.Now().Format("2006-01-02 15:04:05"),
 	}
 	if req.Artifacts != "" {
 		data["artifacts"] = req.Artifacts
@@ -879,7 +896,7 @@ func (s *sProject) GetBurndown(ctx context.Context, sprintId int) (res *api.Burn
 	}
 	var completedByDay []dayCount
 	err = g.DB().Model("tasks").Ctx(ctx).
-		Fields("DATE(updated_at) as date, COUNT(*) as completed").
+		Fields("DATE(COALESCE(NULLIF(completed_at, ''), updated_at)) as date, COUNT(*) as completed").
 		Where("sprint_id", sprintId).
 		WhereIn("status", g.Slice{"done", "closed"}).
 		Group("DATE(updated_at)").

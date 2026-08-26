@@ -19,7 +19,9 @@ database:
     # SQLite 连接级 PRAGMA（驱动会对连接池每条连接生效）：
     # - journal_mode=WAL：允许读写并发，AI 并发场景下显著减少锁竞争
     # - busy_timeout=10000：写锁被占时最多等待 10 秒而非立即报 SQLITE_BUSY
-    # 注意：foreign_keys 暂不开启——DeleteProject/DeleteTask 尚未级联清理关联表，开启会导致删除大面积报错
+    # - foreign_keys 暂不开启：实测与 schema 的「0=无引用」约定冲突
+    #   （requirement_id/assignee_id 等列 DEFAULT 0 且定义了外键，开 FK 后常规写入即违反约束）。
+    #   需先将这些可空引用列改为 NULL 语义后方可开启。
     extra: "busy_timeout=10000&journal_mode=WAL"
 
 # Token 认证配置
