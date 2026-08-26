@@ -1,15 +1,5 @@
 <template>
   <div class="project-menu">
-    <div class="project-menu-back" @click="goList">
-      <n-icon size="14"><ArrowLeftOutlined /></n-icon>
-      <span>所有项目</span>
-    </div>
-
-    <div class="project-menu-title" :title="projectName">
-      <n-icon size="15" class="project-menu-title-icon"><FolderOpenOutlined /></n-icon>
-      <span class="project-menu-title-name">{{ projectName || '项目' }}</span>
-    </div>
-
     <n-menu
       :value="activeKey"
       :options="menuOptions"
@@ -27,8 +17,6 @@
   import { useRoute, useRouter } from 'vue-router';
   import { NIcon } from 'naive-ui';
   import {
-    ArrowLeftOutlined,
-    FolderOpenOutlined,
     HomeOutlined,
     AppstoreOutlined,
     UnorderedListOutlined,
@@ -47,7 +35,6 @@
   const entityContext = useEntityContext();
 
   const projectId = computed(() => entityContext.currentProject?.id);
-  const projectName = computed(() => entityContext.currentEntityName);
 
   const renderIcon = (icon: any) =>
     () =>
@@ -79,52 +66,11 @@
   function handleSelect(key: string) {
     router.push(key);
   }
-
-  function goList() {
-    router.push('/project/list');
-  }
 </script>
 
 <style lang="less" scoped>
   .project-menu {
-    display: flex;
-    flex-direction: column;
     height: 100%;
     padding-top: 4px;
-
-    .project-menu-back {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      padding: 8px 16px;
-      color: var(--n-text-color-3, #97999d);
-      font-size: 12px;
-      cursor: pointer;
-      transition: color 0.2s;
-
-      &:hover {
-        color: var(--n-text-color-1, #1c1d21);
-      }
-    }
-
-    .project-menu-title {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 10px 16px 12px;
-      font-size: 13px;
-      font-weight: 600;
-
-      .project-menu-title-icon {
-        flex: none;
-        color: #16a34a;
-      }
-
-      .project-menu-title-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
   }
 </style>
