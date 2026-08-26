@@ -182,15 +182,20 @@
     flex: auto;
 
     &-default-background {
-      background: #f5f7f9;
+      background: var(--canvas, #f1f1ee);
     }
 
     .layout-sider {
-      min-height: 100vh;
-      box-shadow: 2px 0 8px 0 rgb(29 35 41 / 5%);
       position: relative;
       z-index: 13;
       transition: all 0.2s ease-in-out;
+      // 悬浮栏卡片：白底圆角浮于画布之上，与内容区留 8px 细缝
+      // 高度扣除上下边距，避免底边被视口裁切
+      margin: 8px 0 8px 8px;
+      min-height: calc(100vh - 16px);
+      border-radius: var(--panel-radius, 12px);
+      background: #fff;
+      box-shadow: var(--panel-shadow);
     }
 
     .layout-sider-fix {
@@ -225,9 +230,10 @@
   }
 
   .layout-content-main {
-    margin: 0 10px 10px;
+    margin: 0 16px 16px;
     position: relative;
-    padding-top: 64px;
+    // header 浮卡带 8px 上边距，内容需让出对应高度
+    padding-top: 72px;
   }
 
   .fluid-header {

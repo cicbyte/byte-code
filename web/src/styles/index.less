@@ -1,1 +1,42 @@
 @import url('./transition/index.less');
+
+/* ============================================================
+   视觉基线（参考 dev-docs/prototype · HiFox 风格）
+   浅灰画布 + 白色圆角浮卡布局，细滚动条，13px 密度
+   ============================================================ */
+:root {
+  --canvas: #f1f1ee;
+  --panel-radius: 12px;
+  --panel-shadow: 0 1px 2px rgba(19, 19, 22, 0.03), 0 10px 28px -16px rgba(19, 19, 22, 0.1);
+  --panel-shadow-hover: 0 2px 4px rgba(19, 19, 22, 0.04), 0 18px 44px -16px rgba(19, 19, 22, 0.18);
+  --line: #e9e9e7;
+}
+
+body {
+  font-size: 13px;
+  background: var(--canvas);
+}
+
+/* 细滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d6d6d3;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbb;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background: rgba(22, 163, 74, 0.18);
+}

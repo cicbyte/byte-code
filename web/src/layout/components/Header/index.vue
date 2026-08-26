@@ -366,10 +366,15 @@
     align-items: center;
     padding: 0;
     height: 64px;
-    box-shadow: 0 1px 4px rgb(0 21 41 / 8%);
-    transition: all 0.2s ease-in-out;
     width: 100%;
     z-index: 11;
+    // 悬浮栏卡片：与画布/侧栏留 8px 细缝
+    margin: 8px 8px 0;
+    width: calc(100% - 16px);
+    border-radius: var(--panel-radius, 12px);
+    background: #fff;
+    box-shadow: var(--panel-shadow);
+    transition: box-shadow 0.3s ease-in-out;
 
     &-left {
       display: flex;
