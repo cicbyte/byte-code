@@ -12,7 +12,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed } from 'vue';
+  import { computed, watch } from 'vue';
   import { zhCN, dateZhCN, darkTheme } from 'naive-ui';
   import { AppProvider } from '@/components/Application';
   import { useDesignSettingStore } from '@/store/modules/designSetting';
@@ -27,6 +27,10 @@
   const getThemeOverrides = computed(() => {
     const appTheme = designStore.appTheme;
     const lightenStr = lighten(designStore.appTheme, 6);
+    // 浅色/暗色两套表面令牌，与 styles/index.less 的 CSS 变量保持一致
+    const surface = designStore.darkTheme
+      ? { bodyColor: '#1b1c1f', cardColor: '#232428', borderColor: '#333438', dividerColor: '#333438' }
+      : { bodyColor: '#f1f1ee', cardColor: '#ffffff', borderColor: '#e9e9e7', dividerColor: '#e9e9e7' };
     return {
       common: {
         primaryColor: '#16a34a',
@@ -38,11 +42,7 @@
         fontSize: '13px',
         fontSizeMedium: '13px',
         fontSizeSmall: '12px',
-        bodyColor: '#f1f1ee',
-        cardColor: '#ffffff',
-        borderColor: '#e9e9e7',
-        dividerColor: '#e9e9e7',
-        textColorBase: '#1c1d21',
+        ...surface,
       },
       Card: {
         borderRadius: '12px',
@@ -55,6 +55,19 @@
       },
     };
   });
+
+  // 同步 DOM 主题属性，驱动全局 CSS 变量（画布/浮卡/滚动条）在明暗间切换
+  const applyDomTheme = () => {
+    document.documentElement.setAttribute(
+      'data-theme',
+      designStore.darkTheme ? 'dark' : 'light'
+    );
+  };
+  watch(
+    () => designStore.darkTheme,
+    () => applyDomTheme(),
+    { immediate: true }
+  );
 
   const getDarkTheme = computed(() => (designStore.darkTheme ? darkTheme : undefined));
 </script>

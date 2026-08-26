@@ -194,7 +194,7 @@
       margin: 8px 0 8px 8px;
       min-height: calc(100vh - 16px);
       border-radius: var(--panel-radius, 12px);
-      background: #fff;
+      background: var(--panel-bg, #fff);
       box-shadow: var(--panel-shadow);
     }
 

@@ -89,7 +89,9 @@
           <span>{{ item.tips }}</span>
         </n-tooltip>
       </div>
-      <!--通知中心-->
+      <!--明暗模式切换-->
+      <ThemeToggle />
+            <!--通知中心-->
       <NotificationIcon />
       <!--切换全屏-->
       <div class="layout-header-trigger layout-header-trigger-min">
@@ -148,12 +150,13 @@
   import components from './components';
   import ProjectSetting from './ProjectSetting.vue';
   import NotificationIcon from './NotificationIcon.vue';
+  import ThemeToggle from './ThemeToggle.vue';
   import SearchModal from './SearchModal.vue';
   import { ref as vueRef } from 'vue';
 
   export default defineComponent({
     name: 'PageHeader',
-    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, SearchModal },
+    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal },
     props: {
       collapsed: {
         type: Boolean,
@@ -372,7 +375,7 @@
     margin: 8px 8px 0;
     width: calc(100% - 16px);
     border-radius: var(--panel-radius, 12px);
-    background: #fff;
+    background: var(--panel-bg, #fff);
     box-shadow: var(--panel-shadow);
     transition: box-shadow 0.3s ease-in-out;
 

@@ -75,6 +75,9 @@ var (
 				}
 
 				// 其余路径（含站点根路径 /）都返回 index.html，让 Vue Router 处理
+				// index.html 必须禁缓存：它引用带 hash 的资源文件，缓存会导致发版后
+				// 用户一直加载旧 bundle（hash 资源自身可长缓存）
+				r.Response.Header().Set("Cache-Control", "no-cache")
 				r.Response.ServeFile("resource/public/index.html")
 				r.ExitAll()
 			})

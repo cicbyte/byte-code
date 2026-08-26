@@ -2,7 +2,12 @@ import { defineStore } from 'pinia';
 import { store } from '@/store';
 import designSetting from '@/settings/designSetting';
 
-const { darkTheme, appTheme, appThemeList } = designSetting;
+const { appTheme, appThemeList } = designSetting;
+
+// 暗色偏好持久化（用户手动切换后刷新保持）
+const DARK_THEME_KEY = 'BYTECODE-DARK-THEME';
+const storedDark = localStorage.getItem(DARK_THEME_KEY);
+const darkTheme = storedDark === null ? designSetting.darkTheme : storedDark === '1';
 
 interface DesignSettingState {
   //深色主题
@@ -31,7 +36,12 @@ export const useDesignSettingStore = defineStore({
       return this.appThemeList;
     },
   },
-  actions: {},
+  actions: {
+    toggleDarkTheme() {
+      this.darkTheme = !this.darkTheme;
+      localStorage.setItem(DARK_THEME_KEY, this.darkTheme ? '1' : '0');
+    },
+  },
 });
 
 // Need to be used outside the setup
