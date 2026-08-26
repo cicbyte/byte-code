@@ -1,11 +1,18 @@
 <template>
-  <div class="layout-header-trigger layout-header-trigger-min" @click="toggle">
+  <div
+    class="layout-header-trigger layout-header-trigger-min"
+    style="display: inline-flex; align-items: center"
+    @click="toggle"
+  >
     <n-tooltip placement="bottom">
       <template #trigger>
         <n-icon size="18">
           <!-- Lucide 风格太阳/月亮 -->
           <svg
             v-if="!isDark"
+            width="1em"
+            height="1em"
+            style="display: block"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -20,6 +27,9 @@
           </svg>
           <svg
             v-else
+            width="1em"
+            height="1em"
+            style="display: block"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
