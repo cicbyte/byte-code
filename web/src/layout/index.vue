@@ -14,7 +14,7 @@
         :collapsed="collapsed"
         collapse-mode="width"
         :collapsed-width="64"
-        :width="leftMenuWidth"
+        :width="menuWidth"
         :native-scrollbar="true"
         class="layout-sider"
       >
@@ -88,11 +88,6 @@
       return false;
     }
     return true;
-  });
-
-  const leftMenuWidth = computed(() => {
-    const { minMenuWidth, menuWidth } = unref(menuSetting);
-    return collapsed.value ? minMenuWidth : menuWidth;
   });
 
   const showSideDrawer = computed({

@@ -18,10 +18,10 @@
     </div>
     <!--左侧菜单-->
     <div class="layout-header-left" v-else>
-      <!-- Logo：Header 拉通全宽后从侧边栏头部移入 -->
+      <!-- Logo：Header 拉通全宽后从侧边栏头部移入；标题常显（不随菜单折叠收起，避免面包屑横跳） -->
       <div class="logo header-logo" @click="goHome">
         <img :src="websiteConfig.logo" alt="" />
-        <h2 v-show="!collapsed" class="title">{{ websiteConfig.title }}</h2>
+        <h2 class="title">{{ websiteConfig.title }}</h2>
       </div>
       <!-- 菜单收起 -->
       <div
