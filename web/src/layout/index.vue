@@ -219,8 +219,17 @@
     }
 
     .layout-content-main {
-      // 顶部 4px 统一呼吸距（页面级标题卡已移除，标题由 Header 面包屑承载）
+      // 顶部 4px 统一呼吸距（页面级标题卡已移除，标题由 Header 面包屑承载）；
+      // flex 列 + min-height 让看板等整页型视图可 flex:1 铺满视口
       padding: 4px 8px 8px;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+
+      // 普通页面根节点：宽度撑满、高度自适应（保持原块级行为）
+      > * {
+        width: 100%;
+      }
     }
   }
 </style>
