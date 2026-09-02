@@ -10,6 +10,13 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
+// 类型别名：vaulttools.go 中新工具的签名缩写
+type (
+	ToolInfo      = schema.ToolInfo
+	ParameterInfo = schema.ParameterInfo
+	ToolOption    = tool.Option
+)
+
 // ==================== ByteCode 工具定义 ====================
 // 将后端业务操作封装为 eino Tool，供 AI Agent 调用
 
@@ -116,12 +123,12 @@ func (t *GetProjectTool) InvokableRun(ctx context.Context, argsInJSON string, op
 	return string(b), nil
 }
 
-// ---- 搜索项目文档 ----
+// ---- 搜索项目文档（vault 索引） ----
 
 type SearchDocsTool struct{}
 
 func (t *SearchDocsTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
-	return toolInfo("search_docs", "在项目知识库中搜索文档标题和内容",
+	return toolInfo("search_docs", "在项目文档（磁盘 vault 索引）中搜索标题/标签/路径，返回 path 列表后用 read_doc 读正文",
 		map[string]*schema.ParameterInfo{
 			"projectId": paramInfo("integer", "项目ID"),
 			"keyword":   paramInfo("string", "搜索关键词"),
@@ -130,30 +137,44 @@ func (t *SearchDocsTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 }
 
 func (t *SearchDocsTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...tool.Option) (string, error) {
-	var p struct{ ProjectId int; Keyword string }
+	var p struct {
+		ProjectId int
+		Keyword   string
+	}
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
 	}
 
-	var docs []map[string]interface{}
-	err := g.DB().Model("docs").Ctx(ctx).
-		Fields("id, title, type").
+	like := "%" + p.Keyword + "%"
+	rows, err := g.DB().Model("project_document_index").Ctx(ctx).
+		Fields("path, title, space, type, tags").
 		Where("project_id", p.ProjectId).
-		Where("title LIKE ? OR content LIKE ?", "%"+p.Keyword+"%", "%"+p.Keyword+"%").
-		Limit(10).Scan(&docs)
+		Where("title LIKE ? OR tags LIKE ? OR path LIKE ?", like, like, like).
+		Order("space DESC, updated_at DESC"). // knowledge 优先
+		Limit(20).All()
 	if err != nil {
 		return "", fmt.Errorf("搜索失败: %v", err)
 	}
-
-	b, _ := json.Marshal(docs)
+	if len(rows) == 0 {
+		return marshalString(g.Map{"items": []string{}, "hint": "未搜到文档，可换关键词"}), nil
+	}
+	b, _ := json.Marshal(rows)
 	return string(b), nil
 }
 
-// GetTools 返回所有可用工具（实现 tool.InvokableTool 接口）
+// GetTools 返回所有可用工具（实现 tool.InvokableTool 接口）。
+// 第三组为记忆/文档中枢工具：AI 开工先读记忆与知识库，产出后沉淀记忆
 func GetTools() []tool.InvokableTool {
 	return []tool.InvokableTool{
 		&ListTasksTool{},
 		&GetProjectTool{},
 		&SearchDocsTool{},
+		&ReadDocTool{},
+		&KbConventionsTool{},
+		&DocLinkedTool{},
+		&MemListTool{},
+		&MemGetTool{},
+		&MemSetTool{},
+		&MemVerifyTool{},
 	}
 }

@@ -33,24 +33,30 @@ type ExecuteConfig struct {
 
 const systemPrompt = `你是 ByteCode 项目管理平台的 AI 助手。你已被分配了一个任务，请分析并执行它。
 
-规则：
-1. 首先调用 get_project 了解项目信息
-2. 调用 list_tasks 了解项目当前任务状况
-3. 如需查阅参考资料，调用 search_docs 搜索项目文档
-4. 完成分析后，输出你的工作结果（简洁报告，包含关键发现和建议）
+工作流（记忆/文档中枢）：
+1. 开工先取上下文：mem_list 扫描项目记忆（约定/偏好/结论），kb_get_conventions 读已发布知识库，doc_linked 拉取与本任务关联的文档（targetType=task, targetId=任务ID）
+2. 调用 get_project / list_tasks 了解项目与任务状况
+3. 需要更多资料时 search_docs 搜索 + read_doc 读正文
+4. 过程中发现的稳定结论：mem_set 沉淀为项目记忆（推测未确认用 status=pending）；确认某条记忆仍正确时 mem_verify 保鲜
+5. 完成后输出工作结果（简洁报告，包含关键发现和建议）
+
+记忆使用注意：mem_get/mem_list 返回的 hint 提示（过期/腐化/待验证）必须考虑，过期与腐化记忆不要作为依据。
 
 输出格式：
 ## 分析结果
 （对任务的理解和分析）
 
 ## 执行内容
-（你做了什么、查了什么、发现了什么）
+（你做了什么、查了什么、发现了什么、沉淀了哪些记忆）
 
 ## 结论
 （最终结论或建议）`
 
 // ExecuteTask 执行单个任务（ReAct 循环）
 func ExecuteTask(ctx context.Context, cfg *ExecuteConfig) (string, error) {
+	// AI 身份注入 ctx：mem_set/mem_verify 的 updated_by 来源标识
+	ctx = context.WithValue(ctx, ctxAIUserId, cfg.AIUserId)
+
 	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
 		Model:   cfg.Model,
 		APIKey:  cfg.ApiKey,

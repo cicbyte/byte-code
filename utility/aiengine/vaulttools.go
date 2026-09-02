@@ -1,0 +1,464 @@
+package aiengine
+
+// 记忆/文档中枢工具：vault 磁盘真相源（utility/vault）+ KV 记忆（project_memories）。
+// 与 logic 层同样的语义，工具层直连 g.DB() 保持本包自洽（与 tasks/project 工具一致）。
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/cicbyte/byte-code/utility/vault"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/gtime"
+)
+
+// ctxAIUserId executor 注入的 AI 用户 id（mem_set 来源标识）
+const ctxAIUserId = "aiUserId"
+
+func aiUserId(ctx context.Context) int {
+	if v, ok := ctx.Value(ctxAIUserId).(int); ok && v > 0 {
+		return v
+	}
+	return 0
+}
+
+// ==================== 文档工具 ====================
+
+// ---- 读取文档正文 ----
+
+type ReadDocArgs struct {
+	ProjectId int    `json:"projectId"`
+	Path      string `json:"path"`
+}
+
+type ReadDocTool struct{}
+
+func (t *ReadDocTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("read_doc", "读取项目文档正文（markdown 返回 frontmatter 元数据+正文；二进制只返回元数据）",
+		map[string]*ParameterInfo{
+			"projectId": paramInfo("integer", "项目ID"),
+			"path":      paramInfo("string", "vault 内相对路径（来自 search_docs/doc_linked 结果）"),
+		}, nil,
+	), nil
+}
+
+func (t *ReadDocTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p ReadDocArgs
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	abs, err := vault.SafeJoin(int64(p.ProjectId), p.Path)
+	if err != nil {
+		return "", fmt.Errorf("路径非法")
+	}
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		return "", fmt.Errorf("文件不存在: %s", p.Path)
+	}
+	ext := strings.ToLower(filepath.Ext(p.Path))
+	if !textExt(ext) {
+		return marshalString(g.Map{"binary": true, "path": p.Path, "size": len(data),
+			"hint": "二进制文件，内容不可读"}), nil
+	}
+	const maxBody = 8 * 1024
+	fm, body, _ := vault.ParseFrontmatter(string(data))
+	truncated := false
+	if len(body) > maxBody {
+		body = body[:maxBody]
+		truncated = true
+	}
+	return marshalString(g.Map{
+		"path": p.Path, "title": fm.Title, "space": fm.Space, "type": fm.Type,
+		"status": fm.Status, "tags": fm.Tags, "linked": fm.Linked,
+		"content": body, "truncated": truncated,
+	}), nil
+}
+
+func textExt(ext string) bool {
+	switch ext {
+	case ".md", ".markdown", ".mdx", ".txt":
+		return true
+	}
+	return false
+}
+
+// ---- 知识库开工注入 ----
+
+type KbConventionsTool struct{}
+
+func (t *KbConventionsTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("kb_get_conventions", "获取项目知识库已发布文档（规范/架构/决策/手册），开工前优先阅读",
+		map[string]*ParameterInfo{
+			"projectId": paramInfo("integer", "项目ID"),
+		}, nil,
+	), nil
+}
+
+func (t *KbConventionsTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p struct{ ProjectId int }
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	rows, err := g.DB().Model("project_document_index").Ctx(ctx).
+		Where("project_id", p.ProjectId).
+		Where("space", "knowledge").
+		Where("status", "published").
+		Order("updated_at DESC").Limit(5).All()
+	if err != nil {
+		return "", fmt.Errorf("查询失败")
+	}
+	if len(rows) == 0 {
+		return marshalString(g.Map{"items": []string{}, "hint": "知识库暂无已发布文档"}), nil
+	}
+	const maxBody = 1500
+	root := vault.RootPath(int64(p.ProjectId))
+	items := make([]g.Map, 0, len(rows))
+	for _, r := range rows {
+		item := g.Map{
+			"path": r["path"].String(), "title": r["title"].String(),
+			"type": r["type"].String(), "tags": r["tags"].String(),
+		}
+		if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(r["path"].String()))); err == nil {
+			_, body, _ := vault.ParseFrontmatter(string(data))
+			if len(body) > maxBody {
+				body = body[:maxBody] + "…（截断，read_doc 读全文）"
+			}
+			item["content"] = body
+		}
+		items = append(items, item)
+	}
+	return marshalString(g.Map{"items": items}), nil
+}
+
+// ---- 按任务反查关联文档 ----
+
+type DocLinkedTool struct{}
+
+func (t *DocLinkedTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("doc_linked", "反查与任务/需求/测试用例关联的文档（frontmatter linked），处理任务前先读关联文档",
+		map[string]*ParameterInfo{
+			"projectId":  paramInfo("integer", "项目ID"),
+			"targetType": paramInfo("string", "关联类型：task/req/tc"),
+			"targetId":   paramInfo("integer", "关联对象ID"),
+		}, nil,
+	), nil
+}
+
+func (t *DocLinkedTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p struct {
+		ProjectId  int    `json:"projectId"`
+		TargetType string `json:"targetType"`
+		TargetId   int    `json:"targetId"`
+	}
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	switch p.TargetType {
+	case "task", "req", "tc":
+	default:
+		return "", fmt.Errorf("targetType 必须是 task/req/tc")
+	}
+	target := fmt.Sprintf("%s:%d", p.TargetType, p.TargetId)
+	rows, err := g.DB().Model("project_document_index").Ctx(ctx).
+		Where("project_id", p.ProjectId).
+		Where("','||linked||',' LIKE ?", "%,"+target+",%").
+		Limit(5).All()
+	if err != nil {
+		return "", fmt.Errorf("查询失败")
+	}
+	if len(rows) == 0 {
+		return marshalString(g.Map{"target": target, "items": []string{}}), nil
+	}
+	const maxBody = 1500
+	root := vault.RootPath(int64(p.ProjectId))
+	items := make([]g.Map, 0, len(rows))
+	for _, r := range rows {
+		item := g.Map{"path": r["path"].String(), "title": r["title"].String()}
+		if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(r["path"].String()))); err == nil {
+			_, body, _ := vault.ParseFrontmatter(string(data))
+			if len(body) > maxBody {
+				body = body[:maxBody] + "…（截断，read_doc 读全文）"
+			}
+			item["content"] = body
+		}
+		items = append(items, item)
+	}
+	return marshalString(g.Map{"target": target, "items": items}), nil
+}
+
+// ==================== 记忆工具 ====================
+
+func memoryStaleDays(ctx context.Context) int {
+	v, err := g.DB().Model("sys_config").Ctx(ctx).Where("key", "memory_stale_days").Value("value")
+	if err != nil || v == nil {
+		return 30
+	}
+	if n, err := strconv.Atoi(v.String()); err == nil && n > 0 {
+		return n
+	}
+	return 30
+}
+
+// memStatusHint 惰性判定（不物化，物化由定时任务负责）：
+// 返回当前可用状态与人类可读提示
+func memStatusHint(status string, expiresAt, lastVerified *gtime.Time, now *gtime.Time, staleDays int) (string, string) {
+	if status == "expired" {
+		return "expired", "已过期（确定失效，勿依赖）"
+	}
+	if expiresAt != nil && !expiresAt.IsZero() && now.After(expiresAt) {
+		return "expired", "TTL 已到期（勿依赖，可 mem_set 覆盖更新）"
+	}
+	if status == "stale" {
+		return "stale", "已腐化（超阈值未验证，谨慎依赖）"
+	}
+	if lastVerified != nil && !lastVerified.IsZero() {
+		if days := int(now.Sub(lastVerified).Hours() / 24); days >= staleDays {
+			return "stale", fmt.Sprintf("已 %d 天未验证（阈值 %d 天），疑似过时，确认后请 mem_verify", days, staleDays)
+		}
+	}
+	if status == "pending" {
+		return "pending", "待验证（推测值，未经确认）"
+	}
+	return status, ""
+}
+
+// ---- 记忆列表 ----
+
+type MemListTool struct{}
+
+func (t *MemListTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("mem_list", "列出项目 KV 记忆（点分层级 key，如 conventions. / build.），开工前先扫描项目记忆",
+		map[string]*ParameterInfo{
+			"projectId": paramInfo("integer", "项目ID"),
+		},
+		map[string]*ParameterInfo{
+			"prefix": paramInfo("string", "key 前缀过滤，如 conventions."),
+		},
+	), nil
+}
+
+func (t *MemListTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p struct {
+		ProjectId int    `json:"projectId"`
+		Prefix    string `json:"prefix,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	m := g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", p.ProjectId).
+		Where("status IN (?)", g.Slice{"pending", "active"})
+	if p.Prefix != "" {
+		m = m.WhereLike("key", p.Prefix+"%")
+	}
+	rows, err := m.Order("key ASC").Limit(50).All()
+	if err != nil {
+		return "", fmt.Errorf("查询失败")
+	}
+	if len(rows) == 0 {
+		return marshalString(g.Map{"list": []string{}, "hint": "暂无可用记忆"}), nil
+	}
+	now := gtime.Now()
+	sd := memoryStaleDays(ctx)
+	type item struct {
+		Key      string `json:"key"`
+		Value    string `json:"value"`
+		Status   string `json:"status"`
+		Hint     string `json:"hint,omitempty"`
+		Verified string `json:"lastVerifiedAt"`
+	}
+	list := make([]item, 0, len(rows))
+	for _, r := range rows {
+		st, hint := memStatusHint(r["status"].String(), r["expires_at"].GTime(), r["last_verified_at"].GTime(), now, sd)
+		v := r["value"].String()
+		if len(v) > 600 {
+			v = v[:600] + "…"
+		}
+		list = append(list, item{Key: r["key"].String(), Value: v, Status: st, Hint: hint, Verified: r["last_verified_at"].String()})
+	}
+	return marshalString(g.Map{"list": list}), nil
+}
+
+// ---- 记忆读取 ----
+
+type MemGetTool struct{}
+
+func (t *MemGetTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("mem_get", "读取单条项目记忆（含可用性提示：过期/腐化/待验证）",
+		map[string]*ParameterInfo{
+			"projectId": paramInfo("integer", "项目ID"),
+			"key":       paramInfo("string", "记忆 key，点分层级如 build.cmd"),
+		}, nil,
+	), nil
+}
+
+func (t *MemGetTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p struct {
+		ProjectId int    `json:"projectId"`
+		Key       string `json:"key"`
+	}
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	r, err := g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", p.ProjectId).Where("key", p.Key).One()
+	if err != nil {
+		return "", fmt.Errorf("查询失败")
+	}
+	if r.IsEmpty() {
+		return "", fmt.Errorf("记忆不存在: %s", p.Key)
+	}
+	st, hint := memStatusHint(r["status"].String(), r["expires_at"].GTime(), r["last_verified_at"].GTime(), gtime.Now(), memoryStaleDays(ctx))
+	return marshalString(g.Map{
+		"key": p.Key, "value": r["value"].String(), "status": st, "hint": hint,
+		"lastVerifiedAt": r["last_verified_at"].String(),
+	}), nil
+}
+
+// ---- 记忆写入 ----
+
+type MemSetTool struct{}
+
+func (t *MemSetTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("mem_set", "写入/更新项目记忆（学到的约定、偏好、结论等；upsert）",
+		map[string]*ParameterInfo{
+			"projectId": paramInfo("integer", "项目ID"),
+			"key":       paramInfo("string", "记忆 key，点分层级如 conventions.naming"),
+			"value":     paramInfo("string", "记忆内容（纯文本，上限 64KB）"),
+		},
+		map[string]*ParameterInfo{
+			"ttl":    paramInfo("string", "有效期 30m/12h/7d，缺省永不过期"),
+			"status": paramInfo("string", "pending（推测未确认）或 active（默认，已验证）"),
+		},
+	), nil
+}
+
+func (t *MemSetTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p struct {
+		ProjectId int    `json:"projectId"`
+		Key       string `json:"key"`
+		Value     string `json:"value"`
+		Ttl       string `json:"ttl,omitempty"`
+		Status    string `json:"status,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	if strings.ContainsAny(p.Key, "/ ") || p.Key == "" {
+		return "", fmt.Errorf("key 非法（点分层级，不含空格和斜杠）")
+	}
+	if len(p.Value) > 64*1024 {
+		return "", fmt.Errorf("value 超过 64KB 上限")
+	}
+	if p.Status == "" {
+		p.Status = "active"
+	}
+	if p.Status != "active" && p.Status != "pending" {
+		return "", fmt.Errorf("status 仅支持 active/pending")
+	}
+	ttl, err := parseTtlSimple(p.Ttl)
+	if err != nil {
+		return "", err
+	}
+	uid := aiUserId(ctx)
+	now := gtime.Now()
+	data := g.Map{
+		"value": p.Value, "status": p.Status,
+		"expires_at": nil, "last_verified_at": now,
+		"verified_by": uid, "updated_by": uid, "updated_at": now,
+	}
+	if ttl > 0 {
+		data["expires_at"] = now.Add(ttl)
+	}
+	cnt, err := g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", p.ProjectId).Where("key", p.Key).Count()
+	if err != nil {
+		return "", fmt.Errorf("查询失败")
+	}
+	if cnt > 0 {
+		if _, err := g.DB().Model("project_memories").Ctx(ctx).
+			Where("project_id", p.ProjectId).Where("key", p.Key).Data(data).Update(); err != nil {
+			return "", fmt.Errorf("更新失败")
+		}
+	} else {
+		data["project_id"] = p.ProjectId
+		data["key"] = p.Key
+		data["created_at"] = now
+		if _, err := g.DB().Model("project_memories").Ctx(ctx).Data(data).Insert(); err != nil {
+			return "", fmt.Errorf("写入失败")
+		}
+	}
+	return marshalString(g.Map{"key": p.Key, "status": "saved"}), nil
+}
+
+// ---- 记忆验证保鲜 ----
+
+type MemVerifyTool struct{}
+
+func (t *MemVerifyTool) Info(ctx context.Context) (*ToolInfo, error) {
+	return toolInfo("mem_verify", "确认记忆仍正确时刷新验证时间（保鲜，防止腐化）",
+		map[string]*ParameterInfo{
+			"projectId": paramInfo("integer", "项目ID"),
+			"key":       paramInfo("string", "记忆 key"),
+		}, nil,
+	), nil
+}
+
+func (t *MemVerifyTool) InvokableRun(ctx context.Context, argsInJSON string, opts ...ToolOption) (string, error) {
+	var p struct {
+		ProjectId int    `json:"projectId"`
+		Key       string `json:"key"`
+	}
+	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
+		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	res, err := g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", p.ProjectId).Where("key", p.Key).
+		Data(g.Map{"status": "active", "last_verified_at": gtime.Now(),
+			"verified_by": aiUserId(ctx), "updated_at": gtime.Now()}).Update()
+	if err != nil {
+		return "", fmt.Errorf("更新失败")
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return "", fmt.Errorf("记忆不存在: %s", p.Key)
+	}
+	return marshalString(g.Map{"key": p.Key, "status": "verified"}), nil
+}
+
+// ==================== 内部工具 ====================
+
+func marshalString(v interface{}) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// parseTtlSimple 30m/12h/7d；空串永不过期
+func parseTtlSimple(s string) (time.Duration, error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return 0, nil
+	}
+	if len(s) < 2 {
+		return 0, fmt.Errorf("ttl 格式应为 30m/12h/7d")
+	}
+	unit := s[len(s)-1]
+	num, err := strconv.Atoi(s[:len(s)-1])
+	if err != nil || num <= 0 {
+		return 0, fmt.Errorf("ttl 格式应为 30m/12h/7d")
+	}
+	switch unit {
+	case 'm':
+		return time.Duration(num) * time.Minute, nil
+	case 'h':
+		return time.Duration(num) * time.Hour, nil
+	case 'd':
+		return time.Duration(num) * 24 * time.Hour, nil
+	}
+	return 0, fmt.Errorf("ttl 单位仅支持 m/h/d")
+}
