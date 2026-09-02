@@ -53,9 +53,6 @@
           </span>
         </n-breadcrumb-item>
       </n-breadcrumb>
-      <span v-if="entityContext.currentEntityName" class="entity-breadcrumb-name">
-        / {{ entityContext.currentEntityName }}
-      </span>
     </div>
     <div class="layout-header-right">
       <div
@@ -212,7 +209,28 @@
       };
 
       const breadcrumbList = computed(() => {
-        return generator(route.matched);
+        const matched = generator(route.matched);
+        // 项目工作台内：「项目管理 > 项目详情」两层折叠为项目名一级（可点回项目概览），
+        // 层级从 首页>项目管理>项目详情>子页 变为 首页>项目名>子页
+        if (
+          entityContext.currentEntityType === 'project' &&
+          entityContext.currentProject?.id &&
+          entityContext.currentEntityName
+        ) {
+          const overview = `/project/${entityContext.currentProject.id}/overview`;
+          const subPages = matched.filter(
+            (item) => item.meta.title !== '项目管理' && item.meta.title !== '项目详情'
+          );
+          return [
+            {
+              name: 'project-home',
+              path: overview,
+              meta: { title: entityContext.currentEntityName },
+            },
+            ...subPages,
+          ];
+        }
+        return matched;
       });
 
       // 面包屑导航：无悬浮下拉，层级可点击回跳；参数化路由按段数取当前实际路径前缀
@@ -404,12 +422,6 @@
 
       .n-breadcrumb {
         display: inline-block;
-      }
-
-      .entity-breadcrumb-name {
-        font-size: 13px;
-        color: #515a6e;
-        font-weight: 500;
       }
 
       &-menu {
