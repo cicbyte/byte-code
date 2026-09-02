@@ -91,10 +91,12 @@
 
   const settingStore = useProjectSettingStore();
   const entityContext = useEntityContext();
-  // 项目工作台内左侧菜单整体替换为该项目专属导航
-  const inProjectContext = computed(() => entityContext.currentEntityType === 'project');
 
   const collapsed = ref<boolean>(false);
+  const route = useRoute();
+  // 项目工作台内左侧菜单整体替换为该项目专属导航。
+  // 以路由参数同步判断（而非等 entityContext 的异步 API 返回），避免进入项目时全局菜单闪现
+  const inProjectContext = computed(() => !!route.params.projectId);
 
   const { mobileWidth, menuWidth } = unref(menuSetting);
 

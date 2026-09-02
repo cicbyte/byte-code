@@ -5,8 +5,8 @@
       :options="menuOptions"
       :collapsed="collapsed"
       :collapsed-width="64"
-      :collapsed-icon-size="18"
-      :indent="18"
+      :collapsed-icon-size="20"
+      :indent="24"
       @update:value="handleSelect"
     />
   </div>
@@ -34,7 +34,10 @@
   const router = useRouter();
   const entityContext = useEntityContext();
 
-  const projectId = computed(() => entityContext.currentProject?.id);
+  // 优先取路由参数（同步可用，不闪屏）；entityContext 兜底（如子组件内导航）
+  const projectId = computed(
+    () => Number(route.params.projectId) || entityContext.currentProject?.id
+  );
 
   const renderIcon = (icon: any) =>
     () =>
@@ -71,6 +74,5 @@
 <style lang="less" scoped>
   .project-menu {
     height: 100%;
-    padding-top: 4px;
   }
 </style>
