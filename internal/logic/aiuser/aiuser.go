@@ -154,13 +154,42 @@ func aiKeyResetFailures(ip string) {
 }
 
 func (s *sAiUser) LoginByApiKey(ctx context.Context, apiKey string) (token string, err error) {
-	// 按来源 IP 限制失败尝试，防止在线爆破 API Key
+	userId, username, err := s.verifyApiKeyHash(ctx, apiKey)
+	if err != nil {
+		return "", err
+	}
+	token, err = auth.GenerateToken(userId, username)
+	if err != nil {
+		return "", err
+	}
+	// 与账密登录一致：token 入库，否则 ValidateToken 校验不过（AI token 全部失效）
+	_, err = g.DB().Model("sys_tokens").Ctx(ctx).Insert(g.Map{
+		"user_id":    userId,
+		"token":      token,
+		"expired_at": time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02 15:04:05"),
+	})
+	if err != nil {
+		return "", fmt.Errorf("保存token失败")
+	}
+	return token, nil
+}
+
+// VerifyApiKey API Key 直认证（不签发 JWT）：供 TokenAuth 中间件
+// 的 bc_ 前缀分支使用，外部 agent 免登录流程直调 API
+func (s *sAiUser) VerifyApiKey(ctx context.Context, apiKey string) (userId int64, err error) {
+	id, _, err := s.verifyApiKeyHash(ctx, apiKey)
+	return int64(id), err
+}
+
+// verifyApiKeyHash 遍历 AI 用户做哈希比对（key 带 per-user salt 的 HMAC，无法索引查询），
+// 含按来源 IP 的失败锁定防爆破
+func (s *sAiUser) verifyApiKeyHash(ctx context.Context, apiKey string) (userId int, username string, err error) {
 	ip := "unknown"
 	if r := g.RequestFromCtx(ctx); r != nil {
 		ip = r.GetClientIp()
 	}
 	if err = aiKeyLockCheck(ip); err != nil {
-		return "", err
+		return 0, "", err
 	}
 
 	var users []struct {
@@ -170,39 +199,25 @@ func (s *sAiUser) LoginByApiKey(ctx context.Context, apiKey string) (token strin
 		ApiKeySalt string
 		Status     int
 	}
-
 	err = g.DB().Model("sys_users").Ctx(ctx).
 		Where("type", "ai").
 		Where("status", 1).
 		Scan(&users)
 	if err != nil {
-		return "", fmt.Errorf("查询AI用户失败")
+		return 0, "", fmt.Errorf("查询AI用户失败")
 	}
 
 	for _, u := range users {
 		hashedInput := hashApiKey(apiKey, u.ApiKeySalt)
 		// 常数时间比较，避免逐字节比较的时序侧信道
 		if hmac.Equal([]byte(hashedInput), []byte(u.ApiKey)) {
-			token, err = auth.GenerateToken(u.Id, u.Username)
-			if err != nil {
-				return "", err
-			}
-			// 与账密登录一致：token 入库，否则 ValidateToken 校验不过（AI token 全部失效）
-			_, err = g.DB().Model("sys_tokens").Ctx(ctx).Insert(g.Map{
-				"user_id":    u.Id,
-				"token":      token,
-				"expired_at": time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02 15:04:05"),
-			})
-			if err != nil {
-				return "", fmt.Errorf("保存token失败")
-			}
 			aiKeyResetFailures(ip)
-			return token, nil
+			return u.Id, u.Username, nil
 		}
 	}
 
 	aiKeyRecordFailure(ip)
-	return "", fmt.Errorf("invalid API Key")
+	return 0, "", fmt.Errorf("invalid API Key")
 }
 
 func generateApiKey() string {

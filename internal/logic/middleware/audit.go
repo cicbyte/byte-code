@@ -104,25 +104,42 @@ type targetInfo struct {
 	entityId   int
 }
 
+// postEntityVerbs 紧跟实体 id 出现的动作词：审计目标仍归父实体
+var postEntityVerbs = map[string]bool{
+	"claim":    true,
+	"burndown": true,
+}
+
 func parseTarget(path string) targetInfo {
 	// /api/v1/projects/123/tasks/456
 	// /api/v1/tasks/456
+	// /api/v1/projects/1/memories/agent.note   ← 数字段（项目）后跟子资源
 	parts := strings.Split(strings.TrimPrefix(path, "/api/v1/"), "/")
 	info := targetInfo{}
+
+	// 取最后一个数字作为 entityId
+	lastNumIdx := -1
+	for i := len(parts) - 1; i >= 0; i-- {
+		if isNumeric(parts[i]) {
+			info.entityId, _ = strconv.Atoi(parts[i])
+			lastNumIdx = i
+			break
+		}
+	}
+
+	// 数字段后还有资源段时，该段才是真正的操作目标（memories/vault），
+	// 数字段本身只是其父容器（projectId）；但 claim/burndown 这类紧跟实体 id 的
+	// 动作词例外——操作目标仍是父实体（tasks/sprints）
+	if lastNumIdx >= 0 && lastNumIdx+1 < len(parts) && !postEntityVerbs[parts[lastNumIdx+1]] {
+		info.entityType = parts[lastNumIdx+1]
+		return info
+	}
 
 	for i := 0; i < len(parts)-1; i++ {
 		// 如果下一部分是数字，当前部分是实体类型
 		if isNumeric(parts[i+1]) && i%2 == 0 {
 			info.entityType = parts[i]
 			// 取最后一个匹配
-		}
-	}
-
-	// 取最后一个数字作为 entityId
-	for i := len(parts) - 1; i >= 0; i-- {
-		if isNumeric(parts[i]) {
-			info.entityId, _ = strconv.Atoi(parts[i])
-			break
 		}
 	}
 

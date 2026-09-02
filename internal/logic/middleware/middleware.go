@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/perm"
@@ -31,7 +32,7 @@ func (s *sMiddleware) MiddlewareCORS(r *ghttp.Request) {
 		r.Response.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 	}
 	r.Response.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	r.Response.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, token")
+	r.Response.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, token, X-Api-Key")
 	r.Response.Header().Set("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Content-Type")
 
 	if r.Method == "OPTIONS" {
@@ -69,9 +70,21 @@ func corsAllowedOrigin(r *ghttp.Request) string {
 	return ""
 }
 
+// extractToken 依次从 token 头、Authorization Bearer、X-Api-Key 提取凭据。
+// 只接受请求头：URL query 传 token 会进入访问日志/浏览器历史/代理日志
+func extractToken(r *ghttp.Request) string {
+	if t := r.Header.Get("token"); t != "" {
+		return t
+	}
+	auth := r.Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimSpace(auth[len("Bearer "):])
+	}
+	return r.Header.Get("X-Api-Key")
+}
+
 func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
-	// 只接受请求头携带 token：URL query 传 token 会进入访问日志/浏览器历史/代理日志
-	tokenStr := r.Header.Get("token")
+	tokenStr := extractToken(r)
 	if tokenStr == "" {
 		r.Response.WriteHeader(http.StatusUnauthorized)
 		r.Response.Header().Set("Content-Type", "application/json")
@@ -79,6 +92,24 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 		r.ExitAll()
 		return
 	}
+	// API Key 直认证：bc_ 前缀走 AI 用户 key 校验（含防爆破），外部 agent 免登录流程；
+	// userId 入 ctx 后项目成员校验/审计日志与普通登录一致，key 天然标识来源 agent
+	if strings.HasPrefix(tokenStr, "bc_") {
+		aiUid, keyErr := service.AiUser().VerifyApiKey(r.Context(), tokenStr)
+		if keyErr != nil {
+			r.Response.WriteHeader(http.StatusUnauthorized)
+			r.Response.Header().Set("Content-Type", "application/json")
+			r.Response.Write(jsonStr(401, nil, "invalid API Key"))
+			r.ExitAll()
+			return
+		}
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, "userId", int(aiUid))
+		r.SetCtx(ctx)
+		r.Middleware.Next()
+		return
+	}
+
 	userId, err := service.Auth().ValidateToken(r.Context(), tokenStr)
 	if err != nil {
 		r.Response.WriteHeader(http.StatusUnauthorized)
