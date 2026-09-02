@@ -54,15 +54,9 @@ func GetStorageConfig(ctx context.Context) (*StorageConfig, error) {
 		return nil, fmt.Errorf("获取存储配置失败: %w", err)
 	}
 	if configStr == "" {
-		// 返回默认配置
-		return &StorageConfig{
-			Endpoint:  "http://192.168.31.93:19001",
-			Bucket:    "byte-code",
-			AccessKey: "rustfsadmin",
-			SecretKey: "rustfsadmin",
-			Region:    "us-east-1",
-			UseSSL:    false,
-		}, nil
+		// 未配置存储时不再回退到硬编码默认值（含内网地址与弱凭据），
+		// 引导用户先完成存储配置
+		return nil, fmt.Errorf("存储服务未配置，请先在系统设置中完成 S3 存储配置")
 	}
 	config := &StorageConfig{}
 	err = gconv.Scan(configStr, config)

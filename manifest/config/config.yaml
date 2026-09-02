@@ -1,7 +1,8 @@
 # https://goframe.org/docs/web/server-config-file-template
 server:
   address: ":8000"
-  # OpenAPI/Swagger 文档：开发环境保留；生产环境建议两项都置空字符串关闭对外暴露
+  # OpenAPI/Swagger 文档：开发环境保留；生产部署时复制本文件为 config.prod.yaml
+  # 并将以下两项置空字符串以关闭对外暴露（或用环境变量覆盖）
   openapiPath: "/api.json"
   swaggerPath: "/swagger"
   # 请求体上限须大于附件大小上限（20MB）

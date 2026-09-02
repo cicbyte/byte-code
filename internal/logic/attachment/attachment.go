@@ -11,6 +11,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/attachment"
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/activity"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/cicbyte/byte-code/utility/storage"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/gogf/gf/v2/frame/g"
@@ -58,6 +59,11 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 			panic("用户未登录")
 		}
 
+		// 实体归属校验：附件必须挂在当前用户可访问的项目实体上
+		if !attachmentEntityAccessible(ctx, uid, req.EntityType, req.EntityId) {
+			panic("无权向该实体上传附件")
+		}
+
 		// 从请求中获取上传文件
 		r := g.RequestFromCtx(ctx)
 		if r == nil {
@@ -99,7 +105,8 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		}
 
 		// 上传到 S3
-		err = s3Storage.Upload(ctx, s3Key, f, file.Size, file.Header.Get("Content-Type"))
+		// S3 上传用扩展名推导的安全 MIME（不信任客户端声明，防伪造 Content-Type 直开 XSS）
+		err = s3Storage.Upload(ctx, s3Key, f, file.Size, mime)
 		if err != nil {
 			g.Log().Errorf(ctx, "上传文件到S3失败: %v", err)
 			panic("上传文件失败")
@@ -155,6 +162,9 @@ func (s *sAttachment) Get(ctx context.Context, id int) (res *api.AttachmentGetRe
 }
 
 func (s *sAttachment) DownloadURL(ctx context.Context, id int) (url string, err error) {
+	if !attachmentByIdAccessible(ctx, perm.UserId(ctx), id) {
+		return "", fmt.Errorf("无权访问该附件")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		var item struct {
 			S3Key string
@@ -178,6 +188,9 @@ func (s *sAttachment) DownloadURL(ctx context.Context, id int) (url string, err 
 }
 
 func (s *sAttachment) PreviewURL(ctx context.Context, id int) (url string, err error) {
+	if !attachmentByIdAccessible(ctx, perm.UserId(ctx), id) {
+		return "", fmt.Errorf("无权访问该附件")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		var item struct {
 			S3Key string
@@ -198,6 +211,9 @@ func (s *sAttachment) PreviewURL(ctx context.Context, id int) (url string, err e
 }
 
 func (s *sAttachment) Delete(ctx context.Context, id int) (err error) {
+	if !attachmentByIdAccessible(ctx, perm.UserId(ctx), id) {
+		return fmt.Errorf("无权删除该附件")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		userId := ctx.Value("userId")
 		uid, _ := userId.(int)
@@ -342,4 +358,46 @@ func gconvExport(m g.Map) string {
 		return "{}"
 	}
 	return string(b)
+}
+
+// attachmentEntityAccessible 校验当前用户是否有权操作指定实体的附件。
+// entityType 必须与白名单一致，且目标实体所属项目须为当前用户可访问的项目。
+func attachmentEntityAccessible(ctx context.Context, userId int, entityType string, entityId int) bool {
+	if entityId <= 0 || userId <= 0 {
+		return false
+	}
+	// 实体类型到含 project_id 列的表映射（与上传白名单一致）
+	entityTable := map[string]string{
+		"task":        "tasks",
+		"requirement": "requirements",
+		"doc":         "docs",
+		"test_case":   "test_cases",
+		"project":     "projects",
+	}
+	table, ok := entityTable[entityType]
+	if !ok {
+		return false
+	}
+	v, err := g.DB().Model(table).Where("id", entityId).Fields("project_id").Value()
+	if err != nil || v == nil {
+		return false
+	}
+	// project 类型自身即目标，直接校验项目成员
+	pid := v.Int()
+	if entityType == "project" {
+		pid = entityId
+	}
+	return perm.CanAccessProject(ctx, userId, pid)
+}
+
+// attachmentByIdAccessible 按附件 id 解析其实体归属再校验
+func attachmentByIdAccessible(ctx context.Context, userId, attachmentId int) bool {
+	v, err := g.DB().Model("attachments").Where("id", attachmentId).Fields("entity_type", "entity_id").Value()
+	_ = v
+	// 取两个字段需用 One
+	rec, err := g.DB().Model("attachments").Where("id", attachmentId).Fields("entity_type, entity_id").One()
+	if err != nil || rec == nil {
+		return false
+	}
+	return attachmentEntityAccessible(ctx, userId, rec["entity_type"].String(), rec["entity_id"].Int())
 }

@@ -16,10 +16,10 @@ type ProjectCreateRes struct {
 
 type ProjectUpdateReq struct {
 	g.Meta      `path:"/projects/{id}" method:"put" tags:"项目管理" summary:"更新项目"`
-	Id          int    `json:"id" v:"required" in:"path"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Status      int    `json:"status"`
+	Id          int     `json:"id" v:"required" in:"path"`
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+	Status      *int    `json:"status"`
 }
 
 type ProjectUpdateRes struct {
@@ -131,17 +131,18 @@ type TaskCreateRes struct {
 }
 
 type TaskUpdateReq struct {
-	g.Meta         `path:"/tasks/{id}" method:"put" tags:"任务管理" summary:"更新任务"`
-	Id             int    `json:"id" v:"required" in:"path"`
-	Title          string `json:"title"`
-	Description    string `json:"description"`
-	Type           string `json:"type"`
-	Status         string `json:"status"`
-	Priority       int    `json:"priority"`
-	AssigneeId     int    `json:"assigneeId"`
-	SprintId       int    `json:"sprintId"`
-	ParentTaskId   int    `json:"parentTaskId"`
-	SortOrder      int    `json:"sortOrder"`
+	g.Meta  `path:"/tasks/{id}" method:"put" tags:"任务管理" summary:"更新任务"`
+	Id      int     `json:"id" v:"required" in:"path"`
+	Title   *string `json:"title"`
+	Description *string `json:"description"`
+	Type    *string `json:"type"`
+	Status  *string `json:"status"`
+	// 指针字段：nil=不更新，非nil零值=显式清空
+	Priority     *int `json:"priority"`
+	AssigneeId   *int `json:"assigneeId"`
+	SprintId     *int `json:"sprintId"`
+	ParentTaskId *int `json:"parentTaskId"`
+	SortOrder    *int `json:"sortOrder"`
 }
 
 type TaskUpdateRes struct {
@@ -334,12 +335,12 @@ type SprintCreateRes struct {
 
 type SprintUpdateReq struct {
 	g.Meta    `path:"/sprints/{id}" method:"put" tags:"Sprint" summary:"更新Sprint"`
-	Id        int    `json:"id" v:"required" in:"path"`
-	Name      string `json:"name"`
-	Goal      string `json:"goal"`
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
-	Status    string `json:"status"`
+	Id        int     `json:"id" v:"required" in:"path"`
+	Name      *string `json:"name"`
+	Goal      *string `json:"goal"`
+	StartDate *string `json:"startDate"`
+	EndDate   *string `json:"endDate"`
+	Status    *string `json:"status"`
 }
 
 type SprintUpdateRes struct {
@@ -442,16 +443,16 @@ type RequirementCreateRes struct {
 }
 
 type RequirementUpdateReq struct {
-	g.Meta             `path:"/requirements/{id}" method:"put" tags:"需求管理" summary:"更新需求"`
-	Id                 int    `json:"id" v:"required" in:"path"`
-	Title              string `json:"title"`
-	Description        string `json:"description"`
-	Status             string `json:"status"`
-	Priority           int    `json:"priority"`
-	AssigneeId         int    `json:"assigneeId"`
-	MilestoneId        int    `json:"milestoneId"`
-	AcceptanceCriteria string `json:"acceptanceCriteria"`
-	SortOrder          int    `json:"sortOrder"`
+	g.Meta              `path:"/requirements/{id}" method:"put" tags:"需求管理" summary:"更新需求"`
+	Id                  int     `json:"id" v:"required" in:"path"`
+	Title               *string `json:"title"`
+	Description         *string `json:"description"`
+	Status              *string `json:"status"`
+	Priority            *int    `json:"priority"`
+	AssigneeId          *int    `json:"assigneeId"`
+	MilestoneId         *int    `json:"milestoneId"`
+	AcceptanceCriteria  *string `json:"acceptanceCriteria"`
+	SortOrder           *int    `json:"sortOrder"`
 }
 
 type RequirementUpdateRes struct {

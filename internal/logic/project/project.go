@@ -79,14 +79,14 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 
 func (s *sProject) UpdateProject(ctx context.Context, req *api.ProjectUpdateReq) (err error) {
 	data := g.Map{}
-	if req.Name != "" {
-		data["name"] = req.Name
+	if req.Name != nil {
+		data["name"] = *req.Name
 	}
-	if req.Description != "" {
-		data["description"] = req.Description
+	if req.Description != nil {
+		data["description"] = *req.Description
 	}
-	if req.Status > 0 {
-		data["status"] = req.Status
+	if req.Status != nil {
+		data["status"] = *req.Status
 	}
 	if len(data) == 0 {
 		return nil
@@ -99,6 +99,10 @@ func (s *sProject) UpdateProject(ctx context.Context, req *api.ProjectUpdateReq)
 }
 
 func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
+	// 删除项目属管理级操作，仅 owner 或超管可执行
+	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, id) {
+		return fmt.Errorf("仅项目管理员可删除项目")
+	}
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// 先清理依赖项目内实体的关联数据，再删实体与项目本身；
 		// foreign_keys 当前关闭，孤儿数据必须在这里显式清干净
@@ -225,6 +229,10 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 // ==================== 项目成员 ====================
 
 func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err error) {
+	// 成员管理属管理级操作，仅 owner 或超管可执行
+	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, req.ProjectId) {
+		return fmt.Errorf("仅项目管理员可管理成员")
+	}
 	_, err = g.DB().Model("project_members").Ctx(ctx).Insert(g.Map{
 		"project_id": req.ProjectId,
 		"user_id":    req.UserId,
@@ -240,6 +248,18 @@ func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err er
 }
 
 func (s *sProject) RemoveMember(ctx context.Context, projectId, userId int) (err error) {
+	// 成员管理属管理级操作，仅 owner 或超管可执行
+	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, projectId) {
+		return fmt.Errorf("仅项目管理员可管理成员")
+	}
+	// 不能移除项目 owner（避免最后一个 owner 被移走后项目无主）
+	if perm.IsProjectOwner(ctx, userId, projectId) && !perm.IsAdmin(ctx, perm.UserId(ctx)) {
+		if userId == perm.UserId(ctx) {
+			// owner 自己移自己 = 退出，暂不允许（避免无主项目）
+			return fmt.Errorf("项目管理员不能移除自己")
+		}
+		return fmt.Errorf("不能移除项目管理员")
+	}
 	_, err = g.DB().Model("project_members").Ctx(ctx).
 		Where("project_id", projectId).
 		Where("user_id", userId).
@@ -308,68 +328,55 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 
 func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err error) {
 	data := g.Map{}
-	if req.Title != "" {
-		data["title"] = req.Title
+	// 指针语义：nil=不更新，非nil=更新（含零值/空串）
+	if req.Title != nil {
+		data["title"] = *req.Title
 	}
-	if req.Description != "" {
-		data["description"] = req.Description
+	if req.Description != nil {
+		data["description"] = *req.Description
 	}
-	if req.Type != "" {
-		data["type"] = req.Type
+	if req.Type != nil {
+		data["type"] = *req.Type
 	}
-	if req.Status != "" {
-		data["status"] = req.Status
-		switch req.Status {
+	if req.Status != nil {
+		data["status"] = *req.Status
+		switch *req.Status {
 		case "done", "closed":
+			// 仅首次进入完成态时记录；已完成的更新不重写
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur == nil || cur.String() == "" {
 				data["completed_at"] = time.Now().Format("2006-01-02 15:04:05")
 			}
-		default:
-			// 重开任务清空完成时间，再次完成后重新记录
-			data["completed_at"] = ""
+		case "open", "in_progress", "review":
+			// 从完成态切回非完成态时才清空（重开）；首次设定非完成态不误清
+			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur != nil && cur.String() != "" {
+				data["completed_at"] = ""
+			}
 		}
 	}
-	if req.Priority > 0 {
-		data["priority"] = req.Priority
+	if req.Priority != nil {
+		data["priority"] = *req.Priority
 	}
-	if req.AssigneeId > 0 {
-		data["assignee_id"] = req.AssigneeId
+	if req.AssigneeId != nil {
+		data["assignee_id"] = *req.AssigneeId
 	}
-	if req.SprintId > 0 {
-		data["sprint_id"] = req.SprintId
+	if req.SprintId != nil {
+		data["sprint_id"] = *req.SprintId
 	}
-	if req.ParentTaskId > 0 {
-		data["parent_task_id"] = req.ParentTaskId
+	if req.ParentTaskId != nil {
+		data["parent_task_id"] = *req.ParentTaskId
 	}
-	if req.SortOrder > 0 {
-		data["sort_order"] = req.SortOrder
+	if req.SortOrder != nil {
+		data["sort_order"] = *req.SortOrder
 	}
 	if len(data) == 0 {
 		return nil
 	}
+	data["updated_at"] = time.Now().Format("2006-01-02 15:04:05")
 
 	_, err = g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "更新任务失败")
 	}
-
-	// 状态变更时记录活动
-	if req.Status != "" {
-		userId := 0
-		if uid := ctx.Value("userId"); uid != nil {
-			userId = uid.(int)
-		}
-		// 获取任务信息用于活动记录
-		task, _ := s.GetTask(ctx, req.Id)
-		taskTitle := ""
-		projectId := 0
-		if task != nil {
-			taskTitle = task.Title
-			projectId = task.ProjectId
-		}
-		s.recordActivity(ctx, userId, "task.status_changed", "task", req.Id, taskTitle, projectId, fmt.Sprintf("状态变更为: %s", req.Status))
-	}
-
 	return nil
 }
 
@@ -772,20 +779,20 @@ func (s *sProject) CreateSprint(ctx context.Context, req *api.SprintCreateReq) (
 
 func (s *sProject) UpdateSprint(ctx context.Context, req *api.SprintUpdateReq) (err error) {
 	data := g.Map{}
-	if req.Name != "" {
-		data["name"] = req.Name
+	if req.Name != nil {
+		data["name"] = *req.Name
 	}
-	if req.Goal != "" {
-		data["goal"] = req.Goal
+	if req.Goal != nil {
+		data["goal"] = *req.Goal
 	}
-	if req.StartDate != "" {
-		data["start_date"] = req.StartDate
+	if req.StartDate != nil {
+		data["start_date"] = *req.StartDate
 	}
-	if req.EndDate != "" {
-		data["end_date"] = req.EndDate
+	if req.EndDate != nil {
+		data["end_date"] = *req.EndDate
 	}
-	if req.Status != "" {
-		data["status"] = req.Status
+	if req.Status != nil {
+		data["status"] = *req.Status
 	}
 	if len(data) == 0 {
 		return nil
@@ -899,7 +906,7 @@ func (s *sProject) GetBurndown(ctx context.Context, sprintId int) (res *api.Burn
 		Fields("DATE(COALESCE(NULLIF(completed_at, ''), updated_at)) as date, COUNT(*) as completed").
 		Where("sprint_id", sprintId).
 		WhereIn("status", g.Slice{"done", "closed"}).
-		Group("DATE(updated_at)").
+		Group(`DATE(COALESCE(NULLIF(completed_at, ''), updated_at))`).
 		Order("date ASC").
 		Scan(&completedByDay)
 	if err != nil {
@@ -1000,29 +1007,29 @@ func (s *sProject) CreateRequirement(ctx context.Context, req *api.RequirementCr
 
 func (s *sProject) UpdateRequirement(ctx context.Context, req *api.RequirementUpdateReq) (err error) {
 	data := g.Map{}
-	if req.Title != "" {
-		data["title"] = req.Title
+	if req.Title != nil {
+		data["title"] = *req.Title
 	}
-	if req.Description != "" {
-		data["description"] = req.Description
+	if req.Description != nil {
+		data["description"] = *req.Description
 	}
-	if req.Status != "" {
-		data["status"] = req.Status
+	if req.Status != nil {
+		data["status"] = *req.Status
 	}
-	if req.Priority > 0 {
-		data["priority"] = req.Priority
+	if req.Priority != nil {
+		data["priority"] = *req.Priority
 	}
-	if req.AssigneeId > 0 {
-		data["assignee_id"] = req.AssigneeId
+	if req.AssigneeId != nil {
+		data["assignee_id"] = *req.AssigneeId
 	}
-	if req.MilestoneId > 0 {
-		data["milestone_id"] = req.MilestoneId
+	if req.MilestoneId != nil {
+		data["milestone_id"] = *req.MilestoneId
 	}
-	if req.AcceptanceCriteria != "" {
-		data["acceptance_criteria"] = req.AcceptanceCriteria
+	if req.AcceptanceCriteria != nil {
+		data["acceptance_criteria"] = *req.AcceptanceCriteria
 	}
-	if req.SortOrder > 0 {
-		data["sort_order"] = req.SortOrder
+	if req.SortOrder != nil {
+		data["sort_order"] = *req.SortOrder
 	}
 	if len(data) == 0 {
 		return nil

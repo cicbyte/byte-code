@@ -44,6 +44,20 @@ func CanAccessProject(ctx context.Context, userId, projectId int) bool {
 	return IsAdmin(ctx, userId) || IsProjectMember(ctx, userId, projectId)
 }
 
+// IsProjectOwner 判断用户是否为项目 owner（或超管）——
+// 删除项目、管理成员等管理级操作的准入条件
+func IsProjectOwner(ctx context.Context, userId, projectId int) bool {
+	if IsAdmin(ctx, userId) {
+		return true
+	}
+	count, err := g.DB().Model("project_members").
+		Where("user_id", userId).
+		Where("project_id", projectId).
+		Where("role", "owner").
+		Count()
+	return err == nil && count > 0
+}
+
 // EntityFieldInt 取实体表指定整型列的值，记录不存在返回 0
 func EntityFieldInt(ctx context.Context, table string, entityId int, column string) int {
 	v, _ := g.DB().Model(table).Where("id", entityId).Fields(column).Value()
