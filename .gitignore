@@ -32,9 +32,18 @@ logs/
 .env.local
 .env.*.local
 
-# 数据库文件
+# 数据库文件（含 SQLite WAL 模式的边车文件）
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Python 产物
+*.whl
+__pycache__/
+*.pyc
 
 # 运行时自动生成的 JWT 秘钥
 resource/data/jwt.secret
@@ -168,3 +177,4 @@ REASONIX.md
 rewrite.json
 .reference/
 .zcode/
+backup/
