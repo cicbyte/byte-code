@@ -18,6 +18,11 @@
     </div>
     <!--左侧菜单-->
     <div class="layout-header-left" v-else>
+      <!-- Logo：Header 拉通全宽后从侧边栏头部移入 -->
+      <div class="logo header-logo" @click="goHome">
+        <img :src="websiteConfig.logo" alt="" />
+        <h2 v-show="!collapsed" class="title">{{ websiteConfig.title }}</h2>
+      </div>
       <!-- 菜单收起 -->
       <div
         class="ml-1 layout-header-trigger layout-header-trigger-min"
@@ -212,11 +217,7 @@
         const matched = generator(route.matched);
         // 项目工作台内：「项目管理 > 项目详情」两层折叠为项目名一级（可点回项目概览），
         // 层级从 首页>项目管理>项目详情>子页 变为 首页>项目名>子页
-        if (
-          entityContext.currentEntityType === 'project' &&
-          entityContext.currentProject?.id &&
-          entityContext.currentEntityName
-        ) {
+        if (entityContext.currentProject?.id && entityContext.currentProject?.name) {
           const overview = `/project/${entityContext.currentProject.id}/overview`;
           const subPages = matched.filter(
             (item) => item.meta.title !== '项目管理' && item.meta.title !== '项目详情'
@@ -225,7 +226,7 @@
             {
               name: 'project-home',
               path: overview,
-              meta: { title: entityContext.currentEntityName },
+              meta: { title: entityContext.currentProject.name },
             },
             ...subPages,
           ];
@@ -414,6 +415,12 @@
         .title {
           margin-bottom: 0;
         }
+      }
+
+      // 全宽 Header 中的 Logo：可点击回首页，左右留白比折叠触发器更宽
+      .header-logo {
+        padding: 0 8px 0 16px;
+        cursor: pointer;
       }
 
       ::v-deep(.ant-breadcrumb span:last-child .link-text) {

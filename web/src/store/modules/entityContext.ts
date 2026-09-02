@@ -1,20 +1,15 @@
 import { defineStore } from 'pinia';
 import { store } from '@/store';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 
 export interface EntityInfo {
   id: number;
   name: string;
 }
 
+// 项目上下文：项目名由 Header 面包屑承载（原 EntityNavBar tabs 导航已删除）
 export const useEntityContextStore = defineStore('entity-context', () => {
   const currentProject = ref<EntityInfo | null>(null);
-
-  const currentEntityType = computed<'project' | null>(() => {
-    return currentProject.value ? 'project' : null;
-  });
-
-  const currentEntityName = computed(() => currentProject.value?.name || '');
 
   function setProject(info: EntityInfo | null) {
     currentProject.value = info;
@@ -26,8 +21,6 @@ export const useEntityContextStore = defineStore('entity-context', () => {
 
   return {
     currentProject,
-    currentEntityType,
-    currentEntityName,
     setProject,
     clearEntity,
   };

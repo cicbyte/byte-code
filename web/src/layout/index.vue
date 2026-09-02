@@ -1,70 +1,56 @@
 <template>
-  <n-layout class="layout" :position="fixedMenu" has-sider>
-    <n-layout-sider
-      v-if="
-        !isMobile && isMixMenuNoneSub && (navMode === 'vertical' || navMode === 'horizontal-mix')
-      "
-      show-trigger="bar"
-      @collapse="collapsed = true"
-      :position="fixedMenu"
-      @expand="collapsed = false"
-      :collapsed="collapsed"
-      collapse-mode="width"
-      :collapsed-width="64"
-      :width="leftMenuWidth"
-      :native-scrollbar="false"
-      :inverted="false"
-      class="layout-sider"
-    >
-      <Logo :collapsed="collapsed" />
-      <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
-      <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
-    </n-layout-sider>
+  <div class="layout-root">
+    <!-- 全宽 Header 浮卡：Logo + 面包屑 + 功能区，横贯整个宽度 -->
+    <header class="layout-top-header">
+      <PageHeader v-model:collapsed="collapsed" />
+    </header>
 
-    <n-drawer
-      v-model:show="showSideDrawer"
-      :width="menuWidth"
-      :placement="'left'"
-      class="layout-side-drawer"
-    >
+    <!-- Header 下方：左侧菜单浮卡全高连续 + 内容区浮卡，三卡统一 8px 缝隙 -->
+    <div class="layout-main">
       <n-layout-sider
-        :position="fixedMenu"
-        :collapsed="false"
-        :width="menuWidth"
-        :native-scrollbar="false"
-        :inverted="false"
+        v-if="
+          !isMobile && isMixMenuNoneSub && (navMode === 'vertical' || navMode === 'horizontal-mix')
+        "
+        show-trigger="bar"
+        @collapse="collapsed = true"
+        :collapsed="collapsed"
+        @expand="collapsed = false"
+        collapse-mode="width"
+        :collapsed-width="64"
+        :width="leftMenuWidth"
+        :native-scrollbar="true"
         class="layout-sider"
       >
-        <Logo :collapsed="false" />
-        <ProjectMenu v-if="inProjectContext" :collapsed="false" />
-        <AsideMenu v-else v-model:location="getMenuLocation" />
+        <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
+        <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
       </n-layout-sider>
-    </n-drawer>
 
-    <n-layout :inverted="inverted">
-      <n-layout-header :inverted="false" :position="fixedHeader">
-        <PageHeader v-model:collapsed="collapsed" :inverted="false" />
-      </n-layout-header>
-
-      <n-layout-content
-        class="layout-content"
-        :class="{ 'layout-default-background': getDarkTheme === false }"
+      <n-drawer
+        v-model:show="showSideDrawer"
+        :width="menuWidth"
+        :placement="'left'"
+        class="layout-side-drawer"
       >
-        <!-- 实体子导航已改为左侧项目专属菜单（EntityNavBar 保留组件以备恢复） -->
-        <div
-          class="layout-content-main"
-          :class="{
-            'fluid-header': fixedHeader === 'static',
-          }"
+        <n-layout-sider
+          :collapsed="false"
+          :width="menuWidth"
+          :native-scrollbar="true"
+          class="layout-sider"
         >
-          <div class="main-view mt-3">
-            <MainView />
-          </div>
+          <Logo :collapsed="false" />
+          <ProjectMenu v-if="inProjectContext" :collapsed="false" />
+          <AsideMenu v-else v-model:location="getMenuLocation" />
+        </n-layout-sider>
+      </n-drawer>
+
+      <!-- 内容区：唯一滚动容器，滚动条在卡片内侧，不挤压三卡对齐 -->
+      <main class="layout-content" :class="{ 'layout-default-background': getDarkTheme === false }">
+        <div class="layout-content-main">
+          <MainView />
         </div>
-      </n-layout-content>
-      <n-back-top :right="100" />
-    </n-layout>
-  </n-layout>
+      </main>
+    </div>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -73,24 +59,16 @@
   import { MainView } from './components/Main';
   import { AsideMenu } from './components/Menu';
   import { PageHeader } from './components/Header';
-  import EntityNavBar from './components/EntityNavBar/index.vue';
   import ProjectMenu from './components/Menu/ProjectMenu.vue';
-  import { useEntityContext } from '@/store/modules/entityContext';
   import { useProjectSetting } from '@/hooks/setting/useProjectSetting';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import { useRoute } from 'vue-router';
   import { useProjectSettingStore } from '@/store/modules/projectSetting';
 
   const { getDarkTheme } = useDesignSetting();
-  const {
-    navMode,
-    navTheme,
-    headerSetting,
-    menuSetting,
-  } = useProjectSetting();
+  const { navMode, menuSetting } = useProjectSetting();
 
   const settingStore = useProjectSettingStore();
-  const entityContext = useEntityContext();
 
   const collapsed = ref<boolean>(false);
   const route = useRoute();
@@ -105,11 +83,6 @@
     set: (val) => settingStore.setIsMobile(val),
   });
 
-  const fixedHeader = computed(() => {
-    const { fixed } = unref(headerSetting);
-    return fixed ? 'absolute' : 'static';
-  });
-
   const isMixMenuNoneSub = computed(() => {
     const mixMenu = unref(menuSetting).mixMenu;
     const currentRoute = useRoute();
@@ -120,26 +93,9 @@
     return true;
   });
 
-  const fixedMenu = computed(() => {
-    const { fixed } = unref(headerSetting);
-    return fixed ? 'absolute' : 'static';
-  });
-
-  const inverted = computed(() => {
-    return ['dark', 'header-dark'].includes(unref(navTheme));
-  });
-
-  const getHeaderInverted = computed(() => {
-    return ['light', 'header-dark'].includes(unref(navTheme)) ? unref(inverted) : !unref(inverted);
-  });
-
   const leftMenuWidth = computed(() => {
     const { minMenuWidth, menuWidth } = unref(menuSetting);
     return collapsed.value ? minMenuWidth : menuWidth;
-  });
-
-  const getMenuLocation = computed(() => {
-    return 'left';
   });
 
   const showSideDrawer = computed({
@@ -185,67 +141,63 @@
   }
 </style>
 <style lang="less" scoped>
-  .layout {
+  // 统一浮卡几何：画布上 8px 缝隙、12px 圆角、面板阴影。
+  // 视口锁高：页面级永不滚动（消灭全宽滚动条挤压三卡对齐），滚动只在内容卡内部
+  .layout-root {
+    height: 100vh;
+    overflow: hidden;
     display: flex;
-    flex-direction: row;
-    flex: auto;
+    flex-direction: column;
+    background: var(--canvas, #f1f1ee);
 
-    &-default-background {
-      background: var(--canvas, #f1f1ee);
-    }
-
-    .layout-sider {
-      position: relative;
-      z-index: 13;
-      transition: all 0.2s ease-in-out;
-      // 悬浮栏卡片：白底圆角浮于画布之上，与内容区留 8px 细缝
-      // 高度扣除上下边距，避免底边被视口裁切
-      margin: 8px 0 8px 8px;
-      min-height: calc(100vh - 16px);
+    .layout-top-header {
+      flex-shrink: 0;
+      height: 64px;
+      margin: 8px 8px 0;
       border-radius: var(--panel-radius, 12px);
       background: var(--panel-bg, #fff);
       box-shadow: var(--panel-shadow);
     }
 
-    .layout-sider-fix {
-      position: fixed;
-      top: 0;
-      left: 0;
+    .layout-main {
+      flex: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: row;
     }
 
-    .ant-layout {
-      overflow: hidden;
-    }
-
-    .layout-right-fix {
-      overflow-x: hidden;
-      padding-left: 200px;
-      min-height: 100vh;
+    .layout-sider {
+      flex-shrink: 0;
       transition: all 0.2s ease-in-out;
+      // 悬浮栏卡片：左右各留 8px 缝（右侧缝即与内容区的间隔）
+      margin: 8px 0 8px 8px;
+      height: calc(100% - 16px);
+      align-self: flex-start;
+      border-radius: var(--panel-radius, 12px);
+      background: var(--panel-bg, #fff);
+      box-shadow: var(--panel-shadow);
+
+      // n-layout-sider 独立使用时其内部滚动容器需要显式圆角裁切
+      :deep(.n-layout-sider-scroll-container) {
+        border-radius: inherit;
+      }
     }
 
     .layout-content {
       flex: auto;
-      min-height: 100vh;
+      min-width: 0;
+      margin: 8px 8px 8px 0;
+      border-radius: var(--panel-radius, 12px);
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
-    .n-layout-header.n-layout-header--absolute-positioned {
-      z-index: 11;
+    &-default-background {
+      background: var(--canvas, #f1f1ee);
     }
 
-    .n-layout-footer {
-      background: none;
+    .layout-content-main {
+      padding: 0 8px 8px;
     }
-  }
-
-  .layout-content-main {
-    margin: 0 16px 16px;
-    position: relative;
-    // header 浮卡带 8px 上边距，内容需让出对应高度（原 40px 实体导航条已移除）
-    padding-top: 80px;
-  }
-
-  .fluid-header {
-    padding-top: 0;
   }
 </style>
