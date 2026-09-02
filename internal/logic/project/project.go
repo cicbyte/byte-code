@@ -1197,3 +1197,41 @@ func (s *sProject) ListMilestones(ctx context.Context, projectId int) (res *api.
 	res.List = list
 	return res, nil
 }
+func (s *sProject) UpdateMilestone(ctx context.Context, req *api.MilestoneUpdateReq) (err error) {
+	data := g.Map{}
+	if req.Name != nil {
+		data["name"] = *req.Name
+	}
+	if req.Description != nil {
+		data["description"] = *req.Description
+	}
+	if req.TargetDate != nil {
+		data["target_date"] = *req.TargetDate
+	}
+	if req.Status != nil {
+		data["status"] = *req.Status
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	data["updated_at"] = time.Now().Format("2006-01-02 15:04:05")
+	_, err = g.DB().Model("milestones").Ctx(ctx).Where("id", req.Id).Data(data).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "更新里程碑失败")
+	}
+	return nil
+}
+
+func (s *sProject) DeleteMilestone(ctx context.Context, id int) (err error) {
+	// 解除关联的需求（milestone_id 置 0，需求保留）
+	if _, err := g.DB().Model("requirements").Ctx(ctx).
+		Where("milestone_id", id).Data("milestone_id", 0).Update(); err != nil {
+		return liberr.WrapDb(ctx, err, "解除需求关联失败")
+	}
+	_, err = g.DB().Model("milestones").Ctx(ctx).Where("id", id).Delete()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "删除里程碑失败")
+	}
+	return nil
+}
+

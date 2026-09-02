@@ -485,6 +485,14 @@ export function getMilestones(projectId: number) {
   return Alova.Get<MilestoneListResult>(`/v1/projects/${projectId}/milestones`);
 }
 
+export function updateMilestone(id: number, data: Partial<MilestoneItem>) {
+  return Alova.Put(`/v1/milestones/${id}`, data);
+}
+
+export function deleteMilestone(id: number) {
+  return Alova.Delete(`/v1/milestones/${id}`);
+}
+
 /** 创建里程碑 */
 export function createMilestone(projectId: number, data: MilestoneCreateData) {
   return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/milestones`, data);

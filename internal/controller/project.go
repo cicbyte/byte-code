@@ -270,3 +270,15 @@ func (c *projectController) CreateMilestone(ctx context.Context, req *api.Milest
 func (c *projectController) MilestoneList(ctx context.Context, req *api.MilestoneListReq) (res *api.MilestoneListRes, err error) {
 	return service.Project().ListMilestones(ctx, req.ProjectId)
 }
+
+func (c *projectController) UpdateMilestone(ctx context.Context, req *api.MilestoneUpdateReq) (res *api.MilestoneUpdateRes, err error) {
+	err = service.Project().UpdateMilestone(ctx, req)
+	res = new(api.MilestoneUpdateRes)
+	return
+}
+
+func (c *projectController) DeleteMilestone(ctx context.Context, req *api.MilestoneDeleteReq) (res *api.MilestoneDeleteRes, err error) {
+	err = service.Project().DeleteMilestone(ctx, req.Id)
+	res = new(api.MilestoneDeleteRes)
+	return
+}

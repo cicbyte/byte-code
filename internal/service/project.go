@@ -64,6 +64,8 @@ type IProject interface {
 	// 里程碑
 	CreateMilestone(ctx context.Context, req *api.MilestoneCreateReq) (id int, err error)
 	ListMilestones(ctx context.Context, projectId int) (res *api.MilestoneListRes, err error)
+	UpdateMilestone(ctx context.Context, req *api.MilestoneUpdateReq) (err error)
+	DeleteMilestone(ctx context.Context, id int) (err error)
 }
 
 var localProject IProject

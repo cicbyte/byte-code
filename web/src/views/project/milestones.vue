@@ -2,7 +2,7 @@
   <div>
     <n-card :bordered="false" title="里程碑" class="proCard">
       <template #header-extra>
-        <n-button type="primary" @click="showCreate = true">新建里程碑</n-button>
+        <n-button type="primary" @click="openCreate">新建里程碑</n-button>
       </template>
 
       <n-spin :show="loading">
@@ -14,15 +14,22 @@
               <th>描述</th>
               <th>目标日期</th>
               <th>状态</th>
+              <th style="width: 100px">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in milestones" :key="item.id">
               <td>{{ item.name }}</td>
-              <td>{{ item.description }}</td>
-              <td>{{ item.targetDate }}</td>
+              <td>{{ item.description || '-' }}</td>
+              <td>{{ item.targetDate || '-' }}</td>
               <td>
-                <n-tag size="small">{{ item.status }}</n-tag>
+                <n-tag size="small" :type="statusType(item.status)">{{ statusLabel(item.status) }}</n-tag>
+              </td>
+              <td>
+                <n-space size="small">
+                  <n-button text type="primary" size="small" @click="openEdit(item)">编辑</n-button>
+                  <n-button text type="error" size="small" @click="handleDelete(item)">删除</n-button>
+                </n-space>
               </td>
             </tr>
           </tbody>
@@ -30,7 +37,8 @@
       </n-spin>
     </n-card>
 
-    <n-modal v-model:show="showCreate" title="新建里程碑" preset="card" style="width: 500px">
+    <!-- 新建/编辑弹窗 -->
+    <n-modal v-model:show="showModal" :title="isEdit ? '编辑里程碑' : '新建里程碑'" preset="card" style="width: 500px">
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
         <n-form-item label="名称" path="name">
           <n-input v-model:value="form.name" placeholder="请输入里程碑名称" />
@@ -39,13 +47,18 @@
           <n-input v-model:value="form.description" type="textarea" placeholder="请输入描述" />
         </n-form-item>
         <n-form-item label="目标日期" path="targetDate">
-          <n-date-picker v-model:formatted-value="form.targetDate" type="date" placeholder="选择目标日期" style="width: 100%" />
+          <n-date-picker v-model:formatted-value="form.targetDate" type="date" placeholder="选择目标日期" style="width: 100%" clearable />
+        </n-form-item>
+        <n-form-item label="状态" path="status">
+          <n-select v-model:value="form.status" :options="statusOptions" placeholder="选择状态" />
         </n-form-item>
       </n-form>
       <template #action>
         <n-space>
-          <n-button @click="showCreate = false">取消</n-button>
-          <n-button type="primary" @click="handleCreate" :loading="submitting">创建</n-button>
+          <n-button @click="showModal = false">取消</n-button>
+          <n-button type="primary" @click="handleSubmit" :loading="submitting">
+            {{ isEdit ? '保存' : '创建' }}
+          </n-button>
         </n-space>
       </template>
     </n-modal>
@@ -55,21 +68,97 @@
 <script lang="ts" setup>
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
-  import { useMessage } from 'naive-ui';
-  import { getMilestones, createMilestone } from '@/api/project/index';
+  import { useMessage, useDialog } from 'naive-ui';
+  import { getMilestones, createMilestone, updateMilestone, deleteMilestone } from '@/api/project/index';
   import type { MilestoneItem } from '@/api/project/index';
 
   const route = useRoute();
   const message = useMessage();
+  const dialog = useDialog();
   const projectId = computed(() => Number(route.params.projectId));
 
   const loading = ref(false);
   const submitting = ref(false);
   const milestones = ref<MilestoneItem[]>([]);
-  const showCreate = ref(false);
+  const showModal = ref(false);
+  const isEdit = ref(false);
+  const editId = ref<number | null>(null);
 
-  const form = ref({ name: '', description: '', targetDate: '' });
+  const form = ref({ name: '', description: '', targetDate: '', status: 'planning' });
   const rules = { name: { required: true, message: '请输入名称' } };
+
+  const statusOptions = [
+    { label: '规划中', value: 'planning' },
+    { label: '进行中', value: 'in_progress' },
+    { label: '已发布', value: 'released' },
+  ];
+
+  function statusLabel(s: string): string {
+    const m: Record<string, string> = { planning: '规划中', in_progress: '进行中', released: '已发布' };
+    return m[s] || s;
+  }
+
+  function statusType(s: string): 'default' | 'info' | 'success' {
+    if (s === 'released') return 'success';
+    if (s === 'in_progress') return 'info';
+    return 'default';
+  }
+
+  function openCreate() {
+    isEdit.value = false;
+    editId.value = null;
+    form.value = { name: '', description: '', targetDate: '', status: 'planning' };
+    showModal.value = true;
+  }
+
+  function openEdit(item: MilestoneItem) {
+    isEdit.value = true;
+    editId.value = item.id;
+    form.value = {
+      name: item.name,
+      description: item.description || '',
+      targetDate: item.targetDate || '',
+      status: item.status || 'planning',
+    };
+    showModal.value = true;
+  }
+
+  async function handleSubmit() {
+    submitting.value = true;
+    try {
+      if (isEdit.value && editId.value) {
+        await updateMilestone(editId.value, { ...form.value });
+        message.success('更新成功');
+      } else {
+        await createMilestone(projectId.value, { ...form.value });
+        message.success('创建成功');
+      }
+      showModal.value = false;
+      loadMilestones();
+    } catch (e: any) {
+      message.error(e.message || (isEdit.value ? '更新失败' : '创建失败'));
+    } finally {
+      submitting.value = false;
+    }
+  }
+
+  function handleDelete(item: MilestoneItem) {
+    dialog.warning({
+      title: '删除里程碑',
+      content: `确定要删除「${item.name}」吗？关联的需求将解除关联但不会被删除。`,
+      positiveText: '删除',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await deleteMilestone(item.id);
+          message.success('删除成功');
+          loadMilestones();
+        } catch (e: any) {
+          message.error(e.message || '删除失败');
+        }
+      },
+    });
+  }
 
   async function loadMilestones() {
     loading.value = true;
@@ -80,21 +169,6 @@
       // ignore
     } finally {
       loading.value = false;
-    }
-  }
-
-  async function handleCreate() {
-    submitting.value = true;
-    try {
-      await createMilestone(projectId.value, { ...form.value });
-      message.success('创建成功');
-      showCreate.value = false;
-      form.value = { name: '', description: '', targetDate: '' };
-      loadMilestones();
-    } catch (e: any) {
-      message.error(e.message || '创建失败');
-    } finally {
-      submitting.value = false;
     }
   }
 

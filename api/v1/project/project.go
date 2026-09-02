@@ -533,6 +533,28 @@ type MilestoneListReq struct {
 	ProjectId int    `json:"projectId" v:"required" in:"path"`
 }
 
+type MilestoneUpdateReq struct {
+	g.Meta      `path:"/milestones/{id}" method:"put" tags:"里程碑" summary:"更新里程碑"`
+	Id          int     `json:"id" v:"required" in:"path"`
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+	TargetDate  *string `json:"targetDate"`
+	Status      *string `json:"status" v:"in:planning,in_progress,released#状态必须是planning/in_progress/released"`
+}
+
+type MilestoneUpdateRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type MilestoneDeleteReq struct {
+	g.Meta `path:"/milestones/{id}" method:"delete" tags:"里程碑" summary:"删除里程碑"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type MilestoneDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 type MilestoneItem struct {
 	Id          int    `json:"id"`
 	ProjectId   int    `json:"projectId"`
