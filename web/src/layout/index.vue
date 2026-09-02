@@ -18,8 +18,20 @@
         :native-scrollbar="true"
         class="layout-sider"
       >
-        <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
-        <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
+        <div class="sider-body">
+          <div class="sider-menu">
+            <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
+            <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
+          </div>
+          <!-- 折叠控制放在菜单卡自身底部：控制点与被控对象一体，菜单滚动时按钮固定不动 -->
+          <div class="sider-footer" :class="{ collapsed }" @click="collapsed = !collapsed">
+            <n-icon size="15">
+              <MenuFoldOutlined v-if="!collapsed" />
+              <MenuUnfoldOutlined v-else />
+            </n-icon>
+            <span v-show="!collapsed" class="sider-footer-text">收起菜单</span>
+          </div>
+        </div>
       </n-layout-sider>
 
       <n-drawer
@@ -52,6 +64,7 @@
 
 <script lang="ts" setup>
   import { ref, unref, computed, onMounted } from 'vue';
+  import { MenuFoldOutlined, MenuUnfoldOutlined } from '@vicons/antd';
   import { Logo } from './components/Logo';
   import { MainView } from './components/Main';
   import { AsideMenu } from './components/Menu';
@@ -170,6 +183,42 @@
       // n-layout-sider 独立使用时其内部滚动容器需要显式圆角裁切
       :deep(.n-layout-sider-scroll-container) {
         border-radius: inherit;
+      }
+
+      .sider-body {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .sider-menu {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .sider-footer {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 18px;
+        cursor: pointer;
+        border-top: 1px solid rgb(0 21 41 / 6%);
+        color: #666;
+        font-size: 13px;
+
+        &:hover {
+          color: #16a34a;
+          background: rgb(0 0 0 / 2%);
+        }
+
+        // 收起态（64px 卡宽）：仅图标居中
+        &.collapsed {
+          justify-content: center;
+          padding: 0;
+        }
       }
     }
 

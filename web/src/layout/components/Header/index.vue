@@ -18,22 +18,11 @@
     </div>
     <!--左侧菜单-->
     <div class="layout-header-left" v-else>
-      <!-- Logo：Header 拉通全宽后从侧边栏头部移入；标题常显（不随菜单折叠收起，避免面包屑横跳） -->
+      <!-- Logo：Header 拉通全宽后从侧边栏头部移入；标题常显（不随菜单折叠收起，避免面包屑横跳）。
+           折叠控制已移至左侧菜单卡底部 -->
       <div class="logo header-logo" @click="goHome">
         <img :src="websiteConfig.logo" alt="" />
         <h2 class="title">{{ websiteConfig.title }}</h2>
-      </div>
-      <!-- 菜单收起 -->
-      <div
-        class="ml-1 layout-header-trigger layout-header-trigger-min"
-        @click="handleMenuCollapsed"
-      >
-        <n-icon size="18" v-if="collapsed">
-          <MenuUnfoldOutlined />
-        </n-icon>
-        <n-icon size="18" v-else>
-          <MenuFoldOutlined />
-        </n-icon>
       </div>
       <!-- 面包屑 -->
       <n-breadcrumb v-if="crumbsSetting.show">
@@ -343,10 +332,6 @@
         openDrawer();
       }
 
-      function handleMenuCollapsed() {
-        emit('update:collapsed', !props.collapsed);
-      }
-
       return {
         ...toRefs(state),
         iconList,
@@ -367,7 +352,6 @@
         getMenuLocation,
         mixMenu,
         websiteConfig,
-        handleMenuCollapsed,
         entityContext,
         RedirectName,
       };
