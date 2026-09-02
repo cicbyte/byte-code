@@ -107,6 +107,7 @@
   import { reactive, ref, onMounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useUserStore } from '@/store/modules/user';
+  import { forcePwdVisible } from '@/store/modules/forcePassword';
   import { useMessage } from 'naive-ui';
   import { ResultEnum } from '@/enums/httpEnum';
   import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5';
@@ -161,11 +162,9 @@
           const { code, message: msg, result } = await userStore.login(params);
           message.destroyAll();
           if (code == ResultEnum.SUCCESS) {
-            // 仍在使用初始默认密码的账号，先引导完成改密
+            // 仍在使用初始默认密码的账号，进入系统后由全局弹窗接管改密
             if (result?.mustChangePassword) {
-              message.warning('首次登录请先修改初始密码');
-              router.replace('/setting/account');
-              return;
+              forcePwdVisible.value = true;
             }
             const toPath = decodeURIComponent((route.query?.redirect || '/') as string);
             message.success('登录成功，即将进入系统');
@@ -190,7 +189,7 @@
     display: flex;
     height: 100vh;
     overflow: hidden;
-    background: #f8fafc;
+    background: var(--canvas, #f8fafc);
   }
 
   /* ─── Left: Brand Panel ─── */
@@ -329,7 +328,8 @@
     align-items: center;
     justify-content: center;
     padding: 40px;
-    background: #f8fafc;
+    // 跟随明暗主题（暗色下白色输入文字需要深色底才可见）
+    background: var(--canvas, #f8fafc);
   }
 
   .form-container {
@@ -381,7 +381,9 @@
   }
 
   .login-input {
-    :deep(.n-input__input-el) {
+    // 输入元素与 placeholder 覆盖层须同 padding，否则空态光标(5px)与提示文字(0px)错位
+    :deep(.n-input__input-el),
+    :deep(.n-input__placeholder) {
       padding-left: 5px;
     }
   }

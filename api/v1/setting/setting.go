@@ -33,7 +33,8 @@ type UpdateProfileRes struct {
 // ChangePasswordReq 修改密码
 type ChangePasswordReq struct {
 	g.Meta      `path:"/account/password" method:"put" tags:"个人设置" summary:"修改密码"`
-	OldPassword string `json:"oldPassword" v:"required#请输入旧密码"`
+	// 首次改密（账号带 must_change_password 标记）免验旧密码，由 logic 层判断
+	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword" v:"required|length:8,20#请输入新密码|密码长度为8-20位"`
 }
 

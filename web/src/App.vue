@@ -7,6 +7,7 @@
   >
     <AppProvider>
       <RouterView />
+      <ForceChangePassword />
     </AppProvider>
   </NConfigProvider>
 </template>
@@ -15,6 +16,7 @@
   import { computed, watch } from 'vue';
   import { zhCN, dateZhCN, darkTheme } from 'naive-ui';
   import { AppProvider } from '@/components/Application';
+  import ForceChangePassword from '@/components/ForceChangePassword/index.vue';
   import { useDesignSettingStore } from '@/store/modules/designSetting';
   import { lighten } from '@/utils/index';
 

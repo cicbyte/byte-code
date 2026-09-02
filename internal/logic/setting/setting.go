@@ -68,8 +68,14 @@ func (s *sSetting) ChangePassword(ctx context.Context, req *api.ChangePasswordRe
 	if err != nil || record == nil {
 		return fmt.Errorf("用户不存在")
 	}
-	if err = bcrypt.CompareHashAndPassword([]byte(record["password"].String()), []byte(req.OldPassword)); err != nil {
-		return fmt.Errorf("旧密码不正确")
+	// 首次改密（登录即证实身份）免验旧密码；常规改密必须验旧密码
+	if record["must_change_password"].Int() != 1 {
+		if req.OldPassword == "" {
+			return fmt.Errorf("请输入旧密码")
+		}
+		if err = bcrypt.CompareHashAndPassword([]byte(record["password"].String()), []byte(req.OldPassword)); err != nil {
+			return fmt.Errorf("旧密码不正确")
+		}
 	}
 	// 密码复杂度：须同时包含字母与数字（长度由 API 校验为 8-20 位）
 	hasLetter, hasDigit := false, false

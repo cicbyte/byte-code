@@ -3,6 +3,7 @@ import VueHook from 'alova/vue';
 import adapterFetch from 'alova/fetch';
 import { isString } from 'lodash-es';
 import { useUser } from '@/store/modules/user';
+import { forcePwdVisible } from '@/store/modules/forcePassword';
 import { storage } from '@/utils/Storage';
 import { useGlobSetting } from '@/hooks/setting';
 import { ResultEnum } from '@/enums/httpEnum';
@@ -73,13 +74,10 @@ export const Alova = createAlova({
         throw new Error(message || '登录已过期');
       }
 
-      // 强制改密：账号仍在使用初始密码，跳转到账号安全页完成修改
+      // 强制改密：账号仍在使用初始密码，弹出全局改密弹窗（不再整页跳转，
+      // 避免目标页自身接口同样被拦截造成的弹窗轰炸）
       if (code === ResultEnum.MUST_CHANGE_PASSWORD) {
-        const Message = window.$message;
-        Message?.error(message || '首次登录请先修改初始密码');
-        if (!window.location.pathname.startsWith('/setting/account')) {
-          window.location.href = '/setting/account';
-        }
+        forcePwdVisible.value = true;
         throw new Error(message || '首次登录请先修改初始密码');
       }
 
