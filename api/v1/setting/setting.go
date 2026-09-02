@@ -81,3 +81,39 @@ type UpdateSystemConfigReq struct {
 type UpdateSystemConfigRes struct {
 	g.Meta `mime:"application/json"`
 }
+
+
+// ==================== AI 引擎管理（仅超管） ====================
+
+type AiEngineConfigReq struct {
+	g.Meta  `path:"/admin/ai-engine/config" method:"get" tags:"AI引擎" summary:"获取AI引擎配置"`
+}
+
+type AiEngineConfigRes struct {
+	g.Meta   `mime:"application/json"`
+	BaseURL  string `json:"baseUrl"`
+	Model    string `json:"model"`
+	HasApiKey bool  `json:"hasApiKey"`
+	Running  bool   `json:"running"`
+}
+
+type AiEngineConfigUpdateReq struct {
+	g.Meta  `path:"/admin/ai-engine/config" method:"put" tags:"AI引擎" summary:"更新AI引擎配置"`
+	BaseURL string `json:"baseUrl" v:"required#模型服务地址不能为空"`
+	ApiKey  string `json:"apiKey"`
+	Model   string `json:"model" v:"required#模型名不能为空"`
+}
+
+type AiEngineConfigUpdateRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type AiEngineToggleReq struct {
+	g.Meta  `path:"/admin/ai-engine/toggle" method:"post" tags:"AI引擎" summary:"启动/停止AI引擎"`
+	Action  string `json:"action" v:"required|in:start,stop#操作不能为空|必须是start或stop"`
+}
+
+type AiEngineToggleRes struct {
+	g.Meta  `mime:"application/json"`
+	Running bool `json:"running"`
+}

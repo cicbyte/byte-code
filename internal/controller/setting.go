@@ -38,3 +38,21 @@ func (c *settingController) UpdateSystemConfig(ctx context.Context, req *api.Upd
 	res = new(api.UpdateSystemConfigRes)
 	return
 }
+
+func (c *settingController) GetAiEngineConfig(ctx context.Context, req *api.AiEngineConfigReq) (res *api.AiEngineConfigRes, err error) {
+	return service.Setting().GetAiEngineConfig(ctx)
+}
+
+func (c *settingController) UpdateAiEngineConfig(ctx context.Context, req *api.AiEngineConfigUpdateReq) (res *api.AiEngineConfigUpdateRes, err error) {
+	err = service.Setting().UpdateAiEngineConfig(ctx, req)
+	res = new(api.AiEngineConfigUpdateRes)
+	return
+}
+
+func (c *settingController) ToggleAiEngine(ctx context.Context, req *api.AiEngineToggleReq) (res *api.AiEngineToggleRes, err error) {
+	running, err := service.Setting().ToggleAiEngine(ctx, req.Action)
+	if err != nil {
+		return nil, err
+	}
+	return &api.AiEngineToggleRes{Running: running}, nil
+}

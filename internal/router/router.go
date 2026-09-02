@@ -141,6 +141,13 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 
 			// 用户管理
 			group.Bind(controller.UserCtrl)
+
+			// AI 引擎管理
+			group.Bind(
+				controller.Setting.GetAiEngineConfig,
+				controller.Setting.UpdateAiEngineConfig,
+				controller.Setting.ToggleAiEngine,
+			)
 		})
 	})
 }

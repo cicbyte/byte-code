@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	api "github.com/cicbyte/byte-code/api/v1/setting"
+	aiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/gogf/gf/v2/frame/g"
 	"golang.org/x/crypto/bcrypt"
@@ -172,4 +173,66 @@ func (s *sSetting) UpdateSystemConfig(ctx context.Context, req *api.UpdateSystem
 		}
 	}
 	return nil
+}
+
+
+// ==================== AI 引擎管理 ====================
+
+func (s *sSetting) GetAiEngineConfig(ctx context.Context) (res *api.AiEngineConfigRes, err error) {
+	var cfgs []struct{ Key, Value string }
+	err = g.DB().Model("sys_config").Ctx(ctx).
+		WhereIn("key", g.Slice{"ai_engine_base_url", "ai_engine_api_key", "ai_engine_model"}).Scan(&cfgs)
+	if err != nil {
+		return nil, fmt.Errorf("查询配置失败")
+	}
+	m := make(map[string]string)
+	for _, c := range cfgs {
+		m[c.Key] = c.Value
+	}
+	return &api.AiEngineConfigRes{
+		BaseURL:   m["ai_engine_base_url"],
+		Model:     m["ai_engine_model"],
+		HasApiKey: m["ai_engine_api_key"] != "",
+		Running:   aiengine.IsRunning(),
+	}, nil
+}
+
+func (s *sSetting) UpdateAiEngineConfig(ctx context.Context, req *api.AiEngineConfigUpdateReq) (err error) {
+	items := map[string]string{
+		"ai_engine_base_url": req.BaseURL,
+		"ai_engine_model":    req.Model,
+	}
+	// ApiKey 为空表示保持原值
+	if req.ApiKey != "" {
+		items["ai_engine_api_key"] = req.ApiKey
+	}
+	for key, value := range items {
+		cnt, _ := g.DB().Model("sys_config").Ctx(ctx).Where("key", key).Count()
+		if cnt > 0 {
+			g.DB().Model("sys_config").Ctx(ctx).Where("key", key).Data("value", value).Update()
+		} else {
+			g.DB().Model("sys_config").Ctx(ctx).Data(g.Map{"key": key, "value": value}).Insert()
+		}
+	}
+	return nil
+}
+
+func (s *sSetting) ToggleAiEngine(ctx context.Context, action string) (running bool, err error) {
+	if action == "start" {
+		// 检查配置
+		cfg, err := s.GetAiEngineConfig(ctx)
+		if err != nil {
+			return false, fmt.Errorf("获取配置失败")
+		}
+		if cfg.BaseURL == "" || cfg.Model == "" {
+			return false, fmt.Errorf("请先配置模型服务地址和模型名")
+		}
+		if !cfg.HasApiKey {
+			// OpenAI-compatible 兼容 Ollama 无 Key 场景，不强制
+		}
+		aiengine.StartEngine(ctx)
+		return true, nil
+	}
+	aiengine.StopEngine(ctx)
+	return false, nil
 }
