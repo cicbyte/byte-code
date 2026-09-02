@@ -64,6 +64,11 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.Doc,
 			)
 
+			// 记忆/文档中枢（vault 磁盘真相源 + KV 记忆；项目归属由路径 /projects/{id}/ 中间件校验）
+			group.Bind(
+				controller.Vault,
+			)
+
 			// 附件：上传/下载/列表对所有登录用户开放（存储配置在管理组）
 			group.Bind(
 				controller.AttachmentCtrl.AttachmentUpload,
