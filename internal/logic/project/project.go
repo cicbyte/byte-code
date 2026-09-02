@@ -694,6 +694,7 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 
 	result, err := g.DB().Model("comments").Ctx(ctx).Insert(g.Map{
 		"task_id":   req.TaskId,
+		"parent_id": req.ParentId,
 		"user_id":   userId,
 		"content":   req.Content,
 		"user_type": userType,
@@ -723,6 +724,51 @@ func (s *sProject) ListComments(ctx context.Context, taskId int) (res *api.Comme
 
 // ==================== AI 执行日志 ====================
 
+
+func (s *sProject) UpdateComment(ctx context.Context, req *api.CommentUpdateReq) (err error) {
+	// 仅评论作者可编辑
+	uid := perm.UserId(ctx)
+	rec, err := g.DB().Model("comments").Ctx(ctx).Where("id", req.Id).Fields("user_id").Value()
+	if err != nil || rec == nil {
+		return fmt.Errorf("评论不存在")
+	}
+	if rec.Int() != uid {
+		return fmt.Errorf("只能编辑自己的评论")
+	}
+	_, err = g.DB().Model("comments").Ctx(ctx).
+		Where("id", req.Id).
+		Data(g.Map{"content": *req.Content, "updated_at": time.Now().Format("2006-01-02 15:04:05")}).
+		Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "编辑评论失败")
+	}
+	return nil
+}
+
+func (s *sProject) DeleteComment(ctx context.Context, id int) (err error) {
+	// 评论作者或项目 owner 可删除
+	uid := perm.UserId(ctx)
+	rec, err := g.DB().Model("comments").Ctx(ctx).Where("id", id).Fields("user_id, task_id").One()
+	if err != nil || rec == nil {
+		return fmt.Errorf("评论不存在")
+	}
+	if rec["user_id"].Int() != uid {
+		// 查任务所属项目，看是否 owner
+		taskProject := perm.EntityProjectId(ctx, "tasks", rec["task_id"].Int())
+		if !perm.IsProjectOwner(ctx, uid, taskProject) {
+			return fmt.Errorf("只能删除自己的评论")
+		}
+	}
+	// 删除子回复
+	if _, err := g.DB().Model("comments").Ctx(ctx).Where("parent_id", id).Delete(); err != nil {
+		return liberr.WrapDb(ctx, err, "删除子回复失败")
+	}
+	_, err = g.DB().Model("comments").Ctx(ctx).Where("id", id).Delete()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "删除评论失败")
+	}
+	return nil
+}
 func (s *sProject) CreateAiLog(ctx context.Context, req *api.AiLogCreateReq) (id int, err error) {
 	result, err := g.DB().Model("ai_execution_logs").Ctx(ctx).Insert(g.Map{
 		"task_id":    req.TaskId,

@@ -497,3 +497,14 @@ export function deleteMilestone(id: number) {
 export function createMilestone(projectId: number, data: MilestoneCreateData) {
   return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/milestones`, data);
 }
+
+
+// ==================== 评论扩展 ====================
+
+export function updateComment(id: number, content: string) {
+  return Alova.Put(`/v1/comments/${id}`, { content });
+}
+
+export function deleteComment(id: number) {
+  return Alova.Delete(`/v1/comments/${id}`);
+}

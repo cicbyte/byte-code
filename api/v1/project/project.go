@@ -256,8 +256,8 @@ type TaskImportRes struct {
 type CommentCreateReq struct {
 	g.Meta   `path:"/tasks/{taskId}/comments" method:"post" tags:"任务评论" summary:"创建评论"`
 	TaskId   int    `json:"taskId" v:"required" in:"path"`
+	ParentId int    `json:"parentId"`
 	Content  string `json:"content" v:"required#评论内容不能为空"`
-	UserType string `json:"userType" d:"human"`
 }
 
 type CommentCreateRes struct {
@@ -272,16 +272,37 @@ type CommentListReq struct {
 type CommentItem struct {
 	Id        int    `json:"id"`
 	TaskId    int    `json:"taskId"`
+	ParentId  int    `json:"parentId"`
 	UserId    int    `json:"userId"`
 	Username  string `json:"username"`
 	RealName  string `json:"realName"`
 	Content   string `json:"content"`
 	UserType  string `json:"userType"`
 	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type CommentListRes struct {
 	List []CommentItem `json:"list"`
+}
+
+type CommentUpdateReq struct {
+	g.Meta  `path:"comments/{id}" method:"put" tags:"任务评论" summary:"编辑评论"`
+	Id      int     `json:"id" v:"required" in:"path"`
+	Content *string `json:"content" v:"required#评论内容不能为空"`
+}
+
+type CommentUpdateRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type CommentDeleteReq struct {
+	g.Meta `path:"comments/{id}" method:"delete" tags:"任务评论" summary:"删除评论"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type CommentDeleteRes struct {
+	g.Meta `mime:"application/json"`
 }
 
 // ==================== AI 执行日志 ====================

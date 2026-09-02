@@ -35,6 +35,8 @@ type IProject interface {
 	// 评论
 	CreateComment(ctx context.Context, req *api.CommentCreateReq) (id int, err error)
 	ListComments(ctx context.Context, taskId int) (res *api.CommentListRes, err error)
+	UpdateComment(ctx context.Context, req *api.CommentUpdateReq) (err error)
+	DeleteComment(ctx context.Context, id int) (err error)
 
 	// AI 执行日志
 	CreateAiLog(ctx context.Context, req *api.AiLogCreateReq) (id int, err error)

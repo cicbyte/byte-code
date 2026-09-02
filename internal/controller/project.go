@@ -282,3 +282,15 @@ func (c *projectController) DeleteMilestone(ctx context.Context, req *api.Milest
 	res = new(api.MilestoneDeleteRes)
 	return
 }
+
+func (c *projectController) UpdateComment(ctx context.Context, req *api.CommentUpdateReq) (res *api.CommentUpdateRes, err error) {
+	err = service.Project().UpdateComment(ctx, req)
+	res = new(api.CommentUpdateRes)
+	return
+}
+
+func (c *projectController) DeleteComment(ctx context.Context, req *api.CommentDeleteReq) (res *api.CommentDeleteRes, err error) {
+	err = service.Project().DeleteComment(ctx, req.Id)
+	res = new(api.CommentDeleteRes)
+	return
+}

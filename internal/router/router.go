@@ -109,6 +109,10 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		group.Bind(
 			controller.Menu.MenuList,
 			controller.Role.List,
+			controller.Role.Create,
+			controller.Role.Update,
+			controller.Role.Delete,
+			controller.Role.UpdateMenus,
 			controller.Setting.GetSystemConfig,
 			controller.Setting.UpdateSystemConfig,
 		)
