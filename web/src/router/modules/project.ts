@@ -106,6 +106,24 @@ const routes: Array<RouteRecordRaw> = [
             },
             component: () => import('@/views/project/database.vue'),
           },
+          {
+            path: 'test-cases',
+            name: `${routeName}_test_cases`,
+            meta: {
+              title: '测试用例',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/test/cases.vue'),
+          },
+          {
+            path: 'test-plans',
+            name: `${routeName}_test_plans`,
+            meta: {
+              title: '测试计划',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/test/plans.vue'),
+          },
         ],
       },
       // 兼容旧链接

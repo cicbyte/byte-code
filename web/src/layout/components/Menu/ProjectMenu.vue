@@ -25,6 +25,8 @@
     ThunderboltOutlined,
     TeamOutlined,
     DatabaseOutlined,
+    BugOutlined,
+    ExperimentOutlined,
   } from '@vicons/antd';
   import { useEntityContext } from '@/store/modules/entityContext';
 
@@ -55,6 +57,8 @@
       { label: '需求池', key: `/project/${pid}/requirements`, icon: renderIcon(ProfileOutlined) },
       { label: '里程碑', key: `/project/${pid}/milestones`, icon: renderIcon(FlagOutlined) },
       { label: 'Sprint', key: `/project/${pid}/sprints`, icon: renderIcon(ThunderboltOutlined) },
+      { label: '测试用例', key: `/project/${pid}/test-cases`, icon: renderIcon(BugOutlined) },
+      { label: '测试计划', key: `/project/${pid}/test-plans`, icon: renderIcon(ExperimentOutlined) },
       { label: '成员', key: `/project/${pid}/members`, icon: renderIcon(TeamOutlined) },
       { label: '数据库', key: `/project/${pid}/database`, icon: renderIcon(DatabaseOutlined) },
     ];

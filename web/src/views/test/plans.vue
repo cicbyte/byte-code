@@ -128,7 +128,8 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, onMounted, computed } from 'vue';
+  import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {
@@ -151,7 +152,8 @@
   const planResults = ref<TestPlanResultsResult | null>(null);
   const createFormRef = ref<any>(null);
 
-  const projectId = ref(1);
+  const route = useRoute();
+  const projectId = computed(() => Number(route.params.projectId));
   const pagination = reactive({ page: 1, pageSize: 10 });
 
   const formData = reactive({ name: '', description: '' });

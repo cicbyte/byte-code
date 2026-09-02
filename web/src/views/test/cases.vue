@@ -134,7 +134,8 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, onMounted, computed } from 'vue';
+  import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {
@@ -156,7 +157,8 @@
   const formRef = ref<any>(null);
 
   // 硬编码项目ID（后续可从路由或全局状态获取）
-  const projectId = ref(1);
+  const route = useRoute();
+  const projectId = computed(() => Number(route.params.projectId));
   const pagination = reactive({ page: 1, pageSize: 10 });
   const filters = reactive({ category: null as string | null, status: null as string | null, keyword: '' });
 
