@@ -50,6 +50,7 @@
           <template v-if="currentDoc">
             <MdEditor
               v-model="editContent"
+              :theme="isDark ? 'dark' : 'light'"
               :style="{ height: 'calc(100vh - 280px)' }"
               placeholder="请输入文档内容（支持 Markdown）"
               :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
@@ -88,6 +89,7 @@
   import { useMessage, useDialog } from 'naive-ui';
   import { DownOutlined, FormOutlined } from '@vicons/antd';
   import { getDocTree, getDoc, createDoc, updateDoc, deleteDoc } from '@/api/knowledge/index';
+  import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import type { DocItem, DocTreeNode } from '@/api/knowledge/index';
 
   const message = useMessage();
@@ -96,6 +98,8 @@
   // 硬编码项目ID（后续可从路由获取）
   const route = useRoute();
   const currentProjectId = computed(() => Number(route.params.projectId));
+  const { getDarkTheme } = useDesignSetting();
+  const isDark = computed(() => getDarkTheme.value === true);
 
   const treeLoading = ref(false);
   const treeData = ref<any[]>([]);

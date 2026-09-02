@@ -151,7 +151,7 @@
       flex-shrink: 0;
       height: 64px;
       background: var(--panel-bg, #fff);
-      border-bottom: 1px solid rgb(0 21 41 / 6%);
+      border-bottom: 1px solid var(--line, #e9e9e7);
     }
 
     .layout-main {
@@ -188,13 +188,13 @@
         height: 40px;
         padding: 0 18px;
         cursor: pointer;
-        border-top: 1px solid rgb(0 21 41 / 6%);
-        color: #666;
+        border-top: 1px solid var(--line, #e9e9e7);
+        color: var(--text-2, #57606a);
         font-size: 13px;
 
         &:hover {
           color: #16a34a;
-          background: rgb(0 0 0 / 2%);
+          background: var(--hover-bg);
         }
 
         // 收起态（64px 卡宽）：仅图标居中

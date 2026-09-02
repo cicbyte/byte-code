@@ -401,7 +401,7 @@
       }
 
       ::v-deep(.ant-breadcrumb span:last-child .link-text) {
-        color: #515a6e;
+        color: var(--text-1, #24292f);
       }
 
       .n-breadcrumb {
@@ -414,7 +414,7 @@
     }
 
     .link-text.clickable {
-      color: var(--n-text-color-3, #97999d);
+      color: var(--text-2, #57606a);
       cursor: pointer;
       transition: color 0.2s;
 
@@ -455,12 +455,12 @@
       }
 
       &:hover {
-        background: hsla(0, 0%, 100%, 0.08);
+        background: var(--hover-bg);
       }
 
       .anticon {
         font-size: 16px;
-        color: #515a6e;
+        color: var(--text-1, #24292f);
       }
     }
 
@@ -469,41 +469,4 @@
       padding: 0 12px;
     }
   }
-
-  .layout-header-light {
-    background: #fff;
-    color: #515a6e;
-
-    .n-icon {
-      color: #515a6e;
-    }
-
-    .layout-header-left {
-      ::v-deep(.n-breadcrumb .n-breadcrumb-item:last-child .n-breadcrumb-item__link) {
-        color: #515a6e;
-      }
-    }
-
-    .layout-header-trigger {
-      &:hover {
-        background: #f8f8f9;
-      }
-    }
-  }
-
-  .layout-header-fix {
-    position: fixed;
-    top: 0;
-    right: 0;
-    left: 200px;
-    z-index: 11;
-  }
-
-  //::v-deep(.menu-router-link) {
-  //  color: #515a6e;
-  //
-  //  &:hover {
-  //    color: #1890ff;
-  //  }
-  //}
 </style>

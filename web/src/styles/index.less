@@ -13,6 +13,14 @@
   --line: #e9e9e7;
   --scrollbar-thumb: #d6d6d3;
   --scrollbar-thumb-hover: #bfbfbb;
+  /* 文字层级（自定义 CSS 用；naive 组件内部用其自身主题） */
+  --text-1: #24292f;
+  --text-2: #57606a;
+  --text-3: #8b949e;
+  /* 交互表面 */
+  --hover-bg: rgb(0 0 0 / 3%);
+  /* 看板 Open 列状态色（中性，两态通用暗色加深） */
+  --status-open: #c9cdd4;
 }
 
 :root[data-theme='dark'] {
@@ -23,6 +31,11 @@
   --line: #333438;
   --scrollbar-thumb: #3a3b40;
   --scrollbar-thumb-hover: #4a4b50;
+  --text-1: #e2e3e6;
+  --text-2: #a7aaaf;
+  --text-3: #7c7f85;
+  --hover-bg: rgb(255 255 255 / 6%);
+  --status-open: #55575c;
 }
 
 body {

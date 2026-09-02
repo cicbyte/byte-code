@@ -145,7 +145,7 @@
 
     // 列身份色条
     &[data-status='open'] {
-      border-top: 3px solid #d9d9d9;
+      border-top: 3px solid var(--status-open, #d9d9d9);
     }
     &[data-status='in_progress'] {
       border-top: 3px solid #2080f0;
@@ -168,7 +168,7 @@
     .board-col-title {
       font-size: 13px;
       font-weight: 600;
-      color: #333;
+      color: var(--text-1, #333);
     }
   }
 
@@ -193,8 +193,8 @@
   }
 
   .task-card {
-    background: var(--canvas, #f7f7f4);
-    border: 1px solid rgb(0 21 41 / 6%);
+    background: var(--canvas, #f1f1ee);
+    border: 1px solid var(--line, #e9e9e7);
     border-radius: 8px;
     padding: 10px;
     margin-bottom: 8px;
@@ -203,13 +203,13 @@
 
     &:hover {
       border-color: #16a34a;
-      box-shadow: 0 2px 8px rgb(0 21 41 / 8%);
+      box-shadow: var(--panel-shadow);
     }
 
     .task-title {
       font-size: 13px;
       font-weight: 500;
-      color: #333;
+      color: var(--text-1, #333);
       word-break: break-all;
     }
 
@@ -222,7 +222,7 @@
       .task-assignee {
         margin-left: auto;
         font-size: 12px;
-        color: #999;
+        color: var(--text-3, #999);
         max-width: 90px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -233,7 +233,7 @@
 
   .board-col-empty {
     text-align: center;
-    color: #bbb;
+    color: var(--text-3, #999);
     font-size: 12px;
     padding: 18px 0 10px;
   }

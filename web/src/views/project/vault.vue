@@ -96,6 +96,7 @@
             <MdEditor
               v-if="!currentFile.binary"
               v-model="editContent"
+              :theme="isDark ? 'dark' : 'light'"
               :style="{ height: 'calc(100vh - 300px)' }"
               placeholder="Markdown 内容（首部可带 frontmatter 元数据）"
               :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
@@ -206,6 +207,7 @@
   import 'md-editor-v3/lib/style.css';
   import { useMessage, useDialog } from 'naive-ui';
   import { DownOutlined, SearchOutlined, FileTextOutlined } from '@vicons/antd';
+  import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import {
     getVaultTree,
     getVaultFile,
@@ -224,6 +226,8 @@
   const message = useMessage();
   const dialog = useDialog();
   const route = useRoute();
+  const { getDarkTheme } = useDesignSetting();
+  const isDark = computed(() => getDarkTheme.value === true);
 
   const projectId = computed(() => Number(route.params.projectId));
   // 路由 meta.vaultSpace=knowledge：知识库模式（仅 知识库/ 目录 + 发布流）；否则文档模式（全空间）
