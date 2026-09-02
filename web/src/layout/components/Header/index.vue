@@ -42,33 +42,29 @@
       </div>
       <!-- 面包屑 -->
       <n-breadcrumb v-if="crumbsSetting.show">
-        <template
-          v-for="routeItem in breadcrumbList"
+        <n-breadcrumb-item>
+          <span class="link-text clickable" @click="goHome">
+            <n-icon size="13"><HomeOutlined /></n-icon>
+            首页
+          </span>
+        </n-breadcrumb-item>
+        <n-breadcrumb-item
+          v-for="(routeItem, idx) in breadcrumbList"
           :key="routeItem.name === RedirectName ? void 0 : routeItem.name"
         >
-          <n-breadcrumb-item v-if="routeItem.meta.title">
-            <n-dropdown
-              v-if="routeItem.children.length"
-              :options="routeItem.children"
-              @select="dropdownSelect"
-            >
-              <span class="link-text">
-                <component
-                  v-if="crumbsSetting.showIcon && routeItem.meta.icon"
-                  :is="routeItem.meta.icon"
-                />
-                {{ routeItem.meta.title }}
-              </span>
-            </n-dropdown>
-            <span class="link-text" v-else>
-              <component
-                v-if="crumbsSetting.showIcon && routeItem.meta.icon"
-                :is="routeItem.meta.icon"
-              />
-              {{ routeItem.meta.title }}
-            </span>
-          </n-breadcrumb-item>
-        </template>
+          <span
+            v-if="routeItem.meta.title"
+            class="link-text"
+            :class="{ clickable: isNavigable(routeItem) && idx < breadcrumbList.length - 1 }"
+            @click="navigateCrumb(routeItem)"
+          >
+            <component
+              v-if="crumbsSetting.showIcon && routeItem.meta.icon"
+              :is="routeItem.meta.icon"
+            />
+            {{ routeItem.meta.title }}
+          </span>
+        </n-breadcrumb-item>
       </n-breadcrumb>
       <span v-if="entityContext.currentEntityName" class="entity-breadcrumb-name">
         / {{ entityContext.currentEntityName }}
@@ -153,10 +149,11 @@
   import ThemeToggle from './ThemeToggle.vue';
   import SearchModal from './SearchModal.vue';
   import { ref as vueRef } from 'vue';
+  import { HomeOutlined } from '@vicons/antd';
 
   export default defineComponent({
     name: 'PageHeader',
-    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal },
+    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal, HomeOutlined },
     props: {
       collapsed: {
         type: Boolean,
@@ -232,8 +229,25 @@
         return generator(route.matched);
       });
 
-      const dropdownSelect = (key) => {
-        router.push({ name: key });
+      // 面包屑导航：无悬浮下拉，层级可点击回跳；参数化路由按段数取当前实际路径前缀
+      const goHome = () => {
+        router.push('/dashboard/console');
+      };
+
+      const crumbPath = (pattern: string) => {
+        if (!pattern.includes(':')) return pattern;
+        const seg = pattern.split('/').filter(Boolean).length;
+        const cur = route.path.split('/').filter(Boolean);
+        return '/' + cur.slice(0, seg).join('/');
+      };
+
+      const isNavigable = (item) => {
+        const p = crumbPath(item.path || '');
+        return !!p && p !== '/' && p !== route.path;
+      };
+
+      const navigateCrumb = (item) => {
+        if (isNavigable(item)) router.push(crumbPath(item.path));
       };
 
       // 刷新页面
@@ -339,10 +353,12 @@
         ...toRefs(state),
         iconList,
         searchRef,
+        goHome,
+        isNavigable,
+        navigateCrumb,
         toggleFullScreen,
         doLogout,
         route,
-        dropdownSelect,
         avatarOptions,
         getChangeStyle,
         avatarSelect,
@@ -420,6 +436,16 @@
 
       &-menu {
         color: var(--text-color);
+      }
+    }
+
+    .link-text.clickable {
+      color: var(--n-text-color-3, #97999d);
+      cursor: pointer;
+      transition: color 0.2s;
+
+      &:hover {
+        color: #16a34a;
       }
     }
 
