@@ -11,10 +11,7 @@
         v-if="
           !isMobile && isMixMenuNoneSub && (navMode === 'vertical' || navMode === 'horizontal-mix')
         "
-        show-trigger="bar"
-        @collapse="collapsed = true"
         :collapsed="collapsed"
-        @expand="collapsed = false"
         collapse-mode="width"
         :collapsed-width="64"
         :width="leftMenuWidth"
@@ -141,8 +138,8 @@
   }
 </style>
 <style lang="less" scoped>
-  // 统一浮卡几何：画布上 8px 缝隙、12px 圆角、面板阴影。
-  // 视口锁高：页面级永不滚动（消灭全宽滚动条挤压三卡对齐），滚动只在内容卡内部
+  // 通栏 Header（贯穿、无圆角）+ 下方浮卡；画布 8px 缝隙、12px 圆角统一。
+  // 视口锁高：页面级永不滚动（消灭全宽滚动条挤压对齐），滚动只在内容卡内部
   .layout-root {
     height: 100vh;
     overflow: hidden;
@@ -153,10 +150,8 @@
     .layout-top-header {
       flex-shrink: 0;
       height: 64px;
-      margin: 8px 8px 0;
-      border-radius: var(--panel-radius, 12px);
       background: var(--panel-bg, #fff);
-      box-shadow: var(--panel-shadow);
+      border-bottom: 1px solid rgb(0 21 41 / 6%);
     }
 
     .layout-main {
