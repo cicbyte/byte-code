@@ -1,10 +1,6 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" title="角色权限管理" />
-
-    </div>
-    <n-card :bordered="false" class="mt-4 proCard">
+    <n-card :bordered="false" class="proCard">
       <BasicTable
         :columns="columns"
         :request="loadDataTable"

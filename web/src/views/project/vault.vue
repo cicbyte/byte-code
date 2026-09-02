@@ -1,29 +1,21 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" :title="isKnowledge ? '知识库' : '文档'">
-        <template #header-extra>
-          <n-space align="center">
-            <n-tag v-if="isKnowledge" size="small" type="info">人审发布流：编辑自动转草稿</n-tag>
-            <n-button size="small" :loading="refreshing" @click="handleRefresh">重扫索引</n-button>
-          </n-space>
-        </template>
-      </n-card>
-    </div>
-
-    <n-grid class="mt-4" cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
+    <n-grid cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
       <!-- 左侧目录树 -->
       <n-gi span="1">
         <n-card title="目录" size="small" :bordered="false" :segmented="{ content: true }">
           <template #header-extra>
-            <n-dropdown trigger="hover" @select="handleAddNode" :options="addNodeOptions">
-              <n-button type="info" ghost size="small" icon-placement="right">
-                新建
-                <template #icon>
-                  <n-icon size="14"><DownOutlined /></n-icon>
-                </template>
-              </n-button>
-            </n-dropdown>
+            <n-space :size="4" align="center">
+              <n-button size="tiny" quaternary :loading="refreshing" @click="handleRefresh">重扫</n-button>
+              <n-dropdown trigger="hover" @select="handleAddNode" :options="addNodeOptions">
+                <n-button type="info" ghost size="small" icon-placement="right">
+                  新建
+                  <template #icon>
+                    <n-icon size="14"><DownOutlined /></n-icon>
+                  </template>
+                </n-button>
+              </n-dropdown>
+            </n-space>
           </template>
 
           <n-input

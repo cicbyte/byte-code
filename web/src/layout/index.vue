@@ -219,7 +219,8 @@
     }
 
     .layout-content-main {
-      padding: 0 8px 8px;
+      // 顶部 4px 统一呼吸距（页面级标题卡已移除，标题由 Header 面包屑承载）
+      padding: 4px 8px 8px;
     }
   }
 </style>

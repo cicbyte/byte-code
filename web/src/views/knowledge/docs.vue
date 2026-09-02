@@ -1,10 +1,7 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" title="知识库" />
-    </div>
 
-    <n-grid class="mt-4" cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
+    <n-grid cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
       <!-- 左侧文档树 -->
       <n-gi span="1">
         <n-card title="文档目录" size="small" :bordered="false" :segmented="{ content: true }">

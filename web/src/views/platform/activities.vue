@@ -1,10 +1,7 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" title="活动流" />
-    </div>
 
-    <n-card :bordered="false" class="mt-4 proCard">
+    <n-card :bordered="false" class="proCard">
       <template #header>
         <n-space align="center">
           <n-select

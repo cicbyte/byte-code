@@ -1,35 +1,27 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" title="项目记忆">
-        <template #header-extra>
-          <n-space align="center">
-            <n-tag size="small" type="info">agent 的 KV 记忆：超 30 天未验证自动腐化</n-tag>
-            <n-button type="primary" size="small" @click="openCreate">新增记忆</n-button>
-          </n-space>
-        </template>
-      </n-card>
-    </div>
-
-    <n-card class="mt-4" :bordered="false" :segmented="{ content: true }">
-      <!-- 过滤栏 -->
-      <n-space class="mb-4" align="center">
-        <n-input
-          v-model:value="prefix"
-          size="small"
-          style="width: 220px"
-          placeholder="key 前缀过滤，例：conventions."
-          clearable
-          @keyup.enter="load"
-          @clear="load"
-        />
-        <n-checkbox-group v-model:value="includeStates" size="small" @update:value="load">
-          <n-space>
-            <n-checkbox value="stale" label="含腐化 (stale)" />
-            <n-checkbox value="expired" label="含过期 (expired)" />
-          </n-space>
-        </n-checkbox-group>
-        <n-button size="small" @click="load">查询</n-button>
+    <n-card :bordered="false" :segmented="{ content: true }">
+      <!-- 过滤栏：左过滤右操作，单行排布 -->
+      <n-space class="mb-4" align="center" justify="space-between">
+        <n-space align="center">
+          <n-input
+            v-model:value="prefix"
+            size="small"
+            style="width: 220px"
+            placeholder="key 前缀过滤，例：conventions."
+            clearable
+            @keyup.enter="load"
+            @clear="load"
+          />
+          <n-checkbox-group v-model:value="includeStates" size="small" @update:value="load">
+            <n-space>
+              <n-checkbox value="stale" label="含腐化 (stale)" />
+              <n-checkbox value="expired" label="含过期 (expired)" />
+            </n-space>
+          </n-checkbox-group>
+          <n-button size="small" @click="load">查询</n-button>
+        </n-space>
+        <n-button type="primary" size="small" @click="openCreate">新增记忆</n-button>
       </n-space>
 
       <n-data-table

@@ -1,10 +1,7 @@
 <template>
   <div>
-    <div class="n-layout-page-header">
-      <n-card :bordered="false" title="测试用例" />
-    </div>
 
-    <n-card :bordered="false" class="mt-4 proCard">
+    <n-card :bordered="false" class="proCard">
       <!-- 筛选栏 -->
       <n-space class="mb-4" align="center">
         <n-select
