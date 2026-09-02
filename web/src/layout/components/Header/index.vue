@@ -30,23 +30,10 @@
           <MenuFoldOutlined />
         </n-icon>
       </div>
-      <!-- 刷新 -->
-      <div
-        class="mr-1 layout-header-trigger layout-header-trigger-min"
-        v-if="headerSetting.isReload"
-        @click="reloadPage"
-      >
-        <n-icon size="18">
-          <ReloadOutlined />
-        </n-icon>
-      </div>
       <!-- 面包屑 -->
       <n-breadcrumb v-if="crumbsSetting.show">
         <n-breadcrumb-item>
-          <span class="link-text clickable" @click="goHome">
-            <n-icon size="13"><HomeOutlined /></n-icon>
-            首页
-          </span>
+          <span class="link-text clickable" @click="goHome">首页</span>
         </n-breadcrumb-item>
         <n-breadcrumb-item
           v-for="(routeItem, idx) in breadcrumbList"
@@ -149,11 +136,10 @@
   import ThemeToggle from './ThemeToggle.vue';
   import SearchModal from './SearchModal.vue';
   import { ref as vueRef } from 'vue';
-  import { HomeOutlined } from '@vicons/antd';
 
   export default defineComponent({
     name: 'PageHeader',
-    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal, HomeOutlined },
+    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal },
     props: {
       collapsed: {
         type: Boolean,
@@ -248,13 +234,6 @@
 
       const navigateCrumb = (item) => {
         if (isNavigable(item)) router.push(crumbPath(item.path));
-      };
-
-      // 刷新页面
-      const reloadPage = () => {
-        router.push({
-          path: '/redirect' + unref(route).fullPath,
-        });
       };
 
       // 退出登录
@@ -363,7 +342,6 @@
         getChangeStyle,
         avatarSelect,
         breadcrumbList,
-        reloadPage,
         drawerSetting,
         openSetting,
         getInverted,
