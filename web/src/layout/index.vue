@@ -7,32 +7,28 @@
 
     <!-- Header 下方：左侧菜单浮卡全高连续 + 内容区浮卡，三卡统一 8px 缝隙 -->
     <div class="layout-main">
-      <n-layout-sider
+      <!-- 自控侧栏（脱离 n-layout 独立渲染后 naive 的宽度折叠响应不可靠，改为纯 CSS transition） -->
+      <aside
         v-if="
           !isMobile && isMixMenuNoneSub && (navMode === 'vertical' || navMode === 'horizontal-mix')
         "
-        :collapsed="collapsed"
-        collapse-mode="width"
-        :collapsed-width="64"
-        :width="menuWidth"
-        :native-scrollbar="true"
         class="layout-sider"
+        :class="{ collapsed }"
+        :style="{ width: collapsed ? collapsedMenuWidth : menuWidth + 'px' }"
       >
-        <div class="sider-body">
-          <div class="sider-menu">
-            <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
-            <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
-          </div>
-          <!-- 折叠控制放在菜单卡自身底部：控制点与被控对象一体，菜单滚动时按钮固定不动 -->
-          <div class="sider-footer" :class="{ collapsed }" @click="collapsed = !collapsed">
-            <n-icon size="15">
-              <MenuFoldOutlined v-if="!collapsed" />
-              <MenuUnfoldOutlined v-else />
-            </n-icon>
-            <span v-show="!collapsed" class="sider-footer-text">收起菜单</span>
-          </div>
+        <div class="sider-menu">
+          <ProjectMenu v-if="inProjectContext" :collapsed="collapsed" />
+          <AsideMenu v-else v-model:collapsed="collapsed" v-model:location="getMenuLocation" />
         </div>
-      </n-layout-sider>
+        <!-- 折叠控制放在菜单卡自身底部：控制点与被控对象一体，菜单滚动时按钮固定不动 -->
+        <div class="sider-footer" :class="{ collapsed }" @click="collapsed = !collapsed">
+          <n-icon size="15">
+            <MenuFoldOutlined v-if="!collapsed" />
+            <MenuUnfoldOutlined v-else />
+          </n-icon>
+          <span v-show="!collapsed" class="sider-footer-text">收起菜单</span>
+        </div>
+      </aside>
 
       <n-drawer
         v-model:show="showSideDrawer"
@@ -40,16 +36,11 @@
         :placement="'left'"
         class="layout-side-drawer"
       >
-        <n-layout-sider
-          :collapsed="false"
-          :width="menuWidth"
-          :native-scrollbar="true"
-          class="layout-sider"
-        >
+        <div class="drawer-sider">
           <Logo :collapsed="false" />
           <ProjectMenu v-if="inProjectContext" :collapsed="false" />
           <AsideMenu v-else v-model:location="getMenuLocation" />
-        </n-layout-sider>
+        </div>
       </n-drawer>
 
       <!-- 内容区：唯一滚动容器，滚动条在卡片内侧，不挤压三卡对齐 -->
@@ -81,6 +72,8 @@
   const settingStore = useProjectSettingStore();
 
   const collapsed = ref<boolean>(false);
+  // 收起态卡宽（icon-only）
+  const collapsedMenuWidth = '64px';
   const route = useRoute();
   // 项目工作台内左侧菜单整体替换为该项目专属导航。
   // 以路由参数同步判断（而非等 entityContext 的异步 API 返回），避免进入项目时全局菜单闪现
@@ -136,12 +129,11 @@
   .layout-side-drawer {
     background-color: rgb(0, 20, 40);
 
-    .layout-sider {
+    .drawer-sider {
       min-height: 100vh;
       box-shadow: 2px 0 8px 0 rgb(29 35 41 / 5%);
       position: relative;
       z-index: 13;
-      transition: all 0.2s ease-in-out;
     }
   }
 </style>
@@ -171,25 +163,16 @@
 
     .layout-sider {
       flex-shrink: 0;
-      transition: all 0.2s ease-in-out;
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
       // 悬浮栏卡片：左右各留 8px 缝（右侧缝即与内容区的间隔）
       margin: 8px 0 8px 8px;
-      height: calc(100% - 16px);
-      align-self: flex-start;
       border-radius: var(--panel-radius, 12px);
       background: var(--panel-bg, #fff);
       box-shadow: var(--panel-shadow);
-
-      // n-layout-sider 独立使用时其内部滚动容器需要显式圆角裁切
-      :deep(.n-layout-sider-scroll-container) {
-        border-radius: inherit;
-      }
-
-      .sider-body {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
+      overflow: hidden;
+      transition: width 0.2s ease-in-out;
 
       .sider-menu {
         flex: 1;
