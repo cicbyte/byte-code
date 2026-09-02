@@ -107,10 +107,42 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/database.vue'),
           },
           {
+            // 记忆/文档中枢：知识库视图（vault 知识库空间 + 人审发布流）
+            path: 'knowledge',
+            name: `${routeName}_knowledge`,
+            meta: {
+              title: '知识库',
+              hideInMenu: true,
+              vaultSpace: 'knowledge',
+            },
+            component: () => import('@/views/project/vault.vue'),
+          },
+          {
+            // 记忆/文档中枢：文档管理器（vault 全空间）
+            path: 'vault',
+            name: `${routeName}_vault`,
+            meta: {
+              title: '文档',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/vault.vue'),
+          },
+          {
+            // 记忆/文档中枢：项目 KV 记忆
+            path: 'memories',
+            name: `${routeName}_memories`,
+            meta: {
+              title: '项目记忆',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/memories.vue'),
+          },
+          {
+            // 旧知识库（docs 表）：保留路由兼容历史数据，菜单不再指向
             path: 'docs',
             name: `${routeName}_docs`,
             meta: {
-              title: '知识库',
+              title: '知识库（旧）',
               hideInMenu: true,
             },
             component: () => import('@/views/knowledge/docs.vue'),

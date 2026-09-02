@@ -48,6 +48,9 @@ __pycache__/
 # 运行时自动生成的 JWT 秘钥
 resource/data/jwt.secret
 
+# 项目 vault（记忆/文档中枢运行时数据，含 .history 快照）
+resource/projects/
+
 # 数据库备份文件
 resource/backup/
 
