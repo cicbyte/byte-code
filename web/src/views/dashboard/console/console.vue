@@ -104,7 +104,7 @@
 
 <script lang="ts" setup>
   import { ref, reactive, onMounted, nextTick } from 'vue';
-  import * as echarts from 'echarts';
+  import echarts from '@/utils/lib/echarts';
   import { getDashboardStats } from '@/api/platform/index';
   import type { DashboardStatsResult, RecentTaskItem, AiStatItem } from '@/api/platform/index';
   import { CountTo } from '@/components/CountTo/index';

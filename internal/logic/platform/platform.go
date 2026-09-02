@@ -7,6 +7,7 @@ import (
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/platform"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/internal/consts"
 	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -66,7 +67,7 @@ func (s *sPlatform) DeleteTag(ctx context.Context, id int) (err error) {
 
 func (s *sPlatform) ListTags(ctx context.Context) (res *api.TagListRes, err error) {
 	res = &api.TagListRes{}
-	err = g.DB().Model("tags").Ctx(ctx).Order("id ASC").Scan(&res.List)
+	err = g.DB().Model("tags").Ctx(ctx).Order("id ASC").Limit(500).Scan(&res.List)
 	return
 }
 
@@ -280,7 +281,7 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 	if memberOnly {
 		reqM = reqM.Where(reqScope, uid)
 	}
-	res.TotalRequirements, _ = reqM.Count()
+	res.TotalRequirements, err = reqM.Count()
 
 	// 任务统计
 	scopedTasks := func(status string) *gdb.Model {
@@ -293,9 +294,9 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 		}
 		return m
 	}
-	res.TotalTasks, _ = scopedTasks("").Count()
-	res.InProgressTasks, _ = scopedTasks("in_progress").Count()
-	res.ReviewTasks, _ = scopedTasks("review").Count()
+	res.TotalTasks, err = scopedTasks("").Count()
+	res.InProgressTasks, err = scopedTasks("in_progress").Count()
+	res.ReviewTasks, err = scopedTasks("review").Count()
 
 	// 测试通过率
 	tpcScoped := func() *gdb.Model {
@@ -306,8 +307,8 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 		return m
 	}
 	var passCount, totalCount int
-	totalCount, _ = tpcScoped().Where("status != ?", "pending").Count()
-	passCount, _ = tpcScoped().Where("status", "pass").Count()
+	totalCount, err = tpcScoped().Where("status != ?", consts.TestPlanCasePending).Count()
+	passCount, err = tpcScoped().Where("status", consts.TestPlanCasePass).Count()
 	if totalCount > 0 {
 		res.TestPassRate = float64(passCount) / float64(totalCount) * 100
 	}

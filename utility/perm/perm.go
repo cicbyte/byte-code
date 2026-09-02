@@ -3,6 +3,7 @@ package perm
 import (
 	"context"
 
+	"github.com/cicbyte/byte-code/internal/consts"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -53,7 +54,7 @@ func IsProjectOwner(ctx context.Context, userId, projectId int) bool {
 	count, err := g.DB().Model("project_members").
 		Where("user_id", userId).
 		Where("project_id", projectId).
-		Where("role", "owner").
+		Where("role", consts.MemberRoleOwner).
 		Count()
 	return err == nil && count > 0
 }

@@ -8,6 +8,7 @@ import (
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/internal/consts"
 	"github.com/cicbyte/byte-code/utility/activity"
 	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/cicbyte/byte-code/utility/notify"
@@ -60,7 +61,7 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 		_, err = tx.Insert("project_members", g.Map{
 			"project_id": id,
 			"user_id":    uid,
-			"role":       "owner",
+			"role":       consts.MemberRoleOwner,
 		})
 		if err != nil {
 			return liberr.WrapDb(ctx, err, "添加项目成员失败")
@@ -341,12 +342,12 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	if req.Status != nil {
 		data["status"] = *req.Status
 		switch *req.Status {
-		case "done", "closed":
+		case consts.TaskStatusDone, consts.TaskStatusClosed:
 			// 仅首次进入完成态时记录；已完成的更新不重写
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur == nil || cur.String() == "" {
 				data["completed_at"] = time.Now().Format("2006-01-02 15:04:05")
 			}
-		case "open", "in_progress", "review":
+		case consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusReview:
 			// 从完成态切回非完成态时才清空（重开）；首次设定非完成态不误清
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur != nil && cur.String() != "" {
 				data["completed_at"] = ""
@@ -500,9 +501,9 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 	// 先查后改在并发下会让两个认领者同时成功（后者覆盖前者的 assignee）
 	result, err := g.DB().Model("tasks").Ctx(ctx).
 		Where("id", req.Id).
-		Where("status", "open").
+		Where("status", consts.TaskStatusOpen).
 		Data(g.Map{
-			"status":      "in_progress",
+			"status":      consts.TaskStatusInProgress,
 			"assignee_id": userId,
 		}).Update()
 	if err != nil {
@@ -529,7 +530,7 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 	}
 
 	data := g.Map{
-		"status": "review",
+		"status": consts.TaskStatusReview,
 		// 完成时间独立记录：燃尽图按此统计，任务后续编辑不会重写历史
 		"completed_at": time.Now().Format("2006-01-02 15:04:05"),
 	}
@@ -951,7 +952,7 @@ func (s *sProject) GetBurndown(ctx context.Context, sprintId int) (res *api.Burn
 	err = g.DB().Model("tasks").Ctx(ctx).
 		Fields("DATE(COALESCE(NULLIF(completed_at, ''), updated_at)) as date, COUNT(*) as completed").
 		Where("sprint_id", sprintId).
-		WhereIn("status", g.Slice{"done", "closed"}).
+		WhereIn("status", consts.TaskTerminalStatuses).
 		Group(`DATE(COALESCE(NULLIF(completed_at, ''), updated_at))`).
 		Order("date ASC").
 		Scan(&completedByDay)

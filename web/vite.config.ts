@@ -26,7 +26,9 @@ export default ({ command, mode }: ConfigEnv): UserConfig => {
   const isBuild = command === 'build';
   return {
     base: VITE_PUBLIC_PATH,
-    esbuild: {},
+    esbuild: {
+      drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    },
     resolve: {
       alias: [
         {

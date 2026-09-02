@@ -77,7 +77,7 @@
   import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage } from 'naive-ui';
-  import * as echarts from 'echarts';
+  import echarts from '@/utils/lib/echarts';
   import { getSprints, createSprint, getSprintBurndown } from '@/api/project';
   import type { SprintItem, BurndownItem } from '@/api/project';
 

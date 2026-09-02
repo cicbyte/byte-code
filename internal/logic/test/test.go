@@ -311,6 +311,7 @@ func (s *sTest) UpdatePlan(ctx context.Context, req *api.TestPlanUpdateReq) (err
 
 func (s *sTest) DeletePlan(ctx context.Context, id int) (err error) {
 	err = g.Try(ctx, func(ctx context.Context) {
+		// 两步删除在事务中执行
 		userId := ctx.Value("userId")
 		uid, _ := userId.(int)
 		_, err = s.GetPlan(ctx, id)
