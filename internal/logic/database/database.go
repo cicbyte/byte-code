@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/database"
 	service "github.com/cicbyte/byte-code/internal/service"
+	_ "github.com/go-sql-driver/mysql" // MySQL 驱动（测试连接用）
+	_ "github.com/lib/pq"              // PostgreSQL 驱动（测试连接用）
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/database/gdb"
 )
@@ -100,13 +103,20 @@ func (s *sDatabase) TestConnection(ctx context.Context, projectId int) (res *api
 	var driver string
 	switch dbConfig.DbType {
 	case "mysql":
+		// go-sql-driver：timeout 控制拨号超时，parseTime 让时间可扫描
 		driver = "mysql"
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", dbConfig.DbUser, dbConfig.DbPassword, dbConfig.DbHost, dbConfig.DbPort, dbConfig.DbName)
+		dsn = fmt.Sprintf(
+			"%s:%s@tcp(%s:%d)/%s?timeout=5s&readTimeout=5s&writeTimeout=5s&parseTime=true&charset=utf8mb4",
+			dbConfig.DbUser, dbConfig.DbPassword, dbConfig.DbHost, dbConfig.DbPort, dbConfig.DbName)
 	case "postgresql":
+		// lib/pq 的 key=value DSN；连接与语句超时由下方 ctx 控制
 		driver = "postgres"
-		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", dbConfig.DbHost, dbConfig.DbPort, dbConfig.DbUser, dbConfig.DbPassword, dbConfig.DbName)
+		dsn = fmt.Sprintf(
+			"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable connect_timeout=5",
+			dbConfig.DbHost, dbConfig.DbPort, dbConfig.DbUser, dbConfig.DbPassword, dbConfig.DbName)
 	case "sqlite":
-		driver = "sqlite3"
+		// 本项目 SQLite 驱动（glebarez）注册名为 sqlite
+		driver = "sqlite"
 		dsn = dbConfig.DbName
 	default:
 		return &api.DatabaseTestConnRes{Success: false, Message: "不支持的数据库类型"}, nil
@@ -118,7 +128,10 @@ func (s *sDatabase) TestConnection(ctx context.Context, projectId int) (res *api
 	}
 	defer db.Close()
 
-	if err = db.Ping(); err != nil {
+	// 整体超时兜底：连不上时页面最多等 8 秒而不是无限挂起
+	pingCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	if err = db.PingContext(pingCtx); err != nil {
 		return &api.DatabaseTestConnRes{Success: false, Message: fmt.Sprintf("连接失败: %v", err)}, nil
 	}
 
