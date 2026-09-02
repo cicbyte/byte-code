@@ -12,6 +12,7 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/permission/role',
     component: Layout,
     meta: {
+      menuKey: "system_role",
       title: '权限管理',
       icon: renderIcon(ShieldCheckmarkOutline),
       sort: 8,

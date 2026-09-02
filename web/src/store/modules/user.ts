@@ -82,13 +82,9 @@ export const useUserStore = defineStore({
       if (!result) {
         throw new Error('获取用户信息失败');
       }
-      if (result.permissions && result.permissions.length) {
-        const permissionsList = result.permissions;
-        this.setPermissions(permissionsList);
-        this.setUserInfo(result);
-      } else {
-        throw new Error('getInfo: permissionsList must be a non-null array !');
-      }
+      // permissions 为空不阻断（无菜单权限的用户仍可访问基本页面）
+      this.setPermissions(result.permissions || []);
+      this.setUserInfo(result);
       this.setAvatar(result.avatar);
       return result;
     },

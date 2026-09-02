@@ -164,24 +164,16 @@
 
   function confirmForm(e: any) {
     e.preventDefault();
-    formBtnLoading.value = true;
-    setTimeout(() => {
-      showModal.value = false;
-      message.success('提交成功');
-      reloadTable();
-      formBtnLoading.value = false;
-    }, 200);
+    // 后端角色 CRUD 接口未就绪，权限分配暂不可保存
+    message.info('角色权限管理功能开发中');
   }
 
   function handleEdit(record: Recordable) {
-    console.log('点击了编辑', record);
-    // router.push({ name: 'basic-info', params: { id: record.id } });
-    editModalRef.value.showModal(record);
+    message.info('角色编辑功能开发中');
   }
 
   function handleDelete(record: Recordable) {
-    console.log('点击了删除', record);
-    message.info('点击了删除');
+    message.info('角色删除功能开发中');
   }
 
   function handleMenuAuth(record: Recordable) {
@@ -191,7 +183,7 @@
   }
 
   function checkedTree(keys) {
-    checkedKeys.value = [checkedKeys.value, ...keys];
+    checkedKeys.value = keys;
   }
 
   function onExpandedKeys(keys) {

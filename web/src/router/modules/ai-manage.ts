@@ -12,6 +12,7 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/ai-manage/users',
     component: Layout,
     meta: {
+      menuKey: "ai_users",
       title: 'AI 管理',
       icon: renderIcon(RobotOutlined),
       sort: 6,

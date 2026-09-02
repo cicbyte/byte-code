@@ -107,6 +107,15 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/database.vue'),
           },
           {
+            path: 'docs',
+            name: `${routeName}_docs`,
+            meta: {
+              title: '知识库',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/knowledge/docs.vue'),
+          },
+          {
             path: 'test-cases',
             name: `${routeName}_test_cases`,
             meta: {

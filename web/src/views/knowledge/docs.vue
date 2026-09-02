@@ -51,11 +51,12 @@
           </template>
 
           <template v-if="currentDoc">
-            <n-input
-              v-model:value="editContent"
-              type="textarea"
+            <MdEditor
+              v-model="editContent"
+              :style="{ height: 'calc(100vh - 280px)' }"
               placeholder="请输入文档内容（支持 Markdown）"
-              :rows="20"
+              :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+              :footers="[]"
             />
           </template>
           <n-empty v-else description="请从左侧选择一个文档" />
@@ -83,7 +84,10 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, onMounted, computed } from 'vue';
+  import { useRoute } from 'vue-router';
+  import { MdEditor } from 'md-editor-v3';
+  import 'md-editor-v3/lib/style.css';
   import { useMessage, useDialog } from 'naive-ui';
   import { DownOutlined, FormOutlined } from '@vicons/antd';
   import { getDocTree, getDoc, createDoc, updateDoc, deleteDoc } from '@/api/knowledge/index';
@@ -93,7 +97,8 @@
   const dialog = useDialog();
 
   // 硬编码项目ID（后续可从路由获取）
-  const currentProjectId = 1;
+  const route = useRoute();
+  const currentProjectId = computed(() => Number(route.params.projectId));
 
   const treeLoading = ref(false);
   const treeData = ref<any[]>([]);
@@ -127,7 +132,7 @@
   async function loadTree() {
     treeLoading.value = true;
     try {
-      const res = await getDocTree(currentProjectId);
+      const res = await getDocTree(currentProjectId.value);
       treeData.value = transformTree(res?.tree || []);
     } catch (e) {
       // ignore
@@ -172,7 +177,7 @@
     try {
       const parentId = selectedKeys.value.length ? Number(selectedKeys.value[0]) : undefined;
       await createDoc({
-        projectId: currentProjectId,
+        projectId: currentProjectId.value,
         title: createForm.title,
         type: createType.value,
         parentId,

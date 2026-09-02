@@ -12,6 +12,7 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/platform/activities',
     component: Layout,
     meta: {
+      menuKey: "platform_activities",
       title: '平台',
       icon: renderIcon(ControlOutlined),
       sort: 7,

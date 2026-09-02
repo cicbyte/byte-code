@@ -2,6 +2,7 @@ import { toRaw } from 'vue';
 import { defineStore } from 'pinia';
 import { RouteRecordRaw } from 'vue-router';
 import { store } from '@/store';
+import { useUserStore } from '@/store/modules/user';
 import { asyncRoutes, constantRouter } from '@/router/index';
 
 export interface IAsyncRouteState {
@@ -47,9 +48,22 @@ export const useAsyncRouteStore = defineStore({
       this.keepAliveComponents = compNames;
     },
     async generateRoutes() {
-      this.setRouters(asyncRoutes);
-      this.setMenus(asyncRoutes);
-      return toRaw(asyncRoutes);
+      const userStore = useUserStore();
+      const perms = new Set(
+        (userStore.permissions || []).map((p: any) => p?.value || p)
+      );
+      // 超管（拥有 system_menu 或 system_role 权限）看全部；
+      // 普通用户按 meta.menuKey 过滤；无 menuKey 的路由（项目工作台等）始终可见
+      const isAdmin = perms.has('system_menu') || perms.has('system_role');
+      const visible = isAdmin
+        ? asyncRoutes
+        : asyncRoutes.filter((route) => {
+            const key = route.meta?.menuKey as string | undefined;
+            return !key || perms.has(key);
+          });
+      this.setRouters(visible);
+      this.setMenus(visible);
+      return toRaw(visible);
     },
   },
 });
