@@ -31,7 +31,7 @@
             </template>
           </n-input>
 
-          <n-spin :show="treeLoading">
+          <n-spin :show="treeLoading" @contextmenu.prevent="onBlankContextMenu">
             <n-empty
               v-if="!treeLoading && treeData.length === 0"
               :description="isKnowledge ? '知识库为空' : '文档目录为空'"
@@ -43,6 +43,7 @@
               :data="treeData"
               :selected-keys="selectedKeys"
               :expanded-keys="expandedKeys"
+              :node-props="treeNodeProps"
               @update:selected-keys="onSelectNode"
               @update:expanded-keys="onExpandNode"
             />
@@ -197,11 +198,23 @@
 
     <!-- 上传：隐藏 input -->
     <input ref="uploadInputRef" type="file" style="display: none" @change="handleUpload" />
+
+    <!-- 树右键菜单：按空白区/目录/文件场景渲染 -->
+    <n-dropdown
+      trigger="manual"
+      :show="ctxMenu.show"
+      :x="ctxMenu.x"
+      :y="ctxMenu.y"
+      :options="ctxMenu.options"
+      placement="bottom-start"
+      @select="onCtxSelect"
+      @clickoutside="ctxMenu.show = false"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted } from 'vue';
+  import { ref, reactive, computed, onMounted, nextTick } from 'vue';
   import { useRoute } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
@@ -369,12 +382,16 @@
     showMetaModal.value = true;
   }
 
-  function openMoveModal() {
-    moveTarget.value = currentFile.value?.path || '';
+  function openMoveModal(targetPath?: string) {
+    moveTarget.value = targetPath ?? currentFile.value?.path ?? '';
     showMoveModal.value = true;
   }
 
-  function handleAddNode(key: string) {
+  // 右键菜单指定的落点（新建/上传目标目录）；null = 跟随当前选中文件所在目录
+  let ctxTargetDir: string | null = null;
+
+  function handleAddNode(key: string, dir?: string) {
+    ctxTargetDir = dir ?? null;
     if (key === 'upload') {
       uploadInputRef.value?.click();
       return;
@@ -391,7 +408,8 @@
       return false;
     }
     const name = createForm.name.trim();
-    const path = selectedDir.value ? `${selectedDir.value}/${name}` : name;
+    const baseDir = ctxTargetDir !== null ? ctxTargetDir : selectedDir.value;
+    const path = baseDir ? `${baseDir}/${name}` : name;
     try {
       if (createType.value === 'folder') {
         await createVaultFolder(projectId.value, path);
@@ -415,14 +433,16 @@
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    const baseDir = ctxTargetDir !== null ? ctxTargetDir : selectedDir.value;
     try {
-      const res = await uploadVaultFile(projectId.value, selectedDir.value, file);
+      const res = await uploadVaultFile(projectId.value, baseDir, file);
       message.success(`上传成功：${res?.path || file.name}`);
       loadTree();
     } catch {
       message.error('上传失败');
     } finally {
       input.value = '';
+      ctxTargetDir = null;
     }
   }
 
@@ -454,15 +474,125 @@
 
   function handleDelete() {
     if (!currentFile.value) return;
+    handleDeleteFor(currentFile.value.path, false);
+  }
+
+  // ==================== 右键菜单（空白区 / 目录 / 文件 三场景） ====================
+
+  interface CtxTarget {
+    path: string;
+    isDir: boolean;
+    hasChildren: boolean;
+    name: string;
+  }
+
+  const ctxMenu = reactive({
+    show: false,
+    x: 0,
+    y: 0,
+    options: [] as Array<{ label: string; key: string; disabled?: boolean; divider?: boolean }>,
+  });
+  let ctxTarget: CtxTarget | null = null;
+
+  function treeNodeProps({ option }: { option: any }) {
+    return {
+      onContextmenu: (e: MouseEvent) => onNodeContextMenu(e, option),
+    };
+  }
+
+  function onNodeContextMenu(e: MouseEvent, option: any) {
+    e.preventDefault();
+    e.stopPropagation();
+    openCtxMenu(e, {
+      path: String(option.key),
+      isDir: !option.isLeaf,
+      hasChildren: Array.isArray(option.children) && option.children.length > 0,
+      name: String(option.key).split('/').pop() || '',
+    });
+    // 右键文件时同步视觉选中（不打开）
+    if (option.isLeaf) selectedKeys.value = [String(option.key)];
+  }
+
+  function onBlankContextMenu(e: MouseEvent) {
+    openCtxMenu(e, null);
+  }
+
+  function openCtxMenu(e: MouseEvent, target: CtxTarget | null) {
+    ctxTarget = target;
+    if (!target) {
+      // 空白区：新建/上传落在当前视图根（知识库页为 知识库/，文档页为根）
+      ctxMenu.options = [
+        { label: '新建文档', key: 'new-doc' },
+        { label: '新建文件夹', key: 'new-folder' },
+        { label: '上传文件', key: 'upload' },
+      ];
+    } else if (target.isDir) {
+      ctxMenu.options = [
+        { label: `在「${target.name}」中新建文档`, key: 'new-doc' },
+        { label: `在「${target.name}」中新建文件夹`, key: 'new-folder' },
+        { label: `上传到「${target.name}」`, key: 'upload' },
+        { label: '重命名 / 移动', key: 'move', divider: true },
+        // 非空目录禁止删除（后端同样校验），防止误删整棵子树
+        { label: '删除（仅空目录）', key: 'delete', disabled: target.hasChildren },
+      ];
+    } else {
+      ctxMenu.options = [
+        { label: '打开', key: 'open' },
+        { label: '重命名 / 移动', key: 'move', divider: true },
+        { label: '删除', key: 'delete' },
+      ];
+    }
+    ctxMenu.show = false;
+    nextTick(() => {
+      ctxMenu.x = e.clientX;
+      ctxMenu.y = e.clientY;
+      ctxMenu.show = true;
+    });
+  }
+
+  function onCtxSelect(key: string) {
+    ctxMenu.show = false;
+    const t = ctxTarget;
+    // 落点：目录右键 → 该目录；文件右键 → 其父目录；空白 → 不指定（落当前视图默认根）
+    const dir = t ? (t.isDir ? t.path : t.path.slice(0, t.path.lastIndexOf('/')) || '') : undefined;
+    switch (key) {
+      case 'new-doc':
+        handleAddNode('doc', dir);
+        break;
+      case 'new-folder':
+        handleAddNode('folder', dir);
+        break;
+      case 'upload':
+        handleAddNode('upload', dir);
+        break;
+      case 'open':
+        if (t) openFile(t.path);
+        break;
+      case 'move':
+        if (t) openMoveModal(t.path);
+        break;
+      case 'delete':
+        if (t) handleDeleteFor(t.path, t.isDir);
+        break;
+    }
+  }
+
+  function handleDeleteFor(path: string, isDir: boolean) {
     dialog.warning({
       title: '确认删除',
-      content: `确定要删除「${currentFile.value.path}」吗？目录将递归删除，删除前会快照到 .history。`,
+      content: isDir
+        ? `确定要删除空目录「${path}」吗？`
+        : `确定要删除「${path}」吗？删除前会快照到 .history。`,
       positiveText: '确定',
       negativeText: '取消',
       onPositiveClick: async () => {
         try {
-          await deleteVaultPath(projectId.value, currentFile.value!.path);
+          await deleteVaultPath(projectId.value, path);
           message.success('删除成功');
+          if (currentFile.value && currentFile.value.path === path) {
+            currentFile.value = null;
+            editContent.value = '';
+          }
           await loadTree(false);
         } catch {
           message.error('删除失败');

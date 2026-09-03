@@ -18,7 +18,6 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/gogf/gf/v2/os/gtime"
 )
 
 type sVault struct{}
@@ -432,12 +431,15 @@ func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error 
 		return gerror.New("路径不存在")
 	}
 	if info.IsDir() {
-		// 目录递归删除前整体快照
-		histDir := filepath.Join(vault.RootPath(projectId), vault.HistoryDir, filepath.FromSlash(rel), gtime.Now().Format("20060102-150405"))
-		if err := os.MkdirAll(filepath.Dir(histDir), 0o755); err == nil {
-			_ = copyTree(abs, histDir)
+		// 非空目录拒绝删除：防止误删整棵子树，需先清空（空目录无快照价值）
+		entries, err := os.ReadDir(abs)
+		if err != nil {
+			return gerror.New("读取目录失败")
 		}
-		if err := os.RemoveAll(abs); err != nil {
+		if len(entries) > 0 {
+			return gerror.New("目录非空，请先清空后再删除")
+		}
+		if err := os.Remove(abs); err != nil {
 			return gerror.New("删除失败")
 		}
 	} else {
@@ -666,30 +668,3 @@ func sanitizeFileName(name string) string {
 	return name
 }
 
-func copyTree(src, dst string) error {
-	info, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return os.MkdirAll(filepath.Dir(dst), 0o755)
-	}
-	return filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, p)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-		if fi.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, 0o644)
-	})
-}
