@@ -143,9 +143,11 @@ export function moveVaultPath(projectId: number, from: string, to: string) {
   return Alova.Post(`/v1/projects/${projectId}/vault/file/move`, { from, to });
 }
 
-/** 删除 */
+/** 删除（DELETE 第二参是请求体而非配置，query 需显式拼 URL） */
 export function deleteVaultPath(projectId: number, path: string) {
-  return Alova.Delete(`/v1/projects/${projectId}/vault/file`, { params: { path } });
+  return Alova.Delete(
+    `/v1/projects/${projectId}/vault/file?path=${encodeURIComponent(path)}`
+  );
 }
 
 /** 更新元数据（frontmatter） */

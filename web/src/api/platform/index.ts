@@ -187,11 +187,11 @@ export function attachTag(id: number, data: TagAttachData) {
   return Alova.Post(`/v1/tags/${id}/attach`, data);
 }
 
-/** 移除实体标签 */
+/** 移除实体标签（DELETE 第二参是请求体而非配置，query 需显式拼 URL） */
 export function detachTag(id: number, entityType: string, entityId: number) {
-  return Alova.Delete(`/v1/tags/${id}/detach`, {
-    params: { entityType, entityId },
-  });
+  return Alova.Delete(
+    `/v1/tags/${id}/detach?entityType=${entityType}&entityId=${entityId}`
+  );
 }
 
 /** 按标签查询实体 */
