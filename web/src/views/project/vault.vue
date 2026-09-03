@@ -285,27 +285,34 @@
     return `${(n / 1024 / 1024).toFixed(1)} MB`;
   }
 
+  // 目录节点 path 集合：点击目录是展开/收起而非读文件
+  const dirPaths = new Set<string>();
+
   function transformTree(nodes: VaultTreeNode[]): any[] {
-    return nodes.map((node) => ({
-      key: node.path,
-      label: node.meta?.title && node.meta.title !== node.name
-        ? `${node.name}（${node.meta.title}）`
-        : node.name,
-      isLeaf: !node.isDir,
-      prefix: () => (node.isDir ? '📁' : '📄'),
-      // 空目录给空数组：undefined 会被 n-tree 当异步节点显示 loading
-      children: node.isDir
-        ? node.children && node.children.length
-          ? transformTree(node.children)
-          : []
-        : undefined,
-    }));
+    return nodes.map((node) => {
+      if (node.isDir) dirPaths.add(node.path);
+      return {
+        key: node.path,
+        label: node.meta?.title && node.meta.title !== node.name
+          ? `${node.name}（${node.meta.title}）`
+          : node.name,
+        isLeaf: !node.isDir,
+        prefix: () => (node.isDir ? '📁' : '📄'),
+        // 空目录给空数组：undefined 会被 n-tree 当异步节点显示 loading
+        children: node.isDir
+          ? node.children && node.children.length
+            ? transformTree(node.children)
+            : []
+          : undefined,
+      };
+    });
   }
 
   async function loadTree(keepSelection = true) {
     treeLoading.value = true;
     try {
       const res = await getVaultTree(projectId.value, isKnowledge.value ? 'knowledge' : undefined);
+      dirPaths.clear();
       treeData.value = transformTree(res?.tree || []);
       if (!keepSelection) {
         selectedKeys.value = [];
@@ -320,9 +327,18 @@
   }
 
   async function onSelectNode(keys: string[]) {
-    selectedKeys.value = keys;
     if (keys.length === 0) return;
-    await openFile(String(keys[0]));
+    const key = String(keys[0]);
+    // 目录节点：点击即切换展开，不进入选中态也不读文件
+    if (dirPaths.has(key)) {
+      selectedKeys.value = currentFile.value ? [currentFile.value.path] : [];
+      expandedKeys.value = expandedKeys.value.includes(key)
+        ? expandedKeys.value.filter((k) => k !== key)
+        : [...expandedKeys.value, key];
+      return;
+    }
+    selectedKeys.value = keys;
+    await openFile(key);
   }
 
   async function openFile(path: string) {
