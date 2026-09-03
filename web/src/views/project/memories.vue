@@ -85,8 +85,8 @@
     verifyMemory,
     expireMemory,
     deleteMemory,
-  } from '@/api/vault/index';
-  import type { MemoryItem } from '@/api/vault/index';
+  } from '@/api/docs/index';
+  import type { MemoryItem } from '@/api/docs/index';
 
   const message = useMessage();
   const dialog = useDialog();

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cicbyte/byte-code/utility/vault"
+	"github.com/cicbyte/byte-code/utility/docs"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -64,7 +64,7 @@ func setupToolsTest(t *testing.T) context.Context {
 
 	// vault fixture：知识库已发布一篇、工作区一篇裸文件
 	vroot := filepath.Join(dir, "resource", "projects", "1", "vault")
-	kbDir := filepath.Join(vroot, vault.KnowledgeDir)
+	kbDir := filepath.Join(vroot, docs.KnowledgeDir)
 	if err := os.MkdirAll(kbDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func setupToolsTest(t *testing.T) context.Context {
 		`INSERT INTO project_document_index (project_id, path, space, title, type, status, tags, linked, ext, size)
 		VALUES (1, ?, 'knowledge', '编码规范', 'convention', 'published', 'go', '', '.md', 10),
 		       (1, ?, 'work', '登录设计', 'note', 'published', '', 'task:9', '.md', 8)`,
-		vault.KnowledgeDir+"/coding.md", "login.md")
+		docs.KnowledgeDir+"/coding.md", "login.md")
 	g.DB().Exec(context.Background(), `INSERT INTO sys_config (key, value) VALUES ('memory_stale_days', '30')`)
 
 	return context.WithValue(context.Background(), ctxAIUserId, 42)

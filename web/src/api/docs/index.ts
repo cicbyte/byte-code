@@ -13,22 +13,22 @@ export interface FileMeta {
 }
 
 /** 目录树节点 */
-export interface VaultTreeNode {
+export interface DocsTreeNode {
   name: string;
   path: string;
   isDir: boolean;
   size: number;
   modTime: string;
   meta?: FileMeta | null;
-  children?: VaultTreeNode[];
+  children?: DocsTreeNode[];
 }
 
-export interface VaultTreeResult {
-  tree: VaultTreeNode[];
+export interface DocsTreeResult {
+  tree: DocsTreeNode[];
 }
 
 /** 文件读取 */
-export interface VaultFile {
+export interface DocsFile {
   path: string;
   binary: boolean;
   content: string;
@@ -37,27 +37,27 @@ export interface VaultFile {
 }
 
 /** 写入结果 */
-export interface VaultWriteResult {
+export interface DocsWriteResult {
   path: string;
   size: number;
 }
 
 /** 补丁操作 */
-export interface VaultPatchOperation {
+export interface DocsPatchOperation {
   type: 'replace' | 'append' | 'prepend';
   search?: string;
   replace?: string;
   content?: string;
 }
 
-export interface VaultPatchResult {
+export interface DocsPatchResult {
   applied: number;
   skipped: number;
   items: Array<{ index: number; type: string; applied: boolean; reason?: string }>;
 }
 
 /** 搜索/反查条目 */
-export interface VaultSearchItem {
+export interface DocsSearchItem {
   path: string;
   title: string;
   space: string;
@@ -66,7 +66,7 @@ export interface VaultSearchItem {
 }
 
 /** 刷新结果 */
-export interface VaultRefreshResult {
+export interface DocsRefreshResult {
   changed: number;
   deleted: number;
 }
@@ -90,68 +90,68 @@ export interface MemoryListResult {
 // ==================== Vault API ====================
 
 /** 目录树 */
-export function getVaultTree(projectId: number, space?: string) {
-  return Alova.Get<VaultTreeResult>(`/v1/projects/${projectId}/docs/tree`, {
+export function getDocsTree(projectId: number, space?: string) {
+  return Alova.Get<DocsTreeResult>(`/v1/projects/${projectId}/docs/tree`, {
     params: space ? { space } : {},
   });
 }
 
 /** 读文件 */
-export function getVaultFile(projectId: number, path: string) {
-  return Alova.Get<VaultFile>(`/v1/projects/${projectId}/docs/file`, {
+export function getDocsFile(projectId: number, path: string) {
+  return Alova.Get<DocsFile>(`/v1/projects/${projectId}/docs/file`, {
     params: { path },
   });
 }
 
 /** 二进制原始下载地址 */
-export function vaultRawUrl(projectId: number, path: string) {
+export function docsRawUrl(projectId: number, path: string) {
   return `/api/v1/projects/${projectId}/docs/raw?path=${encodeURIComponent(path)}`;
 }
 
 /** 写文件（整文件覆盖） */
-export function writeVaultFile(projectId: number, path: string, content: string) {
-  return Alova.Put<VaultWriteResult>(`/v1/projects/${projectId}/docs/file`, { path, content });
+export function writeDocsFile(projectId: number, path: string, content: string) {
+  return Alova.Put<DocsWriteResult>(`/v1/projects/${projectId}/docs/file`, { path, content });
 }
 
 /** 补丁式修改 */
-export function patchVaultFile(
+export function patchDocsFile(
   projectId: number,
   path: string,
-  operations: VaultPatchOperation[]
+  operations: DocsPatchOperation[]
 ) {
-  return Alova.Post<VaultPatchResult>(`/v1/projects/${projectId}/docs/file/patch`, {
+  return Alova.Post<DocsPatchResult>(`/v1/projects/${projectId}/docs/file/patch`, {
     path,
     operations,
   });
 }
 
 /** 创建目录 */
-export function createVaultFolder(projectId: number, path: string) {
+export function createDocsFolder(projectId: number, path: string) {
   return Alova.Post(`/v1/projects/${projectId}/docs/folder`, { path });
 }
 
 /** 上传文件 */
-export function uploadVaultFile(projectId: number, path: string, file: File) {
+export function uploadDocsFile(projectId: number, path: string, file: File) {
   const form = new FormData();
   form.append('path', path);
   form.append('file', file);
-  return Alova.Post<VaultWriteResult>(`/v1/projects/${projectId}/docs/upload`, form);
+  return Alova.Post<DocsWriteResult>(`/v1/projects/${projectId}/docs/upload`, form);
 }
 
 /** 移动/重命名 */
-export function moveVaultPath(projectId: number, from: string, to: string) {
+export function moveDocsPath(projectId: number, from: string, to: string) {
   return Alova.Post(`/v1/projects/${projectId}/docs/file/move`, { from, to });
 }
 
 /** 删除（DELETE 第二参是请求体而非配置，query 需显式拼 URL） */
-export function deleteVaultPath(projectId: number, path: string) {
+export function deleteDocsPath(projectId: number, path: string) {
   return Alova.Delete(
     `/v1/projects/${projectId}/docs/file?path=${encodeURIComponent(path)}`
   );
 }
 
 /** 更新元数据（frontmatter） */
-export function updateVaultMeta(
+export function updateDocsMeta(
   projectId: number,
   path: string,
   meta: {
@@ -166,8 +166,8 @@ export function updateVaultMeta(
 }
 
 /** 搜索 */
-export function searchVault(projectId: number, q: string, space?: string) {
-  return Alova.Get<{ items: VaultSearchItem[] | null }>(`/v1/projects/${projectId}/docs/search`, {
+export function searchDocsApi(projectId: number, q: string, space?: string) {
+  return Alova.Get<{ items: DocsSearchItem[] | null }>(`/v1/projects/${projectId}/docs/search`, {
     params: { q, ...(space ? { space } : {}) },
   });
 }
@@ -179,14 +179,14 @@ export function getLinkedDocs(projectId: number, target: string) {
   if (type === 'task') params.task = Number(id);
   if (type === 'req') params.req = Number(id);
   if (type === 'tc') params.tc = Number(id);
-  return Alova.Get<{ items: VaultSearchItem[] | null }>(`/v1/projects/${projectId}/docs/linked`, {
+  return Alova.Get<{ items: DocsSearchItem[] | null }>(`/v1/projects/${projectId}/docs/linked`, {
     params,
   });
 }
 
 /** 手动触发增量重扫 */
-export function refreshVault(projectId: number) {
-  return Alova.Post<VaultRefreshResult>(`/v1/projects/${projectId}/docs/refresh`);
+export function refreshDocs(projectId: number) {
+  return Alova.Post<DocsRefreshResult>(`/v1/projects/${projectId}/docs/refresh`);
 }
 
 // ==================== Memories API ====================

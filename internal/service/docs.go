@@ -3,12 +3,12 @@ package service
 import (
 	"context"
 
-	api "github.com/cicbyte/byte-code/api/v1/vault"
+	api "github.com/cicbyte/byte-code/api/v1/docs"
 	"github.com/gogf/gf/v2/net/ghttp"
 )
 
-// IVault 项目记忆与文档中枢
-type IVault interface {
+// IDocs 项目记忆与文档中枢
+type IDocs interface {
 	// 文档（磁盘 vault 真相源）
 	Tree(ctx context.Context, projectId int64, space string) ([]api.VaultTreeNode, error)
 	ReadFile(ctx context.Context, projectId int64, path string) (*api.VaultFileGetRes, error)
@@ -35,15 +35,15 @@ type IVault interface {
 	MemMaterialize(ctx context.Context) error
 }
 
-var localVault IVault
+var localDocs IDocs
 
-func Vault() IVault {
-	if localVault == nil {
-		panic("implement not found for interface IVault")
+func Docs() IDocs {
+	if localDocs == nil {
+		panic("implement not found for interface IDocs")
 	}
-	return localVault
+	return localDocs
 }
 
-func RegisterVault(i IVault) {
-	localVault = i
+func RegisterDocs(i IDocs) {
+	localDocs = i
 }

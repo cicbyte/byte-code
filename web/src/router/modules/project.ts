@@ -115,7 +115,7 @@ const routes: Array<RouteRecordRaw> = [
               hideInMenu: true,
               vaultSpace: 'knowledge',
             },
-            component: () => import('@/views/project/vault.vue'),
+            component: () => import('@/views/project/docs.vue'),
           },
           {
             // 记忆/文档中枢：项目 KV 记忆
@@ -128,12 +128,6 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/memories.vue'),
           },
           {
-            // 旧 vault 路径（语义统一为 docs 前的过渡路由）
-            path: 'vault',
-            redirect: (to) => ({ path: `/project/${to.params.projectId}/docs` }),
-            meta: { hideInMenu: true },
-          },
-          {
             // 记忆/文档中枢：文档管理器（工作区空间）
             path: 'docs',
             name: `${routeName}_docs`,
@@ -141,7 +135,7 @@ const routes: Array<RouteRecordRaw> = [
               title: '文档',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/vault.vue'),
+            component: () => import('@/views/project/docs.vue'),
           },
           {
             path: 'test-cases',

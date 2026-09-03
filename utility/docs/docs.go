@@ -1,6 +1,6 @@
 // Package vault 项目文档中枢的磁盘真相源层。
 // 目录=磁盘目录、文件=磁盘文件、元数据=frontmatter；SQLite 索引只是扫描缓存。
-package vault
+package docs
 
 import (
 	"crypto/sha256"
@@ -35,7 +35,7 @@ type Frontmatter struct {
 
 // RootPath 项目 vault 根目录
 func RootPath(projectId int64) string {
-	return filepath.Join("resource", "projects", fmt.Sprintf("%d", projectId), "vault")
+	return filepath.Join("resource", "projects", fmt.Sprintf("%d", projectId), "docs")
 }
 
 // shortNameRe 8.3 短文件名形态（如 HISTOR~1）：NTFS 会解析回长名，绕过前缀检查

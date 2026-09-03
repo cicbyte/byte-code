@@ -1,8 +1,8 @@
 <template>
-  <div class="vault-page">
-    <n-grid class="vault-grid" cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
+  <div class="docs-page">
+    <n-grid class="docs-grid" cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
       <!-- 左侧目录树 -->
-      <n-gi span="1" class="vault-col">
+      <n-gi span="1" class="docs-col">
         <n-card title="目录" size="small" :bordered="false" :segmented="{ content: true }" class="dir-card">
           <n-input
             v-model:value="searchKeyword"
@@ -39,7 +39,7 @@
       </n-gi>
 
       <!-- 右侧内容区 -->
-      <n-gi span="3" class="vault-col">
+      <n-gi span="3" class="docs-col">
         <n-card :bordered="false" :segmented="{ content: true }" class="edit-card">
           <template v-if="currentFile" #header>
             <n-space align="center">
@@ -85,7 +85,7 @@
               v-if="!currentFile.binary"
               v-model="editContent"
               :theme="isDark ? 'dark' : 'light'"
-              class="vault-editor"
+              class="docs-editor"
               placeholder="Markdown 内容（首部可带 frontmatter 元数据）"
               :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
               :footers="[]"
@@ -200,19 +200,19 @@
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import DOMPurify from 'dompurify';
   import {
-    getVaultTree,
-    getVaultFile,
-    writeVaultFile,
-    createVaultFolder,
-    uploadVaultFile,
-    moveVaultPath,
-    deleteVaultPath,
-    updateVaultMeta,
-    searchVault,
-    refreshVault,
-    vaultRawUrl,
-  } from '@/api/vault/index';
-  import type { VaultTreeNode, VaultFile } from '@/api/vault/index';
+    getDocsTree,
+    getDocsFile,
+    writeDocsFile,
+    createDocsFolder,
+    uploadDocsFile,
+    moveDocsPath,
+    deleteDocsPath,
+    updateDocsMeta,
+    searchDocsApi,
+    refreshDocs,
+    docsRawUrl,
+  } from '@/api/docs/index';
+  import type { DocsTreeNode, DocsFile } from '@/api/docs/index';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -228,7 +228,7 @@
   const treeData = ref<any[]>([]);
   const expandedKeys = ref<string[]>([]);
   const selectedKeys = ref<string[]>([]);
-  const currentFile = ref<VaultFile | null>(null);
+  const currentFile = ref<DocsFile | null>(null);
   const editContent = ref('');
   const saveLoading = ref(false);
   const refreshing = ref(false);
@@ -247,7 +247,7 @@
   const uploadInputRef = ref<HTMLInputElement | null>(null);
 
   const rawHref = computed(() =>
-    currentFile.value ? vaultRawUrl(projectId.value, currentFile.value.path) : '#'
+    currentFile.value ? docsRawUrl(projectId.value, currentFile.value.path) : '#'
   );
 
   // 当前选中节点所在目录（新建/上传的落点）
@@ -302,7 +302,7 @@
     });
   }
 
-  function nodeLabel(node: VaultTreeNode) {
+  function nodeLabel(node: DocsTreeNode) {
     // 恒返回函数：编辑态判断必须在渲染时求值（而非 transformTree 构建时），
     // 否则 startInlineRename 只改 editing 状态不会触发 label 重渲染。
     // 节点只显示文件名：frontmatter title（常与正文 H1 相同）在树里冗余
@@ -410,14 +410,14 @@
         const frontmatter = isKnowledge.value
           ? `---\ntitle: ${title}\nspace: knowledge\nstatus: draft\n---\n\n`
           : '';
-        await writeVaultFile(projectId.value, dir ? `${dir}/${file}` : file, frontmatter);
+        await writeDocsFile(projectId.value, dir ? `${dir}/${file}` : file, frontmatter);
       } else if (mode === 'new-folder') {
-        await createVaultFolder(projectId.value, dir ? `${dir}/${name}` : name);
+        await createDocsFolder(projectId.value, dir ? `${dir}/${name}` : name);
       } else if (mode === 'rename') {
         const old = editing.path;
         const newName = name;
         editing.path = '';
-        await moveVaultPath(projectId.value, old, dir ? `${dir}/${newName}` : newName);
+        await moveDocsPath(projectId.value, old, dir ? `${dir}/${newName}` : newName);
       }
       await loadTree();
     } catch {
@@ -426,7 +426,7 @@
     }
   }
 
-  function transformTree(nodes: VaultTreeNode[]): any[] {
+  function transformTree(nodes: DocsTreeNode[]): any[] {
     return nodes.map((node) => {
       if (node.isDir) dirPaths.add(node.path);
       return {
@@ -448,7 +448,7 @@
     treeLoading.value = true;
     try {
       // 两视图互斥：知识库页只看知识库空间，文档页只看工作区（过程文档）
-      const res = await getVaultTree(projectId.value, isKnowledge.value ? 'knowledge' : 'work');
+      const res = await getDocsTree(projectId.value, isKnowledge.value ? 'knowledge' : 'work');
       dirPaths.clear();
       let tree = res?.tree || [];
       // 知识库模式：页面上下文已表达"知识库"，剥掉同名顶层父节点直接展示其内容
@@ -496,7 +496,7 @@
     binObjectUrl.value = '';
     try {
       const token = JSON.parse(localStorage.getItem('ACCESS-TOKEN') || '{"value":""}').value || '';
-      const resp = await fetch(vaultRawUrl(projectId.value, currentFile.value!.path), { headers: { token } });
+      const resp = await fetch(docsRawUrl(projectId.value, currentFile.value!.path), { headers: { token } });
       if (!resp.ok) throw new Error(String(resp.status));
       const blob = await resp.blob();
       binObjectUrl.value = URL.createObjectURL(blob);
@@ -544,7 +544,7 @@
 
   async function openFile(path: string) {
     try {
-      const res = await getVaultFile(projectId.value, path);
+      const res = await getDocsFile(projectId.value, path);
       currentFile.value = res || null;
       editContent.value = res?.content || '';
       if (res?.binary) {
@@ -589,7 +589,7 @@
       return;
     }
     try {
-      const res = await uploadVaultFile(projectId.value, baseDir, file);
+      const res = await uploadDocsFile(projectId.value, baseDir, file);
       message.success(`上传成功：${res?.path || file.name}`);
       loadTree();
     } catch {
@@ -604,7 +604,7 @@
     if (!currentFile.value) return;
     saveLoading.value = true;
     try {
-      await writeVaultFile(projectId.value, currentFile.value.path, editContent.value);
+      await writeDocsFile(projectId.value, currentFile.value.path, editContent.value);
       message.success('保存成功（旧版已快照至 .history）');
       await openFile(currentFile.value.path);
       loadTree();
@@ -618,7 +618,7 @@
   async function handlePublish() {
     if (!currentFile.value) return;
     try {
-      await updateVaultMeta(projectId.value, currentFile.value.path, { status: 'published' });
+      await updateDocsMeta(projectId.value, currentFile.value.path, { status: 'published' });
       message.success('已发布');
       await openFile(currentFile.value.path);
     } catch {
@@ -755,7 +755,7 @@
       negativeText: '取消',
       onPositiveClick: async () => {
         try {
-          await deleteVaultPath(projectId.value, path);
+          await deleteDocsPath(projectId.value, path);
           message.success('删除成功');
           if (currentFile.value && currentFile.value.path === path) {
             currentFile.value = null;
@@ -772,7 +772,7 @@
   async function handleMetaSubmit() {
     if (!currentFile.value) return false;
     try {
-      await updateVaultMeta(projectId.value, currentFile.value.path, {
+      await updateDocsMeta(projectId.value, currentFile.value.path, {
         title: metaForm.title,
         tags: metaForm.tags,
         linked: metaForm.linked,
@@ -794,7 +794,7 @@
     if (from === to) return false;
     if (!assertSpaceAllowed(to)) return false;
     try {
-      await moveVaultPath(projectId.value, from, to);
+      await moveDocsPath(projectId.value, from, to);
       message.success('移动成功');
       showMoveModal.value = false;
       // 移动的恰是当前打开文件时同步更新编辑器状态，否则保持不动
@@ -816,7 +816,7 @@
       return;
     }
     try {
-      const res = await searchVault(projectId.value, q, isKnowledge.value ? 'knowledge' : 'work');
+      const res = await searchDocsApi(projectId.value, q, isKnowledge.value ? 'knowledge' : 'work');
       const items = res?.items || [];
       if (items.length === 0) {
         message.info('未搜索到匹配文档');
@@ -838,7 +838,7 @@
   async function handleRefresh() {
     refreshing.value = true;
     try {
-      const res = await refreshVault(projectId.value);
+      const res = await refreshDocs(projectId.value);
       message.success(`重扫完成：${res?.changed ?? 0} 变更，${res?.deleted ?? 0} 删除`);
       await loadTree();
     } catch {
@@ -866,14 +866,14 @@
 
 <style lang="less" scoped>
   // 整页铺满内容区视口：双栏等高、树与编辑器在卡内滚动
-  .vault-page {
+  .docs-page {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .vault-grid {
+  .docs-grid {
     flex: 1;
     min-height: 0;
 
@@ -883,7 +883,7 @@
     }
   }
 
-  .vault-col {
+  .docs-col {
     min-height: 0;
 
     .dir-card,
@@ -925,7 +925,7 @@
     }
 
     // 编辑器铺满剩余高度
-    .vault-editor {
+    .docs-editor {
       flex: 1;
       min-height: 0;
     }

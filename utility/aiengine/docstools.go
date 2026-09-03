@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cicbyte/byte-code/utility/vault"
+	"github.com/cicbyte/byte-code/utility/docs"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gtime"
 )
@@ -79,7 +79,7 @@ func (t *ReadDocTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 	} else {
 		p.ProjectId = pid
 	}
-	abs, err := vault.SafeJoin(int64(p.ProjectId), p.Path)
+	abs, err := docs.SafeJoin(int64(p.ProjectId), p.Path)
 	if err != nil {
 		return "", fmt.Errorf("路径非法")
 	}
@@ -93,7 +93,7 @@ func (t *ReadDocTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 			"hint": "二进制文件，内容不可读"}), nil
 	}
 	const maxBody = 8 * 1024
-	fm, body, _ := vault.ParseFrontmatter(string(data))
+	fm, body, _ := docs.ParseFrontmatter(string(data))
 	truncated := false
 	if len(body) > maxBody {
 		body = body[:maxBody]
@@ -148,7 +148,7 @@ func (t *KbConventionsTool) InvokableRun(ctx context.Context, argsInJSON string,
 		return marshalString(g.Map{"items": []string{}, "hint": "知识库暂无已发布文档"}), nil
 	}
 	const maxBody = 1500
-	root := vault.RootPath(int64(p.ProjectId))
+	root := docs.RootPath(int64(p.ProjectId))
 	items := make([]g.Map, 0, len(rows))
 	for _, r := range rows {
 		item := g.Map{
@@ -156,7 +156,7 @@ func (t *KbConventionsTool) InvokableRun(ctx context.Context, argsInJSON string,
 			"type": r["type"].String(), "tags": r["tags"].String(),
 		}
 		if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(r["path"].String()))); err == nil {
-			_, body, _ := vault.ParseFrontmatter(string(data))
+			_, body, _ := docs.ParseFrontmatter(string(data))
 			if len(body) > maxBody {
 				body = body[:maxBody] + "…（截断，read_doc 读全文）"
 			}
@@ -212,12 +212,12 @@ func (t *DocLinkedTool) InvokableRun(ctx context.Context, argsInJSON string, opt
 		return marshalString(g.Map{"target": target, "items": []string{}}), nil
 	}
 	const maxBody = 1500
-	root := vault.RootPath(int64(p.ProjectId))
+	root := docs.RootPath(int64(p.ProjectId))
 	items := make([]g.Map, 0, len(rows))
 	for _, r := range rows {
 		item := g.Map{"path": r["path"].String(), "title": r["title"].String()}
 		if data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(r["path"].String()))); err == nil {
-			_, body, _ := vault.ParseFrontmatter(string(data))
+			_, body, _ := docs.ParseFrontmatter(string(data))
 			if len(body) > maxBody {
 				body = body[:maxBody] + "…（截断，read_doc 读全文）"
 			}

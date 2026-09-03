@@ -16,5 +16,5 @@ import (
 	_ "github.com/cicbyte/byte-code/internal/logic/setting"
 	_ "github.com/cicbyte/byte-code/internal/logic/test"
 	_ "github.com/cicbyte/byte-code/internal/logic/user"
-	_ "github.com/cicbyte/byte-code/internal/logic/vault"
+	_ "github.com/cicbyte/byte-code/internal/logic/docs"
 )

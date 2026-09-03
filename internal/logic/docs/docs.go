@@ -1,6 +1,6 @@
 // Package vault 项目记忆与文档中枢 logic 层。
 // 文档操作：磁盘为真相源，索引（project_document_index）在每次写后增量重扫收口。
-package vault
+package docs
 
 import (
 	"context"
@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	api "github.com/cicbyte/byte-code/api/v1/vault"
+	api "github.com/cicbyte/byte-code/api/v1/docs"
 	service "github.com/cicbyte/byte-code/internal/service"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
-	"github.com/cicbyte/byte-code/utility/vault"
+	"github.com/cicbyte/byte-code/utility/docs"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
@@ -26,7 +26,7 @@ import (
 type sVault struct{}
 
 func init() {
-	service.RegisterVault(New())
+	service.RegisterDocs(New())
 }
 
 // New 创建文档/记忆中枢 logic 实例
@@ -46,7 +46,7 @@ func textExt(ext string) bool {
 // ==================== 目录树 ====================
 
 func (s *sVault) Tree(ctx context.Context, projectId int64, space string) ([]api.VaultTreeNode, error) {
-	root := vault.RootPath(projectId)
+	root := docs.RootPath(projectId)
 	if _, err := os.Stat(root); err != nil {
 		return []api.VaultTreeNode{}, nil
 	}
@@ -62,7 +62,7 @@ func (s *sVault) Tree(ctx context.Context, projectId int64, space string) ([]api
 }
 
 // buildTree 递归读磁盘目录树；文件元数据优先取索引，索引缺失时实时解析 frontmatter
-func buildTree(root, rel string, idxMap map[string]*vault.DocIndex) ([]api.VaultTreeNode, error) {
+func buildTree(root, rel string, idxMap map[string]*docs.DocIndex) ([]api.VaultTreeNode, error) {
 	entries, err := os.ReadDir(filepath.Join(root, filepath.FromSlash(rel)))
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func filterTreeSpace(nodes []api.VaultTreeNode, space string) []api.VaultTreeNod
 }
 
 func spaceOfTop(topDirOrFile string) string {
-	if topDirOrFile == vault.KnowledgeDir || strings.EqualFold(topDirOrFile, "knowledge") {
+	if topDirOrFile == docs.KnowledgeDir || strings.EqualFold(topDirOrFile, "knowledge") {
 		return "knowledge"
 	}
 	return "work"
@@ -149,7 +149,7 @@ func topSegment(p string) string {
 	return p
 }
 
-func fmToFileMeta(fm vault.Frontmatter, relSlash string) *api.FileMeta {
+func fmToFileMeta(fm docs.Frontmatter, relSlash string) *api.FileMeta {
 	meta := &api.FileMeta{
 		Title:  fm.Title,
 		Space:  fm.Space,
@@ -173,7 +173,7 @@ func fmToFileMeta(fm vault.Frontmatter, relSlash string) *api.FileMeta {
 // ==================== 读取 ====================
 
 func (s *sVault) ReadFile(ctx context.Context, projectId int64, rel string) (*api.VaultFileGetRes, error) {
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
@@ -190,7 +190,7 @@ func (s *sVault) ReadFile(ctx context.Context, projectId int64, rel string) (*ap
 		if err != nil {
 			return nil, gerror.New("读取文件失败")
 		}
-		fm, _, _ := vault.ParseFrontmatter(string(data))
+		fm, _, _ := docs.ParseFrontmatter(string(data))
 		res.Content = string(data)
 		res.FileMeta = fmToFileMeta(fm, rel)
 		return res, nil
@@ -206,7 +206,7 @@ func (s *sVault) ReadFile(ctx context.Context, projectId int64, rel string) (*ap
 }
 
 func (s *sVault) ServeRaw(ctx context.Context, r *ghttp.Request, projectId int64, rel string) error {
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return gerror.New(err.Error())
 	}
@@ -224,11 +224,11 @@ func (s *sVault) ServeRaw(ctx context.Context, r *ghttp.Request, projectId int64
 
 // writeWithSnapshot 写前快照旧版，随后覆盖写入
 func writeWithSnapshot(projectId int64, rel, content string) (int64, error) {
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return 0, gerror.New(err.Error())
 	}
-	if err := vault.Snapshot(projectId, rel); err != nil {
+	if err := docs.Snapshot(projectId, rel); err != nil {
 		// 细节（含内部路径）只进日志，客户端收固定文案
 		g.Log().Warningf(context.Background(), "snapshot failed for %s: %v", rel, err)
 		return 0, gerror.New("创建版本快照失败")
@@ -248,11 +248,11 @@ func demoteKnowledgeDraft(oldContent, newContent string, explicitStatus bool) st
 	if explicitStatus {
 		return newContent
 	}
-	oldFm, _, err1 := vault.ParseFrontmatter(oldContent)
+	oldFm, _, err1 := docs.ParseFrontmatter(oldContent)
 	if err1 != nil || oldFm.Space != "knowledge" || oldFm.Status != "published" {
 		return newContent
 	}
-	newFm, body, err2 := vault.ParseFrontmatter(newContent)
+	newFm, body, err2 := docs.ParseFrontmatter(newContent)
 	if err2 != nil {
 		return newContent
 	}
@@ -263,7 +263,7 @@ func demoteKnowledgeDraft(oldContent, newContent string, explicitStatus bool) st
 		newFm.Title = oldFm.Title
 	}
 	newFm.Status = "draft"
-	return vault.RenderFrontmatter(newFm, body)
+	return docs.RenderFrontmatter(newFm, body)
 }
 
 // fileLocks per-path 写锁：read-modify-write（读旧文→改→快照→覆盖）全程持锁，
@@ -286,7 +286,7 @@ func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content st
 	if len(content) > maxVaultFileSize {
 		return nil, gerror.New("文件超过 5MB 上限，请拆分或改用上传")
 	}
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
@@ -299,7 +299,7 @@ func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content st
 	if err != nil {
 		return nil, err
 	}
-	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
+	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return &api.VaultFileWriteRes{Path: rel, Size: size}, nil
@@ -309,7 +309,7 @@ func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops
 	if !textExt(path.Ext(rel)) {
 		return nil, gerror.New("补丁仅支持文本文件")
 	}
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
@@ -338,9 +338,9 @@ func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops
 			content += op.Content
 			item.Applied = true
 		case "prepend":
-			fm, body, _ := vault.ParseFrontmatter(content)
+			fm, body, _ := docs.ParseFrontmatter(content)
 			if fm.Title != "" || fm.Space != "" { // 有 frontmatter：正文头插入，保持头部完整
-				content = vault.RenderFrontmatter(fm, op.Content+body)
+				content = docs.RenderFrontmatter(fm, op.Content+body)
 			} else {
 				content = op.Content + content
 			}
@@ -362,14 +362,14 @@ func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops
 	if _, err := writeWithSnapshot(projectId, rel, content); err != nil {
 		return nil, err
 	}
-	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
+	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return res, nil
 }
 
 func (s *sVault) CreateFolder(ctx context.Context, projectId int64, rel string) error {
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return gerror.New(err.Error())
 	}
@@ -393,12 +393,12 @@ func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *
 		rel = strings.Trim(dir, "/") + "/" + name
 	}
 	rel = strings.Trim(rel, "/")
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
 	if _, err := os.Stat(abs); err == nil {
-		if err := vault.Snapshot(projectId, rel); err != nil {
+		if err := docs.Snapshot(projectId, rel); err != nil {
 			g.Log().Warningf(ctx, "snapshot failed for %s: %v", rel, err)
 			return nil, gerror.New("创建版本快照失败")
 		}
@@ -428,19 +428,19 @@ func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *
 	// 被索引为 published，直接进入 AI 上下文（kb_get_conventions 只取 published）
 	if strings.ToLower(filepath.Ext(rel)) == ".md" && spaceOfTop(topSegment(rel)) == "knowledge" {
 		if data, err := os.ReadFile(abs); err == nil {
-			fm, body, _ := vault.ParseFrontmatter(string(data))
+			fm, body, _ := docs.ParseFrontmatter(string(data))
 			if fm.Status == "" || fm.Status == "published" {
 				fm.Space = "knowledge"
 				fm.Status = "draft"
 				if fm.Title == "" {
 					fm.Title = strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel))
 				}
-				_ = os.WriteFile(abs, []byte(vault.RenderFrontmatter(fm, body)), 0o644)
+				_ = os.WriteFile(abs, []byte(docs.RenderFrontmatter(fm, body)), 0o644)
 			}
 		}
 	}
 	info, _ := os.Stat(abs)
-	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
+	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	size := int64(0)
@@ -451,11 +451,11 @@ func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *
 }
 
 func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) error {
-	fromAbs, err := vault.SafeJoin(projectId, from)
+	fromAbs, err := docs.SafeJoin(projectId, from)
 	if err != nil {
 		return gerror.New(err.Error())
 	}
-	toAbs, err := vault.SafeJoin(projectId, to)
+	toAbs, err := docs.SafeJoin(projectId, to)
 	if err != nil {
 		return gerror.New(err.Error())
 	}
@@ -477,25 +477,25 @@ func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) err
 	// 知识库守卫：移入知识库的 md 无 draft 标记时补写（同 Upload 理由）
 	if strings.ToLower(filepath.Ext(to)) == ".md" && spaceOfTop(topSegment(to)) == "knowledge" {
 		if data, err := os.ReadFile(toAbs); err == nil {
-			fm, body, _ := vault.ParseFrontmatter(string(data))
+			fm, body, _ := docs.ParseFrontmatter(string(data))
 			if fm.Status == "" || fm.Status == "published" {
 				fm.Space = "knowledge"
 				fm.Status = "draft"
 				if fm.Title == "" {
 					fm.Title = strings.TrimSuffix(filepath.Base(to), filepath.Ext(to))
 				}
-				_ = os.WriteFile(toAbs, []byte(vault.RenderFrontmatter(fm, body)), 0o644)
+				_ = os.WriteFile(toAbs, []byte(docs.RenderFrontmatter(fm, body)), 0o644)
 			}
 		}
 	}
-	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
+	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return nil
 }
 
 func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error {
-	abs, err := vault.SafeJoin(projectId, rel)
+	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return gerror.New(err.Error())
 	}
@@ -516,7 +516,7 @@ func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error 
 			return gerror.New("删除失败")
 		}
 	} else {
-		if err := vault.Snapshot(projectId, rel); err != nil {
+		if err := docs.Snapshot(projectId, rel); err != nil {
 			g.Log().Warningf(ctx, "snapshot failed for %s: %v", rel, err)
 			return gerror.New("创建版本快照失败")
 		}
@@ -524,7 +524,7 @@ func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error 
 			return gerror.New("删除失败")
 		}
 	}
-	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
+	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return nil
@@ -534,7 +534,7 @@ func (s *sVault) UpdateMeta(ctx context.Context, projectId int64, req *api.Vault
 	if !textExt(path.Ext(req.Path)) {
 		return gerror.New("仅文本文件支持 frontmatter 元数据")
 	}
-	abs, err := vault.SafeJoin(projectId, req.Path)
+	abs, err := docs.SafeJoin(projectId, req.Path)
 	if err != nil {
 		return gerror.New(err.Error())
 	}
@@ -542,7 +542,7 @@ func (s *sVault) UpdateMeta(ctx context.Context, projectId int64, req *api.Vault
 	if err != nil {
 		return gerror.New("文件不存在")
 	}
-	fm, body, err := vault.ParseFrontmatter(string(raw))
+	fm, body, err := docs.ParseFrontmatter(string(raw))
 	if err != nil {
 		return gerror.New("frontmatter 解析失败")
 	}
@@ -567,12 +567,12 @@ func (s *sVault) UpdateMeta(ctx context.Context, projectId int64, req *api.Vault
 	if req.Status != nil {
 		fm.Status = *req.Status // 人审发布动作
 	}
-	content := vault.RenderFrontmatter(fm, body)
+	content := docs.RenderFrontmatter(fm, body)
 	content = demoteKnowledgeDraft(string(raw), content, req.Status != nil)
 	if _, err := writeWithSnapshot(projectId, req.Path, content); err != nil {
 		return err
 	}
-	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
+	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return nil
@@ -631,7 +631,7 @@ func (s *sVault) Linked(ctx context.Context, projectId int64, target string) ([]
 }
 
 func (s *sVault) Refresh(ctx context.Context, projectId int64) (*api.VaultRefreshRes, error) {
-	changed, deleted, err := vault.ScanProject(ctx, projectId)
+	changed, deleted, err := docs.ScanProject(ctx, projectId)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
@@ -640,16 +640,16 @@ func (s *sVault) Refresh(ctx context.Context, projectId int64) (*api.VaultRefres
 
 // ==================== 内部工具 ====================
 
-func indexByPath(ctx context.Context, projectId int64) map[string]*vault.DocIndex {
+func indexByPath(ctx context.Context, projectId int64) map[string]*docs.DocIndex {
 	rows, err := g.DB().Model("project_document_index").Ctx(ctx).
 		Where("project_id", projectId).All()
 	if err != nil {
-		return map[string]*vault.DocIndex{}
+		return map[string]*docs.DocIndex{}
 	}
-	m := make(map[string]*vault.DocIndex, len(rows))
+	m := make(map[string]*docs.DocIndex, len(rows))
 	for i := range rows {
 		r := rows[i]
-		m[r["path"].String()] = &vault.DocIndex{
+		m[r["path"].String()] = &docs.DocIndex{
 			ProjectId: projectId, Path: r["path"].String(), Space: r["space"].String(),
 			Title: r["title"].String(), Type: r["type"].String(), Status: r["status"].String(),
 			Tags: r["tags"].String(), Linked: r["linked"].String(), Ext: r["ext"].String(),
@@ -659,25 +659,25 @@ func indexByPath(ctx context.Context, projectId int64) map[string]*vault.DocInde
 	return m
 }
 
-func indexOne(ctx context.Context, projectId int64, rel string) *vault.DocIndex {
+func indexOne(ctx context.Context, projectId int64, rel string) *docs.DocIndex {
 	r, err := g.DB().Model("project_document_index").Ctx(ctx).
 		Where("project_id", projectId).Where("path", rel).One()
 	if err != nil || r.IsEmpty() {
 		return nil
 	}
-	return &vault.DocIndex{
+	return &docs.DocIndex{
 		ProjectId: projectId, Path: rel, Space: r["space"].String(), Title: r["title"].String(),
 		Type: r["type"].String(), Status: r["status"].String(), Tags: r["tags"].String(),
 		Linked: r["linked"].String(), Ext: r["ext"].String(), Size: r["size"].Int64(),
 	}
 }
 
-func readFrontmatter(abs string) (vault.Frontmatter, string, error) {
+func readFrontmatter(abs string) (docs.Frontmatter, string, error) {
 	data, err := os.ReadFile(abs)
 	if err != nil {
-		return vault.Frontmatter{}, "", err
+		return docs.Frontmatter{}, "", err
 	}
-	return vault.ParseFrontmatter(string(data))
+	return docs.ParseFrontmatter(string(data))
 }
 
 func searchContent(ctx context.Context, projectId int64, q string) gdb.Result {
@@ -689,7 +689,7 @@ func searchContent(ctx context.Context, projectId int64, q string) gdb.Result {
 		return nil
 	}
 	var hits gdb.Result
-	root := vault.RootPath(projectId)
+	root := docs.RootPath(projectId)
 	for _, r := range rows {
 		p := r["path"].String()
 		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))

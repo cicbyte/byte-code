@@ -1,4 +1,4 @@
-package vault
+package docs
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	api "github.com/cicbyte/byte-code/api/v1/vault"
+	api "github.com/cicbyte/byte-code/api/v1/docs"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"

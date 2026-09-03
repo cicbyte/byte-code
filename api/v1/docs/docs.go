@@ -1,6 +1,6 @@
 // Package vault 项目记忆与文档中枢 API 定义。
 // 文档（vault）以磁盘为真相源；记忆（memories）为 KV 状态机存储。
-package vault
+package docs
 
 import (
 	"github.com/gogf/gf/v2/frame/g"

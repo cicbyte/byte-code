@@ -12,7 +12,7 @@ import (
 	"github.com/cicbyte/byte-code/utility/dbclean"
 	"github.com/cicbyte/byte-code/utility/dbbackup"
 	"github.com/cicbyte/byte-code/utility/dbinit"
-	"github.com/cicbyte/byte-code/utility/vault"
+	"github.com/cicbyte/byte-code/utility/docs"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -33,14 +33,14 @@ var (
 
 			// 记忆/文档中枢：存量知识库一次性导出到 vault，随后全量扫描建索引；
 			// 之后每天 03:10 增量扫描（错开 dbclean/dbbackup）
-			if err := vault.ExportLegacyDocs(ctx); err != nil {
+			if err := docs.ExportLegacyDocs(ctx); err != nil {
 				g.Log().Warningf(ctx, "legacy docs export failed: %v", err)
 			}
-			if err := vault.ScanAll(ctx); err != nil {
+			if err := docs.ScanAll(ctx); err != nil {
 				g.Log().Warningf(ctx, "vault initial scan failed: %v", err)
 			}
 			if _, err := gcron.AddSingleton(ctx, "0 10 3 * * *", func(ctx context.Context) {
-				if err := vault.ScanAll(ctx); err != nil {
+				if err := docs.ScanAll(ctx); err != nil {
 					g.Log().Warningf(ctx, "vault scheduled scan failed: %v", err)
 				}
 			}); err != nil {
@@ -48,11 +48,11 @@ var (
 			}
 
 			// KV 记忆腐化物化：TTL 到期→expired、超阈值未验证→stale（每天 03:20）
-			if err := service.Vault().MemMaterialize(ctx); err != nil {
+			if err := service.Docs().MemMaterialize(ctx); err != nil {
 				g.Log().Warningf(ctx, "memory materialize failed: %v", err)
 			}
 			if _, err := gcron.AddSingleton(ctx, "0 20 3 * * *", func(ctx context.Context) {
-				if err := service.Vault().MemMaterialize(ctx); err != nil {
+				if err := service.Docs().MemMaterialize(ctx); err != nil {
 					g.Log().Warningf(ctx, "memory materialize failed: %v", err)
 				}
 			}); err != nil {
