@@ -705,8 +705,11 @@
   function onCtxSelect(key: string) {
     ctxMenu.show = false;
     const t = ctxTarget;
-    // 落点：目录右键 → 该目录；文件右键 → 其父目录；空白 → 不指定（落当前视图默认根）
-    const dir = t ? (t.isDir ? t.path : t.path.slice(0, t.path.lastIndexOf('/')) || '') : undefined;
+    // 落点：目录右键 → 该目录；文件右键 → 其父目录；空白 → 视图默认根
+    // （知识库页默认根是 知识库/，否则新建路径缺前缀会被空间守卫拒绝——空知识库时
+    //   空白右键是唯一创建入口，必须可用）
+    const defaultDir = isKnowledge.value ? '知识库' : '';
+    const dir = t ? (t.isDir ? t.path : t.path.slice(0, t.path.lastIndexOf('/')) || '') : defaultDir;
     switch (key) {
       case 'new-doc':
         startInlineCreate(dir, 'new-doc');
@@ -715,7 +718,7 @@
         startInlineCreate(dir, 'new-folder');
         break;
       case 'upload':
-        ctxTargetDir = dir !== undefined ? dir : null;
+        ctxTargetDir = dir;
         uploadInputRef.value?.click();
         break;
       case 'open':
