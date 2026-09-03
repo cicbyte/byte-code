@@ -5,6 +5,7 @@ package vault
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"path"
@@ -140,6 +141,14 @@ func spaceOfTop(topDirOrFile string) string {
 	return "work"
 }
 
+// topSegment 取 vault 相对路径的首段（顶层目录名）
+func topSegment(p string) string {
+	if i := strings.Index(p, "/"); i >= 0 {
+		return p[:i]
+	}
+	return p
+}
+
 func fmToFileMeta(fm vault.Frontmatter, relSlash string) *api.FileMeta {
 	meta := &api.FileMeta{
 		Title:  fm.Title,
@@ -220,7 +229,9 @@ func writeWithSnapshot(projectId int64, rel, content string) (int64, error) {
 		return 0, gerror.New(err.Error())
 	}
 	if err := vault.Snapshot(projectId, rel); err != nil {
-		return 0, gerror.Newf("创建版本快照失败: %v", err)
+		// 细节（含内部路径）只进日志，客户端收固定文案
+		g.Log().Warningf(context.Background(), "snapshot failed for %s: %v", rel, err)
+		return 0, gerror.New("创建版本快照失败")
 	}
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return 0, gerror.New("创建目录失败")
@@ -382,20 +393,44 @@ func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *
 	}
 	if _, err := os.Stat(abs); err == nil {
 		if err := vault.Snapshot(projectId, rel); err != nil {
-			return nil, gerror.Newf("创建版本快照失败: %v", err)
+			g.Log().Warningf(ctx, "snapshot failed for %s: %v", rel, err)
+			return nil, gerror.New("创建版本快照失败")
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 		return nil, gerror.New("创建目录失败")
 	}
-	if _, err := file.Save(filepath.Dir(abs), false); err != nil {
+	// 直接以 sanitized 名落盘（io.Copy）：不经 file.Save 的原名落盘+重命名，
+	// 后者会在 Windows 上把 multipart 文件名里的冒号写成 NTFS 备用数据流
+	out, err := os.Create(abs)
+	if err != nil {
+		return nil, gerror.New("创建文件失败")
+	}
+	src, err := file.Open()
+	if err != nil {
+		out.Close()
+		return nil, gerror.New("读取上传内容失败")
+	}
+	if _, err := io.Copy(out, src); err != nil {
+		out.Close()
+		src.Close()
 		return nil, gerror.New("保存文件失败")
 	}
-	// Save 用原文件名落盘，与 rel 不一致时重命名对齐
-	saved := filepath.Join(filepath.Dir(abs), file.Filename)
-	if filepath.Base(saved) != filepath.Base(abs) {
-		if err := os.Rename(saved, abs); err != nil {
-			return nil, gerror.New("文件重命名失败")
+	out.Close()
+	src.Close()
+	// 知识库守卫：md 上传进知识库必须落 draft 等人审——否则无 frontmatter 的文件
+	// 被索引为 published，直接进入 AI 上下文（kb_get_conventions 只取 published）
+	if strings.ToLower(filepath.Ext(rel)) == ".md" && spaceOfTop(topSegment(rel)) == "knowledge" {
+		if data, err := os.ReadFile(abs); err == nil {
+			fm, body, _ := vault.ParseFrontmatter(string(data))
+			if fm.Status == "" || fm.Status == "published" {
+				fm.Space = "knowledge"
+				fm.Status = "draft"
+				if fm.Title == "" {
+					fm.Title = strings.TrimSuffix(filepath.Base(rel), filepath.Ext(rel))
+				}
+				_ = os.WriteFile(abs, []byte(vault.RenderFrontmatter(fm, body)), 0o644)
+			}
 		}
 	}
 	info, _ := os.Stat(abs)
@@ -433,6 +468,20 @@ func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) err
 	if err := os.Rename(fromAbs, toAbs); err != nil {
 		return gerror.New("移动失败")
 	}
+	// 知识库守卫：移入知识库的 md 无 draft 标记时补写（同 Upload 理由）
+	if strings.ToLower(filepath.Ext(to)) == ".md" && spaceOfTop(topSegment(to)) == "knowledge" {
+		if data, err := os.ReadFile(toAbs); err == nil {
+			fm, body, _ := vault.ParseFrontmatter(string(data))
+			if fm.Status == "" || fm.Status == "published" {
+				fm.Space = "knowledge"
+				fm.Status = "draft"
+				if fm.Title == "" {
+					fm.Title = strings.TrimSuffix(filepath.Base(to), filepath.Ext(to))
+				}
+				_ = os.WriteFile(toAbs, []byte(vault.RenderFrontmatter(fm, body)), 0o644)
+			}
+		}
+	}
 	if _, _, err := vault.ScanProject(ctx, projectId); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
@@ -462,7 +511,8 @@ func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error 
 		}
 	} else {
 		if err := vault.Snapshot(projectId, rel); err != nil {
-			return gerror.Newf("创建版本快照失败: %v", err)
+			g.Log().Warningf(ctx, "snapshot failed for %s: %v", rel, err)
+			return gerror.New("创建版本快照失败")
 		}
 		if err := os.Remove(abs); err != nil {
 			return gerror.New("删除失败")

@@ -50,12 +50,15 @@ func (s *sMiddleware) MiddlewareAuditLog(r *ghttp.Request) {
 		target = parseTarget(path)
 	}
 
+	enrichVaultTarget(r, &target, path)
+
 	auditwriter.Record(auditwriter.Entry{
 		ActorID:    uid,
 		ActorType:  userActorType(r.Context(), uid),
 		Action:     action,
 		TargetType: target.entityType,
 		TargetID:   target.entityId,
+		TargetName: target.name,
 		IpAddress:  r.GetClientIp(),
 		UserAgent:  r.UserAgent(),
 		ProjectId:  projectId,
@@ -102,6 +105,39 @@ func lastResourceSegment(path string) string {
 type targetInfo struct {
 	entityType string
 	entityId   int
+	name       string // vault/memories 等路径型资源的目标明细（文件路径 / 记忆 key）
+}
+
+// enrichVaultTarget vault/memories 资源的目标明细解析：
+//   /projects/{pid}/vault/file?path=a/b.md    → vault + name=a/b.md
+//   /projects/{pid}/memories/{key}/verify     → memories + name={key}
+//   /projects/{pid}/vault/upload?path=dir     → vault + name=dir
+// 目标类型取资源段后（file/meta/move 等动作词不作为类型）
+func enrichVaultTarget(r *ghttp.Request, t *targetInfo, path string) {
+	parts := strings.Split(strings.TrimPrefix(path, "/api/v1/"), "/")
+	// projects/{pid}/vault|memories/...
+	if len(parts) < 3 || parts[0] != "projects" {
+		return
+	}
+	switch parts[2] {
+	case "vault":
+		t.entityType = "vault"
+	case "memories":
+		t.entityType = "memories"
+	default:
+		return
+	}
+	// 明细优先取 query（vault 的 path；memories 的 key 在路径段）
+	if q := r.GetQuery("path").String(); q != "" {
+		t.name = q
+		return
+	}
+	if t.entityType == "memories" && len(parts) >= 4 {
+		// memories/{key} 或 memories/{key}/verify|expire
+		if p := parts[3]; !isNumeric(p) {
+			t.name = p
+		}
+	}
 }
 
 // postEntityVerbs 紧跟实体 id 出现的动作词：审计目标仍归父实体
