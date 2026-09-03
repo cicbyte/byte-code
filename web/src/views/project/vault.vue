@@ -79,7 +79,7 @@
           </template>
 
           <template v-if="currentFile">
-            <!-- 文本文件：编辑器 -->
+            <!-- Markdown：编辑器 -->
             <MdEditor
               v-if="!currentFile.binary"
               v-model="editContent"
@@ -89,15 +89,26 @@
               :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
               :footers="[]"
             />
-            <!-- 二进制文件：元数据卡片 -->
-            <n-descriptions v-else bordered :column="2" size="small" label-placement="left">
-              <n-descriptions-item label="文件">{{ currentFile.path }}</n-descriptions-item>
-              <n-descriptions-item label="大小">{{ formatSize(currentFile.size) }}</n-descriptions-item>
-              <n-descriptions-item label="空间">{{ currentFile.meta?.space || '-' }}</n-descriptions-item>
-              <n-descriptions-item label="下载">
-                <n-button size="tiny" tag="a" :href="rawHref" target="_blank">下载文件</n-button>
-              </n-descriptions-item>
-            </n-descriptions>
+            <template v-else>
+              <!-- docx：mammoth 转 HTML 只读预览 -->
+              <div v-if="isDocx" class="docx-wrap">
+                <n-spin v-if="docxLoading" class="docx-spin" />
+                <div v-else-if="docxHtml" class="docx-html" v-html="docxHtml"></div>
+                <n-result v-else status="warning" title="预览失败" description="Word 文档解析失败，请下载后查看">
+                </n-result>
+              </div>
+              <!-- 图片：直出 -->
+              <div v-else-if="isImage" class="img-wrap">
+                <img :src="binObjectUrl" :alt="currentFile.path" />
+              </div>
+              <!-- 其他二进制（pdf/xlsx/zip…）：说明 + 下载 -->
+              <n-result v-else status="info" title="该格式不支持在线预览" description="请下载后查看">
+              </n-result>
+              <n-space class="mt-3" align="center">
+                <n-button size="small" :disabled="!binObjectUrl" @click="downloadBin">下载文件</n-button>
+                <span class="bin-meta">{{ currentFile.path }} · {{ formatSize(currentFile.size) }}</span>
+              </n-space>
+            </template>
           </template>
           <n-empty v-else description="请从左侧选择一个文件" />
         </n-card>
@@ -465,11 +476,68 @@
     await openFile(key);
   }
 
+  // ==================== 二进制预览：docx（mammoth）与图片直出 ====================
+  const docxHtml = ref('');
+  const docxLoading = ref(false);
+  // raw 直链接口是流式直出（不走统一 JSON 层），img/fetch/a 标签不会带 token 头——
+  // 统一改为带 token fetch → blob URL
+  const binObjectUrl = ref('');
+
+  async function loadBinObjectUrl() {
+    if (binObjectUrl.value) URL.revokeObjectURL(binObjectUrl.value);
+    binObjectUrl.value = '';
+    try {
+      const token = JSON.parse(localStorage.getItem('ACCESS-TOKEN') || '{"value":""}').value || '';
+      const resp = await fetch(vaultRawUrl(projectId.value, currentFile.value!.path), { headers: { token } });
+      if (!resp.ok) throw new Error(String(resp.status));
+      const blob = await resp.blob();
+      binObjectUrl.value = URL.createObjectURL(blob);
+    } catch {
+      binObjectUrl.value = '';
+    }
+  }
+
+  function downloadBin() {
+    if (!binObjectUrl.value) return;
+    const a = document.createElement('a');
+    a.href = binObjectUrl.value;
+    a.download = (currentFile.value?.path || 'file').split('/').pop() || 'file';
+    a.click();
+  }
+
+  const fileExt = computed(() => {
+    const p = currentFile.value?.path || '';
+    const i = p.lastIndexOf('.');
+    return i >= 0 ? p.slice(i).toLowerCase() : '';
+  });
+  const isDocx = computed(() => fileExt.value === '.docx');
+  const isImage = computed(() => ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'].includes(fileExt.value));
+
+  async function loadDocxPreview() {
+    docxHtml.value = '';
+    docxLoading.value = true;
+    try {
+      const buf = await (await fetch(binObjectUrl.value)).arrayBuffer();
+      // mammoth 较大（~200KB），动态导入按需加载
+      const mammoth = await import('mammoth/mammoth.browser');
+      const result = await (mammoth as any).convertToHtml({ arrayBuffer: buf });
+      docxHtml.value = result.value || '<p>（空文档）</p>';
+    } catch {
+      docxHtml.value = '';
+    } finally {
+      docxLoading.value = false;
+    }
+  }
+
   async function openFile(path: string) {
     try {
       const res = await getVaultFile(projectId.value, path);
       currentFile.value = res || null;
       editContent.value = res?.content || '';
+      if (res?.binary) {
+        await loadBinObjectUrl();
+        if (path.toLowerCase().endsWith('.docx')) loadDocxPreview();
+      }
     } catch {
       message.error('加载文件失败');
     }
@@ -817,5 +885,56 @@
       flex: 1;
       min-height: 0;
     }
+  }
+
+  // docx 预览排版（Word 转出的 HTML 无样式，补基础阅读版式）
+  .docx-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+
+    .docx-spin {
+      margin: 80px auto;
+    }
+
+    .docx-html {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      line-height: 1.75;
+      color: var(--text-1, #24292f);
+
+      :deep(h1) { font-size: 22px; margin: 20px 0 12px; }
+      :deep(h2) { font-size: 18px; margin: 18px 0 10px; }
+      :deep(h3) { font-size: 15px; margin: 14px 0 8px; }
+      :deep(p) { margin: 8px 0; }
+      :deep(table) {
+        border-collapse: collapse;
+        margin: 12px 0;
+        width: 100%;
+
+        td, th { border: 1px solid var(--line, #e9e9e7); padding: 6px 10px; font-size: 12.5px; }
+      }
+      :deep(img) { max-width: 100%; }
+    }
+  }
+
+  .img-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+
+    img {
+      max-width: 100%;
+      object-fit: contain;
+    }
+  }
+
+  .bin-meta {
+    font-size: 12px;
+    color: var(--text-3, #8b949e);
   }
 </style>
