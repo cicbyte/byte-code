@@ -99,7 +99,8 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 		if keyErr != nil {
 			r.Response.WriteHeader(http.StatusUnauthorized)
 			r.Response.Header().Set("Content-Type", "application/json")
-			r.Response.Write(jsonStr(401, nil, "invalid API Key"))
+			// 透传具体原因（锁定提示 vs key 无效），便于调用方区分
+			r.Response.Write(jsonStr(401, nil, keyErr.Error()))
 			r.ExitAll()
 			return
 		}

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -109,6 +110,10 @@ func (s *sAiUser) ResetKey(ctx context.Context, id int) (apiKey string, err erro
 const (
 	aiKeyMaxFailures  = 5
 	aiKeyLockDuration = 15 * time.Minute
+	// aiKeyFailTTL 失败记录保留时长：过期即失效，防止伪造 XFF 的随机 IP 无限堆积
+	aiKeyFailTTL = 30 * time.Minute
+	// aiKeyFailMaxEntries 失败表容量上限：超出时清理最旧记录，封死内存膨胀面
+	aiKeyFailMaxEntries = 10000
 )
 
 var aiKeyGuard = struct {
@@ -119,38 +124,70 @@ var aiKeyGuard = struct {
 type aiKeyFailRecord struct {
 	count       int
 	lockedUntil time.Time
+	lastFailAt  time.Time
 }
 
-func aiKeyLockCheck(ip string) error {
+// pruneExpiredLocked 清理过期与超量记录（调用方需持锁）。伪造 XFF 可产生随机 key，
+// 无 TTL 与容量上限的 map 会无限膨胀（内存 DoS）
+func pruneExpiredLocked(now time.Time) {
+	for k, rec := range aiKeyGuard.failures {
+		if rec.lockedUntil.Before(now) && now.Sub(rec.lastFailAt) > aiKeyFailTTL {
+			delete(aiKeyGuard.failures, k)
+		}
+	}
+	if len(aiKeyGuard.failures) <= aiKeyFailMaxEntries {
+		return
+	}
+	// 仍超量：按最后失败时间淘汰最旧的一半
+	type kv struct {
+		k string
+		t time.Time
+	}
+	all := make([]kv, 0, len(aiKeyGuard.failures))
+	for k, rec := range aiKeyGuard.failures {
+		all = append(all, kv{k, rec.lastFailAt})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].t.Before(all[j].t) })
+	for _, e := range all[:len(all)-aiKeyFailMaxEntries/2] {
+		delete(aiKeyGuard.failures, e.k)
+	}
+}
+
+func aiKeyLockCheck(lockKey string) error {
 	aiKeyGuard.Lock()
 	defer aiKeyGuard.Unlock()
-	rec := aiKeyGuard.failures[ip]
-	if rec != nil && !rec.lockedUntil.IsZero() && time.Now().Before(rec.lockedUntil) {
+	now := time.Now()
+	pruneExpiredLocked(now)
+	rec := aiKeyGuard.failures[lockKey]
+	if rec != nil && !rec.lockedUntil.IsZero() && now.Before(rec.lockedUntil) {
 		minutes := int(time.Until(rec.lockedUntil).Minutes()) + 1
 		return fmt.Errorf("失败次数过多，请约%d分钟后再试", minutes)
 	}
 	return nil
 }
 
-func aiKeyRecordFailure(ip string) {
+func aiKeyRecordFailure(lockKey string) {
 	aiKeyGuard.Lock()
 	defer aiKeyGuard.Unlock()
-	rec := aiKeyGuard.failures[ip]
+	now := time.Now()
+	pruneExpiredLocked(now)
+	rec := aiKeyGuard.failures[lockKey]
 	if rec == nil {
 		rec = &aiKeyFailRecord{}
-		aiKeyGuard.failures[ip] = rec
+		aiKeyGuard.failures[lockKey] = rec
 	}
 	rec.count++
+	rec.lastFailAt = now
 	if rec.count >= aiKeyMaxFailures {
-		rec.lockedUntil = time.Now().Add(aiKeyLockDuration)
+		rec.lockedUntil = now.Add(aiKeyLockDuration)
 		rec.count = 0
 	}
 }
 
-func aiKeyResetFailures(ip string) {
+func aiKeyResetFailures(lockKey string) {
 	aiKeyGuard.Lock()
 	defer aiKeyGuard.Unlock()
-	delete(aiKeyGuard.failures, ip)
+	delete(aiKeyGuard.failures, lockKey)
 }
 
 func (s *sAiUser) LoginByApiKey(ctx context.Context, apiKey string) (token string, err error) {
@@ -188,7 +225,16 @@ func (s *sAiUser) verifyApiKeyHash(ctx context.Context, apiKey string) (userId i
 	if r := g.RequestFromCtx(ctx); r != nil {
 		ip = r.GetClientIp()
 	}
+	// 锁定维度 = IP + key 指纹：gf 的 GetClientIp 无条件信任 XFF（可伪造轮换），
+	// 仅按 IP 锁定时攻击者换个头即绕过；叠加 key 内容哈希后，对同一把 key 的
+	// 连续爆破无论 IP 怎么变都会累积失败计数
+	// 双维度独立计数：IP 桶挡单 IP 撒网式尝试；key 指纹桶挡轮换 XFF 定向爆破同一把
+	// key——组合键（ip|keyFp）换 IP 即换桶起不到防绕过作用
+	keyFp := fmt.Sprintf("%x", sha256.Sum256([]byte("bc-key-fp:"+apiKey)))[:16]
 	if err = aiKeyLockCheck(ip); err != nil {
+		return 0, "", err
+	}
+	if err = aiKeyLockCheck(keyFp); err != nil {
 		return 0, "", err
 	}
 
@@ -212,11 +258,13 @@ func (s *sAiUser) verifyApiKeyHash(ctx context.Context, apiKey string) (userId i
 		// 常数时间比较，避免逐字节比较的时序侧信道
 		if hmac.Equal([]byte(hashedInput), []byte(u.ApiKey)) {
 			aiKeyResetFailures(ip)
+			aiKeyResetFailures(keyFp)
 			return u.Id, u.Username, nil
 		}
 	}
 
 	aiKeyRecordFailure(ip)
+	aiKeyRecordFailure(keyFp)
 	return 0, "", fmt.Errorf("invalid API Key")
 }
 
