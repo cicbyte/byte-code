@@ -313,7 +313,13 @@
     try {
       const res = await getVaultTree(projectId.value, isKnowledge.value ? 'knowledge' : undefined);
       dirPaths.clear();
-      treeData.value = transformTree(res?.tree || []);
+      let tree = res?.tree || [];
+      // 知识库模式：页面上下文已表达"知识库"，剥掉同名顶层父节点直接展示其内容
+      // （仅展示层剥皮，文件完整路径不变）
+      if (isKnowledge.value && tree.length === 1 && tree[0].isDir && tree[0].path === '知识库') {
+        tree = tree[0].children || [];
+      }
+      treeData.value = transformTree(tree);
       if (!keepSelection) {
         selectedKeys.value = [];
         currentFile.value = null;
