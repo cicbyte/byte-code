@@ -311,7 +311,8 @@
   async function loadTree(keepSelection = true) {
     treeLoading.value = true;
     try {
-      const res = await getVaultTree(projectId.value, isKnowledge.value ? 'knowledge' : undefined);
+      // 两视图互斥：知识库页只看知识库空间，文档页只看工作区（过程文档）
+      const res = await getVaultTree(projectId.value, isKnowledge.value ? 'knowledge' : 'work');
       dirPaths.clear();
       let tree = res?.tree || [];
       // 知识库模式：页面上下文已表达"知识库"，剥掉同名顶层父节点直接展示其内容
@@ -508,7 +509,7 @@
       return;
     }
     try {
-      const res = await searchVault(projectId.value, q, isKnowledge.value ? 'knowledge' : undefined);
+      const res = await searchVault(projectId.value, q, isKnowledge.value ? 'knowledge' : 'work');
       const items = res?.items || [];
       if (items.length === 0) {
         message.info('未搜索到匹配文档');
