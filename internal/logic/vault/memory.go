@@ -53,21 +53,26 @@ func parseTtl(s string) (time.Duration, error) {
 }
 
 // materializeOne 惰性物化单条：TTL 到期→expired、超阈值未验证→stale
-func materializeOne(ctx context.Context, id int64, status string, expiresAt, lastVerified *gtime.Time, now *gtime.Time, staleDays int) string {
-	if status == "pending" || status == "active" {
-		if expiresAt != nil && !expiresAt.IsZero() && now.After(expiresAt) {
-			_, _ = g.DB().Model("project_memories").Ctx(ctx).Where("id", id).
-				Data("status", "expired").Update()
-			return "expired"
-		}
-		base := lastVerified
-		if base == nil || base.IsZero() {
-			base = now // 从未验证的记录以当下计，不立即腐化
-		} else if now.Sub(base) > time.Duration(staleDays)*24*time.Hour {
-			_, _ = g.DB().Model("project_memories").Ctx(ctx).Where("id", id).
-				Data("status", "stale").Update()
+// evalMemoryStatus 惰性状态判定（只算不写）：TTL 到期→expired、超阈值未验证→stale。
+// 物化（落库）统一由每日 MemMaterialize 定时任务负责——读路径逐行回写在 SQLite
+// 单写者模型下是与 Web/AI 写请求抢锁的纯放大，且与定时任务双轨重复
+func evalMemoryStatus(status string, expiresAt, lastVerified *gtime.Time, now *gtime.Time, staleDays int) string {
+	if status == "expired" {
+		return "expired"
+	}
+	if expiresAt != nil && !expiresAt.IsZero() && now.After(expiresAt) {
+		return "expired"
+	}
+	if status == "stale" {
+		return "stale"
+	}
+	if lastVerified != nil && !lastVerified.IsZero() {
+		if now.Sub(lastVerified) > time.Duration(staleDays)*24*time.Hour {
 			return "stale"
 		}
+	}
+	if status == "pending" {
+		return "pending"
 	}
 	return status
 }
@@ -82,8 +87,15 @@ func (s *sVault) MemList(ctx context.Context, projectId int64, prefix, include s
 	if prefix != "" {
 		model = model.WhereLike("key", prefix+"%")
 	}
-	// 默认 pending+active；stale/expired 仅在显式 include 时返回（读取路径惰性物化）
-	model = model.Where("project_memories.status IN (?)", g.Slice{"pending", "active", "stale", "expired"})
+	// 状态过滤在 SQL 层完成：expired/stale 行不在 include 时根本不取——
+	// 否则长期运行的终态行会占满 Limit 配额，把活跃记忆挤出结果集
+	model = model.Where("project_memories.status IN (?)", g.Slice{"pending", "active"})
+	if includeStale {
+		model = model.WhereOr("project_memories.status = ?", "stale")
+	}
+	if includeExpired {
+		model = model.WhereOr("project_memories.status = ?", "expired")
+	}
 	rows, err := model.Fields("project_memories.*, sys_users.username").Order("key ASC").Limit(1000).All()
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
@@ -93,17 +105,14 @@ func (s *sVault) MemList(ctx context.Context, projectId int64, prefix, include s
 	staleDays := memoryStaleDays(ctx)
 	var list []api.MemoryItem
 	for _, r := range rows {
-		status := materializeOne(ctx, r["id"].Int64(), r["status"].String(),
+		status := evalMemoryStatus(r["status"].String(),
 			r["expires_at"].GTime(), r["last_verified_at"].GTime(), now, staleDays)
-		switch status {
-		case "stale":
-			if !includeStale {
-				continue
-			}
-		case "expired":
-			if !includeExpired {
-				continue
-			}
+		// 惰性判定的终态（状态列未及物化）遵循 include 开关
+		if status == "stale" && !includeStale {
+			continue
+		}
+		if status == "expired" && !includeExpired {
+			continue
 		}
 		list = append(list, memoryRowToItem(r, status, now, staleDays))
 	}
@@ -123,7 +132,7 @@ func (s *sVault) MemGet(ctx context.Context, projectId int64, key string) (*api.
 	}
 	now := gtime.Now()
 	staleDays := memoryStaleDays(ctx)
-	status := materializeOne(ctx, r["id"].Int64(), r["status"].String(),
+	status := evalMemoryStatus(r["status"].String(),
 		r["expires_at"].GTime(), r["last_verified_at"].GTime(), now, staleDays)
 	return &api.MemoryGetRes{MemoryItem: memoryRowToItem(r, status, now, staleDays)}, nil
 }

@@ -276,9 +276,15 @@ func lockFile(projectId int64, rel string) *sync.Mutex {
 	return mu.(*sync.Mutex)
 }
 
+// maxVaultFileSize 单文件写入上限：无上限时巨型文件会拖垮全量 checksum 扫描
+const maxVaultFileSize = 5 * 1024 * 1024
+
 func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content string) (*api.VaultFileWriteRes, error) {
 	if !textExt(path.Ext(rel)) {
 		return nil, gerror.New("非文本文件请走上传接口")
+	}
+	if len(content) > maxVaultFileSize {
+		return nil, gerror.New("文件超过 5MB 上限，请拆分或改用上传")
 	}
 	abs, err := vault.SafeJoin(projectId, rel)
 	if err != nil {
