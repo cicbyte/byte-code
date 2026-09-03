@@ -235,6 +235,6 @@
     text-align: center;
     color: var(--text-3, #999);
     font-size: 12px;
-    padding: 18px 0 10px;
+    padding: 48px 0;
   }
 </style>

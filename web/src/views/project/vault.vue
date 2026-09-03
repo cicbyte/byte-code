@@ -17,11 +17,12 @@
             </template>
           </n-input>
 
-          <n-spin :show="treeLoading" @contextmenu.prevent="onBlankContextMenu">
+          <n-spin :show="treeLoading" class="dir-spin" @contextmenu.prevent="onBlankContextMenu">
             <n-empty
               v-if="!treeLoading && treeData.length === 0"
               :description="isKnowledge ? '知识库为空' : '文档目录为空'"
               size="small"
+              class="fill-center"
             />
             <n-tree
               v-else
@@ -110,7 +111,7 @@
               </n-space>
             </template>
           </template>
-          <n-empty v-else description="请从左侧选择一个文件" />
+          <n-empty v-else description="请从左侧选择一个文件" class="fill-center" />
         </n-card>
       </n-gi>
     </n-grid>
@@ -878,6 +879,23 @@
       flex: 1;
       min-height: 0;
       overflow-y: auto;
+    }
+
+    // spin 内容层也要撑满，空状态才能在可视区居中
+    .dir-card :deep(.n-spin-content) {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    // 空状态垂直居中（铺满型卡片内）：fill-center 撑满后 n-empty 内部结构
+    // （icon+描述）默认顶对齐，需把其内部也排成居中列
+    :deep(.fill-center) {
+      flex: 1;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     // 编辑器铺满剩余高度
