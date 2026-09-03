@@ -67,7 +67,7 @@
                 @click="handlePublish"
               >人审发布</n-button>
               <n-button size="small" @click="openMetaModal">元数据</n-button>
-              <n-button size="small" @click="openMoveModal">移动/重命名</n-button>
+              <n-button size="small" @click="openMoveModal()">移动/重命名</n-button>
               <n-button
                 v-if="!currentFile.binary"
                 type="primary"
@@ -153,7 +153,7 @@
       </n-form>
     </n-modal>
 
-    <!-- 移动/重命名弹窗 -->
+    <!-- 移动/重命名弹窗：from 显式展示（右键目标可能与当前打开文件不同） -->
     <n-modal
       v-model:show="showMoveModal"
       preset="dialog"
@@ -164,6 +164,9 @@
       style="width: 480px"
     >
       <n-form label-placement="top" class="py-4">
+        <n-form-item label="从">
+          <n-text depth="3" code>{{ moveFrom || '（未选择）' }}</n-text>
+        </n-form-item>
         <n-form-item label="目标路径（vault 内相对路径）">
           <n-input v-model:value="moveTarget" placeholder="例：设计/新名称.md" />
         </n-form-item>
@@ -236,6 +239,9 @@
 
   const showMoveModal = ref(false);
   const moveTarget = ref('');
+  // 移动操作的源路径：右键目标可能与当前打开文件不同，提交必须用打开时记录的源，
+  // 不能取 currentFile（否则右键 B 时会把当前打开的 A 移走）
+  const moveFrom = ref('');
 
   const uploadInputRef = ref<HTMLInputElement | null>(null);
 
@@ -556,7 +562,10 @@
   }
 
   function openMoveModal(targetPath?: string) {
-    moveTarget.value = targetPath ?? currentFile.value?.path ?? '';
+    // 防御：模板 @click 无括号调用会把 Event 对象传进来（truthy 会绕过 ?? 兜底）
+    const from = typeof targetPath === "string" ? targetPath : currentFile.value?.path ?? '';
+    moveFrom.value = from;
+    moveTarget.value = from;
     showMoveModal.value = true;
   }
 
@@ -770,12 +779,20 @@
   }
 
   async function handleMoveSubmit() {
-    if (!currentFile.value || !moveTarget.value.trim()) return false;
-    if (!assertSpaceAllowed(moveTarget.value.trim())) return false;
+    const from = moveFrom.value.trim();
+    const to = moveTarget.value.trim();
+    if (!from || !to) return false;
+    if (from === to) return false;
+    if (!assertSpaceAllowed(to)) return false;
     try {
-      await moveVaultPath(projectId.value, currentFile.value.path, moveTarget.value.trim());
+      await moveVaultPath(projectId.value, from, to);
       message.success('移动成功');
       showMoveModal.value = false;
+      // 移动的恰是当前打开文件时同步更新编辑器状态，否则保持不动
+      if (currentFile.value && currentFile.value.path === from) {
+        currentFile.value = null;
+        editContent.value = '';
+      }
       await loadTree(false);
     } catch {
       message.error('移动失败');
