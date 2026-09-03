@@ -212,6 +212,10 @@
       border-radius: var(--panel-radius, 12px);
       overflow-y: auto;
       overflow-x: hidden;
+      // flex 列：铺满型页面（看板/vault）子项 flex:1 恰好撑满不触发本层滚动，
+      // 滚动只发生在卡内；普通页面内容超高仍在本层滚
+      display: flex;
+      flex-direction: column;
     }
 
     &-default-background {
@@ -220,9 +224,11 @@
 
     .layout-content-main {
       // 顶部 4px 统一呼吸距（页面级标题卡已移除，标题由 Header 面包屑承载）；
-      // flex 列 + min-height 让看板等整页型视图可 flex:1 铺满视口
+      // flex 列 + min-height:0 让看板等整页型视图可 flex:1 铺满视口；
+      // 普通页面内容超高时由父级 main（overflow:auto）承接滚动
       padding: 4px 8px 8px;
-      min-height: 100%;
+      flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
 
