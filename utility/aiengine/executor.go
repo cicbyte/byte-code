@@ -54,8 +54,11 @@ const systemPrompt = `你是 ByteCode 项目管理平台的 AI 助手。你已�
 
 // ExecuteTask 执行单个任务（ReAct 循环）
 func ExecuteTask(ctx context.Context, cfg *ExecuteConfig) (string, error) {
-	// AI 身份注入 ctx：mem_set/mem_verify 的 updated_by 来源标识
+	// AI 身份与任务项目归属注入 ctx：mem_set/mem_verify 的 updated_by 来源标识；
+	// projectId 是安全边界——工具层强制取 ctx 值，忽略 LLM 参数传入的任意 projectId，
+	// 防止任务描述里诱导 AI 读写其他项目的 vault/记忆（跨项目数据外泄/投毒）
 	ctx = context.WithValue(ctx, ctxAIUserId, cfg.AIUserId)
+	ctx = context.WithValue(ctx, ctxTaskProjectId, cfg.Task.ProjectId)
 
 	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
 		Model:   cfg.Model,

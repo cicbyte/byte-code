@@ -21,11 +21,32 @@ import (
 // ctxAIUserId executor 注入的 AI 用户 id（mem_set 来源标识）
 const ctxAIUserId = "aiUserId"
 
+// ctxTaskProjectId executor 注入的任务所属项目 id（安全边界，见 bindProjectId）
+const ctxTaskProjectId = "taskProjectId"
+
 func aiUserId(ctx context.Context) int {
 	if v, ok := ctx.Value(ctxAIUserId).(int); ok && v > 0 {
 		return v
 	}
 	return 0
+}
+
+// bindProjectId 工具安全边界：projectId 以 executor 注入的任务归属为准，
+// LLM 参数传入的 projectId 不一致时拒绝执行——防止任务描述诱导 AI 读写
+// 其他项目的 vault 文档与记忆（跨项目数据外泄/投毒）
+func bindProjectId(ctx context.Context, argsProjectId int) (int, error) {
+	bound, ok := ctx.Value(ctxTaskProjectId).(int)
+	if !ok || bound <= 0 {
+		// 无任务上下文（如手工调试调用）时退回参数值
+		if argsProjectId > 0 {
+			return argsProjectId, nil
+		}
+		return 0, fmt.Errorf("缺少任务项目上下文")
+	}
+	if argsProjectId > 0 && argsProjectId != bound {
+		return 0, fmt.Errorf("projectId 与任务所属项目不符（任务属项目 %d），禁止跨项目访问", bound)
+	}
+	return bound, nil
 }
 
 // ==================== 文档工具 ====================
@@ -52,6 +73,11 @@ func (t *ReadDocTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 	var p ReadDocArgs
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
 	}
 	abs, err := vault.SafeJoin(int64(p.ProjectId), p.Path)
 	if err != nil {
@@ -104,6 +130,11 @@ func (t *KbConventionsTool) InvokableRun(ctx context.Context, argsInJSON string,
 	var p struct{ ProjectId int }
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
 	}
 	rows, err := g.DB().Model("project_document_index").Ctx(ctx).
 		Where("project_id", p.ProjectId).
@@ -158,6 +189,11 @@ func (t *DocLinkedTool) InvokableRun(ctx context.Context, argsInJSON string, opt
 	}
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
 	}
 	switch p.TargetType {
 	case "task", "req", "tc":
@@ -251,6 +287,11 @@ func (t *MemListTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
 	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
+	}
 	m := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", p.ProjectId).
 		Where("status IN (?)", g.Slice{"pending", "active"})
@@ -306,6 +347,11 @@ func (t *MemGetTool) InvokableRun(ctx context.Context, argsInJSON string, opts .
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
 	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
+	}
 	r, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", p.ProjectId).Where("key", p.Key).One()
 	if err != nil {
@@ -349,6 +395,11 @@ func (t *MemSetTool) InvokableRun(ctx context.Context, argsInJSON string, opts .
 	}
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
 	}
 	if strings.ContainsAny(p.Key, "/ ") || p.Key == "" {
 		return "", fmt.Errorf("key 非法（点分层级，不含空格和斜杠）")
@@ -417,6 +468,11 @@ func (t *MemVerifyTool) InvokableRun(ctx context.Context, argsInJSON string, opt
 	}
 	if err := json.Unmarshal([]byte(argsInJSON), &p); err != nil {
 		return "", fmt.Errorf("参数解析失败: %v", err)
+	}
+	if pid, err := bindProjectId(ctx, p.ProjectId); err != nil {
+		return "", err
+	} else {
+		p.ProjectId = pid
 	}
 	res, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", p.ProjectId).Where("key", p.Key).

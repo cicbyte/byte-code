@@ -210,3 +210,41 @@ func TestGetToolsRegistration(t *testing.T) {
 		}
 	}
 }
+
+func TestBindProjectIdSecurityBoundary(t *testing.T) {
+	// P0-1 安全边界：任务上下文注入的项目 id 是唯一可信来源
+	ctx := context.WithValue(context.Background(), ctxTaskProjectId, 1)
+
+	// 一致 → 放行并归一
+	pid, err := bindProjectId(ctx, 1)
+	if err != nil || pid != 1 {
+		t.Fatalf("一致 projectId 应放行: %d %v", pid, err)
+	}
+	// 缺省（LLM 未传）→ 用任务归属补齐
+	pid, err = bindProjectId(ctx, 0)
+	if err != nil || pid != 1 {
+		t.Fatalf("缺省 projectId 应取任务归属: %d %v", pid, err)
+	}
+	// 不一致（诱导跨项目）→ 拒绝
+	if _, err := bindProjectId(ctx, 2); err == nil {
+		t.Fatal("projectId=2 与任务归属 1 不符应拒绝")
+	}
+	// 工具层端到端：ctx 绑定项目 1，LLM 传 projectId=2 → read_doc 拒绝且不触盘
+	bound := runToolErr(t, &ReadDocTool{}, ctx, `{"projectId":2,"path":"知识库/coding.md"}`)
+	if bound == nil {
+		t.Fatal("跨项目 read_doc 应报错")
+	}
+	// 无任务上下文（手工调试）→ 参数值放行（回归保护）
+	pid, err = bindProjectId(context.Background(), 3)
+	if err != nil || pid != 3 {
+		t.Fatalf("无任务上下文应退回参数值: %d %v", pid, err)
+	}
+}
+
+func runToolErr(t *testing.T, tool interface {
+	InvokableRun(context.Context, string, ...ToolOption) (string, error)
+}, ctx context.Context, args string) error {
+	t.Helper()
+	_, err := tool.InvokableRun(ctx, args)
+	return err
+}
