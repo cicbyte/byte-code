@@ -176,23 +176,35 @@ func getEngineConfig(ctx context.Context) (*EngineConfig, error) {
 
 // ClaimableTask 可被 AI 认领的任务
 type ClaimableTask struct {
-	Id        int
-	ProjectId int
-	Title     string
-	Desc      string
-	AssigneeId int // AI 用户 ID
+	Id           int
+	ProjectId    int
+	Title        string
+	Desc         string
+	AssigneeId   int // AI 用户 ID
 	AssigneeName string
+	Attempts     int // 已失败次数（退避排程用）
 }
 
+// aiBackoff 失败退避间隔：attempts 超出表长后按末档，达 maxAttempts 进死信
+var aiBackoff = []time.Duration{5 * time.Minute, 30 * time.Minute, 2 * time.Hour, 8 * time.Hour}
+
+const (
+	aiMaxAttempts = 5
+	aiExecTimeout = 10 * time.Minute // 单任务执行上限：挂死的模型端点不得拖垮整个引擎
+)
+
 func getClaimableTasks(ctx context.Context, limit int) ([]ClaimableTask, error) {
+	now := time.Now().Format("2006-01-02 15:04:05")
 	var tasks []ClaimableTask
 	err := g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users u", "t.assignee_id = u.id").
-		Fields("t.id, t.project_id, t.title, t.description, t.assignee_id, COALESCE(u.real_name, u.username) as assignee_name").
+		Fields("t.id, t.project_id, t.title, t.description, t.assignee_id, COALESCE(u.real_name, u.username) as assignee_name, t.ai_attempts").
 		Where("t.status", "open").
 		Where("t.assignee_id > 0").
 		Where("u.type", "ai").
 		Where("u.status", 1).
+		// 退避窗口未到的任务不认领（毒任务不再 2 分钟无限重试烧 API 费用）
+		Where("(t.ai_next_attempt_at = '' OR t.ai_next_attempt_at <= ?)", now).
 		Order("t.created_at ASC").
 		Limit(limit).
 		Scan(&tasks)
@@ -222,8 +234,13 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 	// 记录 AI 执行日志
 	logId := recordAiLog(ctx, task.AssigneeId, task.Id, "claim", fmt.Sprintf("AI 认领任务「%s」", task.Title), "success")
 
+	// 单任务执行超时：挂死的模型端点会永久阻塞 processTask，gcron AddSingleton
+	// 下后续所有轮次被跳过——一个任务拖垮整个引擎
+	execCtx, cancel := context.WithTimeout(ctx, aiExecTimeout)
+	defer cancel()
+
 	// 调用 AI Agent 执行
-	output, err := aiengine.ExecuteTask(ctx, &aiengine.ExecuteConfig{
+	output, err := aiengine.ExecuteTask(execCtx, &aiengine.ExecuteConfig{
 		BaseURL:  cfg.BaseURL,
 		ApiKey:   cfg.ApiKey,
 		Model:    cfg.Model,
@@ -237,13 +254,34 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 	})
 
 	if err != nil {
-		g.Log().Errorf(ctx, "AI 引擎: 任务 %d 执行失败: %v", task.Id, err)
+		g.Log().Errorf(ctx, "AI 引擎: 任务 %d 执行失败（第 %d 次）: %v", task.Id, task.Attempts+1, err)
 		recordAiLog(ctx, task.AssigneeId, task.Id, "error", err.Error(), "failed")
-		// 执行失败回退状态
+		// 失败退避：按次数指数拉开重试间隔，超限进死信（closed），不再无限重试烧 API
+		attempts := task.Attempts + 1
+		if attempts >= aiMaxAttempts {
+			g.DB().Model("tasks").Ctx(ctx).
+				Where("id", task.Id).
+				Where("status", "in_progress").
+				Data(g.Map{
+					"status":       "closed",
+					"artifacts":    fmt.Sprintf("AI 执行连续失败 %d 次，已自动关闭：\n\n%s", attempts, err.Error()),
+					"completed_at": time.Now().Format("2006-01-02 15:04:05"),
+				}).Update()
+			recordAiLog(ctx, task.AssigneeId, task.Id, "dead", "连续失败超限，任务转入死信", "failed")
+			return
+		}
+		backoff := aiBackoff[len(aiBackoff)-1]
+		if attempts-1 < len(aiBackoff) {
+			backoff = aiBackoff[attempts-1]
+		}
 		g.DB().Model("tasks").Ctx(ctx).
 			Where("id", task.Id).
 			Where("status", "in_progress").
-			Data(g.Map{"status": "open"}).Update()
+			Data(g.Map{
+				"status":              "open",
+				"ai_attempts":         attempts,
+				"ai_next_attempt_at":  time.Now().Add(backoff).Format("2006-01-02 15:04:05"),
+			}).Update()
 		return
 	}
 
@@ -251,9 +289,11 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 	g.DB().Model("tasks").Ctx(ctx).
 		Where("id", task.Id).
 		Data(g.Map{
-			"status":       "review",
-			"artifacts":    output,
-			"completed_at": time.Now().Format("2006-01-02 15:04:05"),
+			"status":             "review",
+			"artifacts":          output,
+			"completed_at":       time.Now().Format("2006-01-02 15:04:05"),
+			"ai_attempts":        0,
+			"ai_next_attempt_at": "",
 		}).Update()
 
 	recordAiLog(ctx, task.AssigneeId, task.Id, "complete", output, "success")
