@@ -1,9 +1,9 @@
 <template>
-  <div>
-    <n-grid cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
+  <div class="vault-page">
+    <n-grid class="vault-grid" cols="1 s:1 m:1 l:4 xl:4 2xl:4" responsive="screen" :x-gap="12">
       <!-- 左侧目录树 -->
-      <n-gi span="1">
-        <n-card title="目录" size="small" :bordered="false" :segmented="{ content: true }">
+      <n-gi span="1" class="vault-col">
+        <n-card title="目录" size="small" :bordered="false" :segmented="{ content: true }" class="dir-card">
           <template #header-extra>
             <n-space :size="4" align="center">
               <n-button size="tiny" quaternary :loading="refreshing" @click="handleRefresh">重扫</n-button>
@@ -51,8 +51,8 @@
       </n-gi>
 
       <!-- 右侧内容区 -->
-      <n-gi span="3">
-        <n-card :bordered="false" :segmented="{ content: true }">
+      <n-gi span="3" class="vault-col">
+        <n-card :bordered="false" :segmented="{ content: true }" class="edit-card">
           <template v-if="currentFile" #header>
             <n-space align="center">
               <n-icon size="18"><FileTextOutlined /></n-icon>
@@ -97,7 +97,7 @@
               v-if="!currentFile.binary"
               v-model="editContent"
               :theme="isDark ? 'dark' : 'light'"
-              :style="{ height: 'calc(100vh - 300px)' }"
+              class="vault-editor"
               placeholder="Markdown 内容（首部可带 frontmatter 元数据）"
               :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
               :footers="[]"
@@ -522,3 +522,54 @@
     loadTree();
   });
 </script>
+
+<style lang="less" scoped>
+  // 整页铺满内容区视口：双栏等高、树与编辑器在卡内滚动
+  .vault-page {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .vault-grid {
+    flex: 1;
+    min-height: 0;
+
+    // grid item 默认高度自适应内容，需显式拉满供卡内 flex 链使用
+    :deep(.n-grid-item) {
+      height: 100%;
+    }
+  }
+
+  .vault-col {
+    min-height: 0;
+
+    .dir-card,
+    .edit-card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+
+      :deep(.n-card__content) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+    }
+
+    // 目录树区滚动
+    .dir-card :deep(.n-spin-container) {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    // 编辑器铺满剩余高度
+    .vault-editor {
+      flex: 1;
+      min-height: 0;
+    }
+  }
+</style>
