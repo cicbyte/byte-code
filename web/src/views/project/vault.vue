@@ -4,20 +4,6 @@
       <!-- 左侧目录树 -->
       <n-gi span="1" class="vault-col">
         <n-card title="目录" size="small" :bordered="false" :segmented="{ content: true }" class="dir-card">
-          <template #header-extra>
-            <n-space :size="4" align="center">
-              <n-button size="tiny" quaternary :loading="refreshing" @click="handleRefresh">重扫</n-button>
-              <n-dropdown trigger="hover" @select="handleAddNode" :options="addNodeOptions">
-                <n-button type="info" ghost size="small" icon-placement="right">
-                  新建
-                  <template #icon>
-                    <n-icon size="14"><DownOutlined /></n-icon>
-                  </template>
-                </n-button>
-              </n-dropdown>
-            </n-space>
-          </template>
-
           <n-input
             v-model:value="searchKeyword"
             size="small"
@@ -190,12 +176,12 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted, nextTick, h } from 'vue';
+  import { ref, reactive, computed, onMounted, nextTick, h, watch } from 'vue';
   import { useRoute } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
   import { useMessage, useDialog, NInput } from 'naive-ui';
-  import { DownOutlined, SearchOutlined, FileTextOutlined } from '@vicons/antd';
+  import { SearchOutlined, FileTextOutlined } from '@vicons/antd';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import {
     getVaultTree,
@@ -240,12 +226,6 @@
   const moveTarget = ref('');
 
   const uploadInputRef = ref<HTMLInputElement | null>(null);
-
-  const addNodeOptions = computed(() => [
-    { label: '新建文件夹', key: 'folder' },
-    { label: '新建文档', key: 'doc' },
-    { label: '上传文件', key: 'upload' },
-  ]);
 
   const rawHref = computed(() =>
     currentFile.value ? vaultRawUrl(projectId.value, currentFile.value.path) : '#'
@@ -369,11 +349,37 @@
     editing.path = '';
   }
 
+  // 空间守卫：文档页（work）与知识库页（knowledge）共用同一 vault 与同一套 API，
+  // 视图互斥只做了读取过滤；写入操作必须约束路径前缀，防止跨空间移动/上传绕过发布流
+  const KB_PREFIX = '知识库/';
+  function isKnowledgePath(p: string): boolean {
+    return p === '知识库' || p.startsWith(KB_PREFIX);
+  }
+  function assertSpaceAllowed(p: string): boolean {
+    if (!p) return true;
+    const inKb = isKnowledgePath(p);
+    if (isKnowledge.value && !inKb) {
+      message.error('知识库内不支持此操作目标（路径超出知识库空间）');
+      return false;
+    }
+    if (!isKnowledge.value && inKb) {
+      message.error('文档视图不能操作知识库路径，请到知识库页操作');
+      return false;
+    }
+    return true;
+  }
+
   async function commitInline() {
     if (!editing.active) return;
     const name = editing.value.trim();
     const { mode, dir } = editing;
     if (!name || name.includes('/') || name.includes('..')) {
+      cancelInline();
+      return;
+    }
+    // 空间守卫：目标路径必须落在当前视图空间内
+    const targetPath = dir ? `${dir}/${name}` : name;
+    if (!assertSpaceAllowed(targetPath)) {
       cancelInline();
       return;
     }
@@ -488,22 +494,16 @@
   // 右键菜单指定的落点（新建/上传目标目录）；null = 跟随当前选中文件所在目录
   let ctxTargetDir: string | null = null;
 
-  function handleAddNode(key: string, dir?: string) {
-    ctxTargetDir = dir ?? null;
-    if (key === 'upload') {
-      uploadInputRef.value?.click();
-      return;
-    }
-    // 新建走树内内联编辑（落点：右键目录 > 当前选中文件父目录 > 视图默认根）
-    const baseDir = dir !== undefined ? dir : selectedDir.value;
-    startInlineCreate(baseDir, key === 'folder' ? 'new-folder' : 'new-doc');
-  }
-
   async function handleUpload(e: Event) {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
     const baseDir = ctxTargetDir !== null ? ctxTargetDir : selectedDir.value;
+    if (!assertSpaceAllowed(baseDir)) {
+      input.value = '';
+      ctxTargetDir = null;
+      return;
+    }
     try {
       const res = await uploadVaultFile(projectId.value, baseDir, file);
       message.success(`上传成功：${res?.path || file.name}`);
@@ -595,6 +595,7 @@
         { label: '新建文档', key: 'new-doc' },
         { label: '新建文件夹', key: 'new-folder' },
         { label: '上传文件', key: 'upload' },
+        { label: '重扫索引', key: 'refresh', divider: true },
       ];
     } else if (target.isDir) {
       ctxMenu.options = [
@@ -605,6 +606,7 @@
         { label: '移动到…', key: 'move' },
         // 非空目录禁止删除（后端同样校验），防止误删整棵子树
         { label: '删除（仅空目录）', key: 'delete', disabled: target.hasChildren },
+        { label: '重扫索引', key: 'refresh', divider: true },
       ];
     } else {
       ctxMenu.options = [
@@ -635,7 +637,8 @@
         startInlineCreate(dir, 'new-folder');
         break;
       case 'upload':
-        handleAddNode('upload', dir);
+        ctxTargetDir = dir !== undefined ? dir : null;
+        uploadInputRef.value?.click();
         break;
       case 'open':
         if (t) openFile(t.path);
@@ -645,6 +648,9 @@
         break;
       case 'move':
         if (t) openMoveModal(t.path);
+        break;
+      case 'refresh':
+        handleRefresh();
         break;
       case 'delete':
         if (t) handleDeleteFor(t.path, t.isDir);
@@ -696,6 +702,7 @@
 
   async function handleMoveSubmit() {
     if (!currentFile.value || !moveTarget.value.trim()) return false;
+    if (!assertSpaceAllowed(moveTarget.value.trim())) return false;
     try {
       await moveVaultPath(projectId.value, currentFile.value.path, moveTarget.value.trim());
       message.success('移动成功');
@@ -748,6 +755,17 @@
 
   onMounted(() => {
     loadTree();
+  });
+
+  // 知识库/文档两路由共用本组件：页内切换时组件复用不重建，
+  // onMounted 不会重跑——必须监听视图模式变化重载树并清理编辑状态，
+  // 否则文档页显示的还是知识库的树（刷新才正常）
+  watch(isKnowledge, () => {
+    selectedKeys.value = [];
+    currentFile.value = null;
+    editContent.value = '';
+    cancelInline();
+    loadTree(false);
   });
 </script>
 

@@ -51,6 +51,9 @@ resource/data/jwt.secret
 # 项目 vault（记忆/文档中枢运行时数据，含 .history 快照）
 resource/projects/
 
+# 前端构建产物（由 web/dist 构建后同步）
+resource/public/
+
 # 数据库备份文件
 resource/backup/
 
