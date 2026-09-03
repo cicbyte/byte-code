@@ -85,10 +85,11 @@
         router.push(`/project/${item.projectId}/requirements`);
         break;
       case 'doc':
-        router.push('/knowledge');
+        // /knowledge 顶层路由已随知识库并入项目而移除，跳项目文档中枢
+        router.push(`/project/${item.projectId}/knowledge`);
         break;
       case 'test_case':
-        router.push('/test');
+        router.push(`/project/${item.projectId}/test-cases`);
         break;
     }
   }
