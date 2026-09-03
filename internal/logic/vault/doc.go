@@ -4,7 +4,9 @@ package vault
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"sync"
 	"path"
 	"path/filepath"
 	"sort"
@@ -253,6 +255,16 @@ func demoteKnowledgeDraft(oldContent, newContent string, explicitStatus bool) st
 	return vault.RenderFrontmatter(newFm, body)
 }
 
+// fileLocks per-path 写锁：read-modify-write（读旧文→改→快照→覆盖）全程持锁，
+// 否则两个并发 patch 会互相覆盖丢失更新（后写者整体盖掉前写者）
+var fileLocks sync.Map // map[string]*sync.Mutex（key: projectId+"/"+rel）
+
+func lockFile(projectId int64, rel string) *sync.Mutex {
+	key := fmt.Sprintf("%d/%s", projectId, rel)
+	mu, _ := fileLocks.LoadOrStore(key, &sync.Mutex{})
+	return mu.(*sync.Mutex)
+}
+
 func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content string) (*api.VaultFileWriteRes, error) {
 	if !textExt(path.Ext(rel)) {
 		return nil, gerror.New("非文本文件请走上传接口")
@@ -261,6 +273,9 @@ func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content st
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
+	mu := lockFile(projectId, rel)
+	mu.Lock()
+	defer mu.Unlock()
 	old, _ := os.ReadFile(abs)
 	content = demoteKnowledgeDraft(string(old), content, false)
 	size, err := writeWithSnapshot(projectId, rel, content)
@@ -281,6 +296,9 @@ func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
+	mu := lockFile(projectId, rel)
+	mu.Lock()
+	defer mu.Unlock()
 	raw, err := os.ReadFile(abs)
 	if err != nil {
 		return nil, gerror.New("文件不存在")

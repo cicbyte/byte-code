@@ -165,7 +165,8 @@ func RenderFrontmatter(fm Frontmatter, body string) string {
 	return b.String()
 }
 
-// Snapshot 写前版本快照：旧版拷贝至 .history/{相对路径}/{yyyyMMdd-HHmmss}{扩展名}
+// Snapshot 写前版本快照：旧版拷贝至 .history/{相对路径}/{yyyyMMdd-HHmmss.fff}{序号}{扩展名}。
+// 秒级时间戳在并发写下会同名互覆（历史直接丢失），追加毫秒 + 存在即自增序号兜底
 // 文件不存在时为静默 no-op
 func Snapshot(projectId int64, rel string) error {
 	abs, err := SafeJoin(projectId, rel)
@@ -187,6 +188,13 @@ func Snapshot(projectId int64, rel string) error {
 	if err := os.MkdirAll(histDir, 0o755); err != nil {
 		return err
 	}
-	dst := filepath.Join(histDir, time.Now().Format("20060102-150405")+filepath.Ext(rel))
+	base := time.Now().Format("20060102-150405.000")
+	dst := filepath.Join(histDir, base+filepath.Ext(rel))
+	for i := 1; ; i++ {
+		if _, err := os.Stat(dst); os.IsNotExist(err) {
+			break
+		}
+		dst = filepath.Join(histDir, fmt.Sprintf("%s-%02d%s", base, i, filepath.Ext(rel)))
+	}
 	return gfile.CopyFile(abs, dst)
 }

@@ -1,6 +1,8 @@
 package vault
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -111,5 +113,40 @@ func TestSanitizeName(t *testing.T) {
 		if got := sanitizeName(in); got != want {
 			t.Fatalf("sanitizeName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestSnapshotNoClobber(t *testing.T) {
+	// P0-6：同一秒（甚至同一毫秒）内两次快照必须产生两份独立文件，
+	// 旧实现秒级时间戳同名互覆会静默丢历史
+	dir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+
+	rel := "知识库/doc.md"
+	abs := filepath.Join(RootPath(1), filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(abs, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 连续两次快照（Windows 计时精度内大概率同毫秒）
+	if err := Snapshot(1, rel); err != nil {
+		t.Fatal(err)
+	}
+	if err := Snapshot(1, rel); err != nil {
+		t.Fatal(err)
+	}
+	histDir := filepath.Join(RootPath(1), HistoryDir, filepath.FromSlash(rel))
+	entries, err := os.ReadDir(histDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("两次快照应有两份文件，实际 %d 份（互覆）", len(entries))
 	}
 }
