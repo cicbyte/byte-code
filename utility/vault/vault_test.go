@@ -150,3 +150,24 @@ func TestSnapshotNoClobber(t *testing.T) {
 		t.Fatalf("两次快照应有两份文件，实际 %d 份（互覆）", len(entries))
 	}
 }
+
+func TestSafeJoinHistoryBypass(t *testing.T) {
+	// S-1：Windows 命名空间变体不得访问 .history（大小写/尾点/尾空格/8.3 短名）
+	deny := []string{
+		".history/x.md", ".History/x.md", ".HISTORY/x.md",
+		".history./x.md", ".history /x.md", ".history../x.md",
+		"HISTOR~1/x.md", "histor~1/x.md", ".history",
+	}
+	for _, p := range deny {
+		if _, err := SafeJoin(1, p); err == nil {
+			t.Fatalf("SafeJoin(%q) 应拒绝（Windows 命名空间变体可解析进快照目录）", p)
+		}
+	}
+	// 正常路径不受影响
+	allow := []string{"知识库/doc.md", ".hidden.md", "设计 v2/x.md", "hist/doc.md"}
+	for _, p := range allow {
+		if _, err := SafeJoin(1, p); err != nil {
+			t.Fatalf("SafeJoin(%q) 不应拒绝: %v", p, err)
+		}
+	}
+}

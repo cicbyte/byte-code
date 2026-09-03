@@ -38,6 +38,34 @@ func RootPath(projectId int64) string {
 	return filepath.Join("resource", "projects", fmt.Sprintf("%d", projectId), "vault")
 }
 
+// shortNameRe 8.3 短文件名形态（如 HISTOR~1）：NTFS 会解析回长名，绕过前缀检查
+var shortNameRe = regexp.MustCompile(`^[^.]{1,6}~\d`)
+
+// isProtectedSegment 判断路径首段是否指向 .history（快照目录）。
+// 仅做区分大小写的前缀匹配挡不住 Windows：NTFS 大小写不敏感、剥离段尾点/空格、
+// 支持 8.3 短名——.History/.history./.HISTORY~1 等变体都会解析进同一目录
+func isProtectedSegment(seg string) bool {
+	seg = strings.TrimRight(seg, ". ") // NTFS 剥离段尾点与尾空格
+	if seg == "" {
+		return false
+	}
+	if strings.EqualFold(seg, HistoryDir) {
+		return true
+	}
+	// 8.3 短名：~ 前部分与 .history 去点后的等长前缀不区分大小写比较
+	if shortNameRe.MatchString(seg) {
+		if i := strings.Index(seg, "~"); i > 0 {
+			base := strings.TrimPrefix(HistoryDir, ".")
+			n := i
+			if n > len(base) {
+				n = len(base)
+			}
+			return strings.EqualFold(seg[:i], base[:n])
+		}
+	}
+	return false
+}
+
 // SafeJoin 校验 rel 不越出 vault 后拼接绝对路径；rel 以 / 或 \ 开头、含 .. 均拒绝
 func SafeJoin(projectId int64, rel string) (string, error) {
 	rel = strings.TrimPrefix(strings.ReplaceAll(rel, "\\", "/"), "/")
@@ -48,7 +76,11 @@ func SafeJoin(projectId int64, rel string) (string, error) {
 	if strings.HasPrefix(clean, "../") || clean == ".." || filepath.IsAbs(rel) || strings.Contains(rel, "\x00") {
 		return "", fmt.Errorf("invalid vault path: %s", rel)
 	}
-	if strings.HasPrefix(clean, HistoryDir+"/") || clean == HistoryDir {
+	top := clean
+	if i := strings.Index(top, "/"); i >= 0 {
+		top = top[:i]
+	}
+	if isProtectedSegment(top) {
 		return "", fmt.Errorf("access to %s is not allowed", HistoryDir)
 	}
 	return filepath.Join(RootPath(projectId), filepath.FromSlash(clean)), nil
