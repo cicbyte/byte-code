@@ -118,16 +118,6 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/vault.vue'),
           },
           {
-            // 记忆/文档中枢：文档管理器（vault 全空间）
-            path: 'vault',
-            name: `${routeName}_vault`,
-            meta: {
-              title: '文档',
-              hideInMenu: true,
-            },
-            component: () => import('@/views/project/vault.vue'),
-          },
-          {
             // 记忆/文档中枢：项目 KV 记忆
             path: 'memories',
             name: `${routeName}_memories`,
@@ -138,14 +128,20 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/memories.vue'),
           },
           {
-            // 旧知识库（docs 表）：保留路由兼容历史数据，菜单不再指向
+            // 旧 vault 路径（语义统一为 docs 前的过渡路由）
+            path: 'vault',
+            redirect: (to) => ({ path: `/project/${to.params.projectId}/docs` }),
+            meta: { hideInMenu: true },
+          },
+          {
+            // 记忆/文档中枢：文档管理器（工作区空间）
             path: 'docs',
             name: `${routeName}_docs`,
             meta: {
-              title: '知识库（旧）',
+              title: '文档',
               hideInMenu: true,
             },
-            component: () => import('@/views/knowledge/docs.vue'),
+            component: () => import('@/views/project/vault.vue'),
           },
           {
             path: 'test-cases',

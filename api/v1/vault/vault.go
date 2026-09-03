@@ -29,7 +29,7 @@ type FileMeta struct {
 }
 
 type VaultTreeReq struct {
-	g.Meta    `path:"/projects/{id}/vault/tree" method:"get" tags:"文档中枢" summary:"vault 目录树"`
+	g.Meta    `path:"/projects/{id}/docs/tree" method:"get" tags:"文档中枢" summary:"vault 目录树"`
 	Id        int64 `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Space     string `json:"space" in:"query" dc:"空间过滤 knowledge/work（仅过滤顶层文件归属）"`
 }
@@ -40,7 +40,7 @@ type VaultTreeRes struct {
 }
 
 type VaultFileGetReq struct {
-	g.Meta `path:"/projects/{id}/vault/file" method:"get" tags:"文档中枢" summary:"读取文件（文本返回正文，二进制返回元数据）"`
+	g.Meta `path:"/projects/{id}/docs/file" method:"get" tags:"文档中枢" summary:"读取文件（文本返回正文，二进制返回元数据）"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path   string `json:"path" in:"query" v:"required#文件路径不能为空"`
 }
@@ -55,7 +55,7 @@ type VaultFileGetRes struct {
 }
 
 type VaultFileRawReq struct {
-	g.Meta `path:"/projects/{id}/vault/raw" method:"get" tags:"文档中枢" summary:"原始文件下载（浏览器直出）"`
+	g.Meta `path:"/projects/{id}/docs/raw" method:"get" tags:"文档中枢" summary:"原始文件下载（浏览器直出）"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path   string `json:"path" in:"query" v:"required#文件路径不能为空"`
 }
@@ -67,7 +67,7 @@ type VaultFileRawRes struct {
 // ==================== 文档：写入 ====================
 
 type VaultFileWriteReq struct {
-	g.Meta  `path:"/projects/{id}/vault/file" method:"put" tags:"文档中枢" summary:"写入文件（整文件覆盖，写前自动 .history 快照）"`
+	g.Meta  `path:"/projects/{id}/docs/file" method:"put" tags:"文档中枢" summary:"写入文件（整文件覆盖，写前自动 .history 快照）"`
 	Id      int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path    string `json:"path" v:"required#文件路径不能为空"`
 	Content string `json:"content" dc:"完整文件内容（md 可含 frontmatter）"`
@@ -87,7 +87,7 @@ type VaultPatchOperation struct {
 }
 
 type VaultFilePatchReq struct {
-	g.Meta     `path:"/projects/{id}/vault/file/patch" method:"post" tags:"文档中枢" summary:"补丁式修改（search/replace + append/prepend）"`
+	g.Meta     `path:"/projects/{id}/docs/file/patch" method:"post" tags:"文档中枢" summary:"补丁式修改（search/replace + append/prepend）"`
 	Id         int64               `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path       string              `json:"path" v:"required#文件路径不能为空"`
 	Operations []VaultPatchOperation `json:"operations" v:"required#操作列表不能为空"`
@@ -108,7 +108,7 @@ type VaultFilePatchRes struct {
 }
 
 type VaultFolderCreateReq struct {
-	g.Meta `path:"/projects/{id}/vault/folder" method:"post" tags:"文档中枢" summary:"创建目录（幂等）"`
+	g.Meta `path:"/projects/{id}/docs/folder" method:"post" tags:"文档中枢" summary:"创建目录（幂等）"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path   string `json:"path" v:"required#目录路径不能为空"`
 }
@@ -118,7 +118,7 @@ type VaultFolderCreateRes struct {
 }
 
 type VaultUploadReq struct {
-	g.Meta `path:"/projects/{id}/vault/upload" method:"post" mime:"multipart/form-data" tags:"文档中枢" summary:"上传文件（任意类型落盘）"`
+	g.Meta `path:"/projects/{id}/docs/upload" method:"post" mime:"multipart/form-data" tags:"文档中枢" summary:"上传文件（任意类型落盘）"`
 	Id     int64                `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path   string               `json:"path" dc:"目标目录（可含文件名，缺省用上传文件名）"`
 	File   *ghttp.UploadFile    `json:"file" type:"file" v:"required#文件不能为空"`
@@ -131,7 +131,7 @@ type VaultUploadRes struct {
 }
 
 type VaultFileMoveReq struct {
-	g.Meta `path:"/projects/{id}/vault/file/move" method:"post" tags:"文档中枢" summary:"移动/重命名文件或目录"`
+	g.Meta `path:"/projects/{id}/docs/file/move" method:"post" tags:"文档中枢" summary:"移动/重命名文件或目录"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	From   string `json:"from" v:"required#源路径不能为空"`
 	To     string `json:"to" v:"required#目标路径不能为空"`
@@ -142,7 +142,7 @@ type VaultFileMoveRes struct {
 }
 
 type VaultFileDeleteReq struct {
-	g.Meta `path:"/projects/{id}/vault/file" method:"delete" tags:"文档中枢" summary:"删除文件或目录（目录递归删除，先入 .history）"`
+	g.Meta `path:"/projects/{id}/docs/file" method:"delete" tags:"文档中枢" summary:"删除文件或目录（目录递归删除，先入 .history）"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path   string `json:"path" in:"query" v:"required#文件路径不能为空"`
 }
@@ -154,7 +154,7 @@ type VaultFileDeleteRes struct {
 // ==================== 文档：元数据 ====================
 
 type VaultMetaUpdateReq struct {
-	g.Meta `path:"/projects/{id}/vault/meta" method:"put" tags:"文档中枢" summary:"更新 frontmatter 元数据（改写文件头，不动正文）"`
+	g.Meta `path:"/projects/{id}/docs/meta" method:"put" tags:"文档中枢" summary:"更新 frontmatter 元数据（改写文件头，不动正文）"`
 	Id     int64    `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Path   string   `json:"path" v:"required#文件路径不能为空"`
 	Title  *string  `json:"title" dc:"不传=不更新"`
@@ -171,7 +171,7 @@ type VaultMetaUpdateRes struct {
 // ==================== 文档：查询 ====================
 
 type VaultSearchReq struct {
-	g.Meta `path:"/projects/{id}/vault/search" method:"get" tags:"文档中枢" summary:"搜索文档（标题/标签/路径 + md 正文）"`
+	g.Meta `path:"/projects/{id}/docs/search" method:"get" tags:"文档中枢" summary:"搜索文档（标题/标签/路径 + md 正文）"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Q      string `json:"q" in:"query" v:"required#关键字不能为空"`
 	Space  string `json:"space" in:"query" dc:"空间过滤"`
@@ -191,7 +191,7 @@ type VaultSearchRes struct {
 }
 
 type VaultLinkedReq struct {
-	g.Meta `path:"/projects/{id}/vault/linked" method:"get" tags:"文档中枢" summary:"反查关联文档（task:/req:/tc: 前缀）"`
+	g.Meta `path:"/projects/{id}/docs/linked" method:"get" tags:"文档中枢" summary:"反查关联文档（task:/req:/tc: 前缀）"`
 	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
 	Task   int    `json:"task" in:"query" dc:"任务ID（与 req/tc 三选一）"`
 	Req    int    `json:"req" in:"query" dc:"需求ID"`
@@ -204,7 +204,7 @@ type VaultLinkedRes struct {
 }
 
 type VaultRefreshReq struct {
-	g.Meta `path:"/projects/{id}/vault/refresh" method:"post" tags:"文档中枢" summary:"手动触发增量重扫（agent 改完文件后调用）"`
+	g.Meta `path:"/projects/{id}/docs/refresh" method:"post" tags:"文档中枢" summary:"手动触发增量重扫（agent 改完文件后调用）"`
 	Id     int64 `json:"-" in:"path" v:"required#项目ID不能为空"`
 }
 

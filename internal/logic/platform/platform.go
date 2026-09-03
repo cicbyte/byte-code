@@ -216,7 +216,7 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 	}{
 		"task":        {"tasks", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
 		"requirement": {"requirements", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
-		"doc":         {"docs", "title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\'"},
+		"doc":         {"project_document_index", "title LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\'"},
 		"test_case":   {"test_cases", "title LIKE ? ESCAPE '\\' OR steps LIKE ? ESCAPE '\\'"},
 	}
 	modules := []string{"task", "requirement", "doc", "test_case"}
@@ -241,11 +241,17 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 			ProjectId int
 			Title     string
 		}
+		// vault 索引表（project_document_index）主键是 (project_id, path) 复合键，
+		// 无自增 id：按表选择字段与排序
+		fields, order := "id, project_id, title", "id DESC"
+		if ms.table == "project_document_index" {
+			fields, order = "path, project_id, title", "updated_at DESC"
+		}
 		err = g.DB().Model(ms.table).Ctx(ctx).
-			Fields("id, project_id, title").
+			Fields(fields).
 			Where(ms.where, keyword, keyword).
 			Page(req.Page, req.Size).
-			Order("id DESC").
+			Order(order).
 			Scan(&items)
 		if err != nil {
 			return nil, liberr.WrapDb(ctx, err, "搜索失败")

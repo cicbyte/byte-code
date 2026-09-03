@@ -120,8 +120,8 @@ func enrichVaultTarget(r *ghttp.Request, t *targetInfo, path string) {
 		return
 	}
 	switch parts[2] {
-	case "vault":
-		t.entityType = "vault"
+	case "docs":
+		t.entityType = "docs"
 	case "memories":
 		t.entityType = "memories"
 	default:

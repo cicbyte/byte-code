@@ -114,8 +114,6 @@ func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
 			{`DELETE FROM comments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, []interface{}{id}},
 			{`DELETE FROM ai_execution_logs WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, []interface{}{id}},
 			{`DELETE FROM test_plan_cases WHERE test_plan_id IN (SELECT id FROM test_plans WHERE project_id = ?)`, []interface{}{id}},
-			{`DELETE FROM doc_versions WHERE doc_id IN (SELECT id FROM docs WHERE project_id = ?)`, []interface{}{id}},
-			{`DELETE FROM doc_relations WHERE doc_id IN (SELECT id FROM docs WHERE project_id = ?)`, []interface{}{id}},
 			{`DELETE FROM db_columns WHERE table_id IN (SELECT id FROM db_tables WHERE project_id = ?)`, []interface{}{id}},
 			{`DELETE FROM entity_tags WHERE
 				(entity_type = 'task' AND entity_id IN (SELECT id FROM tasks WHERE project_id = ?)) OR
@@ -136,7 +134,7 @@ func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
 
 		// 项目级实体（activities 无外键但同属项目数据，一并清理避免孤儿）
 		for _, table := range []string{
-			"tasks", "sprints", "requirements", "milestones", "docs",
+			"tasks", "sprints", "requirements", "milestones",
 			"test_cases", "test_plans", "project_databases", "db_tables",
 			"schema_versions", "project_members", "activities",
 		} {

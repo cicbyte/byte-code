@@ -91,26 +91,26 @@ export interface MemoryListResult {
 
 /** 目录树 */
 export function getVaultTree(projectId: number, space?: string) {
-  return Alova.Get<VaultTreeResult>(`/v1/projects/${projectId}/vault/tree`, {
+  return Alova.Get<VaultTreeResult>(`/v1/projects/${projectId}/docs/tree`, {
     params: space ? { space } : {},
   });
 }
 
 /** 读文件 */
 export function getVaultFile(projectId: number, path: string) {
-  return Alova.Get<VaultFile>(`/v1/projects/${projectId}/vault/file`, {
+  return Alova.Get<VaultFile>(`/v1/projects/${projectId}/docs/file`, {
     params: { path },
   });
 }
 
 /** 二进制原始下载地址 */
 export function vaultRawUrl(projectId: number, path: string) {
-  return `/api/v1/projects/${projectId}/vault/raw?path=${encodeURIComponent(path)}`;
+  return `/api/v1/projects/${projectId}/docs/raw?path=${encodeURIComponent(path)}`;
 }
 
 /** 写文件（整文件覆盖） */
 export function writeVaultFile(projectId: number, path: string, content: string) {
-  return Alova.Put<VaultWriteResult>(`/v1/projects/${projectId}/vault/file`, { path, content });
+  return Alova.Put<VaultWriteResult>(`/v1/projects/${projectId}/docs/file`, { path, content });
 }
 
 /** 补丁式修改 */
@@ -119,7 +119,7 @@ export function patchVaultFile(
   path: string,
   operations: VaultPatchOperation[]
 ) {
-  return Alova.Post<VaultPatchResult>(`/v1/projects/${projectId}/vault/file/patch`, {
+  return Alova.Post<VaultPatchResult>(`/v1/projects/${projectId}/docs/file/patch`, {
     path,
     operations,
   });
@@ -127,7 +127,7 @@ export function patchVaultFile(
 
 /** 创建目录 */
 export function createVaultFolder(projectId: number, path: string) {
-  return Alova.Post(`/v1/projects/${projectId}/vault/folder`, { path });
+  return Alova.Post(`/v1/projects/${projectId}/docs/folder`, { path });
 }
 
 /** 上传文件 */
@@ -135,18 +135,18 @@ export function uploadVaultFile(projectId: number, path: string, file: File) {
   const form = new FormData();
   form.append('path', path);
   form.append('file', file);
-  return Alova.Post<VaultWriteResult>(`/v1/projects/${projectId}/vault/upload`, form);
+  return Alova.Post<VaultWriteResult>(`/v1/projects/${projectId}/docs/upload`, form);
 }
 
 /** 移动/重命名 */
 export function moveVaultPath(projectId: number, from: string, to: string) {
-  return Alova.Post(`/v1/projects/${projectId}/vault/file/move`, { from, to });
+  return Alova.Post(`/v1/projects/${projectId}/docs/file/move`, { from, to });
 }
 
 /** 删除（DELETE 第二参是请求体而非配置，query 需显式拼 URL） */
 export function deleteVaultPath(projectId: number, path: string) {
   return Alova.Delete(
-    `/v1/projects/${projectId}/vault/file?path=${encodeURIComponent(path)}`
+    `/v1/projects/${projectId}/docs/file?path=${encodeURIComponent(path)}`
   );
 }
 
@@ -162,12 +162,12 @@ export function updateVaultMeta(
     linked?: string[];
   }
 ) {
-  return Alova.Put(`/v1/projects/${projectId}/vault/meta`, { path, ...meta });
+  return Alova.Put(`/v1/projects/${projectId}/docs/meta`, { path, ...meta });
 }
 
 /** 搜索 */
 export function searchVault(projectId: number, q: string, space?: string) {
-  return Alova.Get<{ items: VaultSearchItem[] | null }>(`/v1/projects/${projectId}/vault/search`, {
+  return Alova.Get<{ items: VaultSearchItem[] | null }>(`/v1/projects/${projectId}/docs/search`, {
     params: { q, ...(space ? { space } : {}) },
   });
 }
@@ -179,14 +179,14 @@ export function getLinkedDocs(projectId: number, target: string) {
   if (type === 'task') params.task = Number(id);
   if (type === 'req') params.req = Number(id);
   if (type === 'tc') params.tc = Number(id);
-  return Alova.Get<{ items: VaultSearchItem[] | null }>(`/v1/projects/${projectId}/vault/linked`, {
+  return Alova.Get<{ items: VaultSearchItem[] | null }>(`/v1/projects/${projectId}/docs/linked`, {
     params,
   });
 }
 
 /** 手动触发增量重扫 */
 export function refreshVault(projectId: number) {
-  return Alova.Post<VaultRefreshResult>(`/v1/projects/${projectId}/vault/refresh`);
+  return Alova.Post<VaultRefreshResult>(`/v1/projects/${projectId}/docs/refresh`);
 }
 
 // ==================== Memories API ====================

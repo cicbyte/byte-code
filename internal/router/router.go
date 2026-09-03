@@ -59,12 +59,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.Test,
 			)
 
-			// 知识库
-			group.Bind(
-				controller.Doc,
-			)
-
-			// 记忆/文档中枢（vault 磁盘真相源 + KV 记忆；项目归属由路径 /projects/{id}/ 中间件校验）
+			// 记忆/文档中枢（磁盘真相源 + KV 记忆；项目归属由路径 /projects/{id}/ 中间件校验）
 			group.Bind(
 				controller.Vault,
 			)
