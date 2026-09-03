@@ -118,30 +118,6 @@
       </n-gi>
     </n-grid>
 
-    <!-- 新建弹窗 -->
-    <n-modal
-      v-model:show="showCreateModal"
-      preset="dialog"
-      :title="createType === 'folder' ? '新建文件夹' : '新建文档'"
-      positive-text="确定"
-      negative-text="取消"
-      @positive-click="handleCreateSubmit"
-      style="width: 420px"
-    >
-      <n-form
-        ref="createFormRef"
-        :model="createForm"
-        :rules="createRules"
-        label-placement="left"
-        :label-width="80"
-        class="py-4"
-      >
-        <n-form-item label="名称" path="name">
-          <n-input v-model:value="createForm.name" :placeholder="createNamePlaceholder" />
-        </n-form-item>
-      </n-form>
-    </n-modal>
-
     <!-- 元数据弹窗 -->
     <n-modal
       v-model:show="showMetaModal"
@@ -214,11 +190,11 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+  import { ref, reactive, computed, onMounted, nextTick, h } from 'vue';
   import { useRoute } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
-  import { useMessage, useDialog } from 'naive-ui';
+  import { useMessage, useDialog, NInput } from 'naive-ui';
   import { DownOutlined, SearchOutlined, FileTextOutlined } from '@vicons/antd';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import {
@@ -256,14 +232,6 @@
   const refreshing = ref(false);
   const searchKeyword = ref('');
 
-  const showCreateModal = ref(false);
-  const createType = ref<'folder' | 'doc'>('doc');
-  const createFormRef = ref<any>(null);
-  const createForm = reactive({ name: '' });
-  const createRules = { name: { required: true, message: '请输入名称', trigger: 'blur' } };
-  const createNamePlaceholder = computed(() =>
-    createType.value === 'folder' ? '文件夹名，例：设计' : '文件名，例：login.md'
-  );
 
   const showMetaModal = ref(false);
   const metaForm = reactive({ title: '', tags: [] as string[], linked: [] as string[] });
@@ -301,14 +269,142 @@
   // 目录节点 path 集合：点击目录是展开/收起而非读文件
   const dirPaths = new Set<string>();
 
+  // ==================== 内联编辑（新建/重命名） ====================
+  // 树内原位输入框：Enter/失焦提交，Esc 取消。所见即所得，替代原弹窗输全路径
+  const EDIT_KEY = '__inline-editing__';
+  const editing = reactive({
+    active: false,
+    mode: '' as '' | 'new-doc' | 'new-folder' | 'rename',
+    dir: '',   // 新建：目标父目录；重命名：节点所在目录
+    path: '',  // 重命名：原节点 path
+    value: '',
+  });
+
+  function renderNodeInput() {
+    return h(NInput, {
+      size: 'tiny',
+      value: editing.value,
+      autofocus: true,
+      placeholder: editing.mode === 'new-folder' ? '文件夹名' : '名称（.md 可省略）',
+      onFocus: () => {
+        // 重命名时全选原名便于整体替换
+        const el = document.querySelector('.n-tree .n-input input') as HTMLInputElement | null;
+        if (el && editing.mode === 'rename') el.select();
+      },
+      'onUpdate:value': (v: string) => (editing.value = v),
+      onKeydown: (e: KeyboardEvent) => {
+        if (e.key === 'Enter') commitInline();
+        else if (e.key === 'Escape') cancelInline();
+      },
+      onBlur: () => {
+        // Esc 取消后仍会触发一次 blur，此时不再提交
+        if (editing.active) commitInline();
+      },
+    });
+  }
+
+  function nodeLabel(node: VaultTreeNode) {
+    if (editing.active && editing.mode === 'rename' && node.path === editing.path) {
+      return () => renderNodeInput();
+    }
+    const text = node.meta?.title && node.meta.title !== node.name
+      ? `${node.name}（${node.meta.title}）`
+      : node.name;
+    return text;
+  }
+
+  // 在树上插入待命名节点并进入编辑
+  function startInlineCreate(dir: string, type: 'new-doc' | 'new-folder') {
+    if (editing.active) cancelInline();
+    editing.active = true;
+    editing.mode = type;
+    editing.dir = dir;
+    editing.path = '';
+    editing.value = '';
+    const pending = {
+      key: EDIT_KEY,
+      label: () => renderNodeInput(),
+      isLeaf: true,
+      prefix: () => (type === 'new-folder' ? '📁' : '📄'),
+    };
+    if (!dir) {
+      treeData.value.unshift(pending);
+    } else {
+      const insertInto = (list: any[]): boolean =>
+        list.some((item, i) => {
+          if (item.key === dir) {
+            item.children = item.children || [];
+            item.children.unshift({ ...pending, key: EDIT_KEY });
+            expandedKeys.value = Array.from(new Set([...expandedKeys.value, dir]));
+            return true;
+          }
+          return item.children ? insertInto(item.children) : false;
+        });
+      if (!insertInto(treeData.value)) treeData.value.unshift(pending);
+    }
+  }
+
+  function startInlineRename(nodePath: string) {
+    if (editing.active) cancelInline();
+    editing.active = true;
+    editing.mode = 'rename';
+    editing.path = nodePath;
+    editing.dir = nodePath.slice(0, nodePath.lastIndexOf('/')) || '';
+    editing.value = nodePath.split('/').pop() || '';
+  }
+
+  function cancelInline() {
+    editing.active = false;
+    editing.mode = '';
+    // 移除 pending 节点（新建）
+    const removePending = (list: any[]): void => {
+      const i = list.findIndex((item) => item.key === EDIT_KEY);
+      if (i >= 0) list.splice(i, 1);
+      list.forEach((item) => item.children && removePending(item.children));
+    };
+    removePending(treeData.value);
+    // 重命名：label 恢复由响应式重渲染（editing.path 清空）
+    editing.path = '';
+  }
+
+  async function commitInline() {
+    if (!editing.active) return;
+    const name = editing.value.trim();
+    const { mode, dir } = editing;
+    if (!name || name.includes('/') || name.includes('..')) {
+      cancelInline();
+      return;
+    }
+    editing.active = false; // 先关编辑态，防 blur 二次提交
+    try {
+      if (mode === 'new-doc') {
+        const file = name.toLowerCase().endsWith('.md') ? name : `${name}.md`;
+        const title = name.replace(/\.md$/i, '');
+        const frontmatter = isKnowledge.value
+          ? `---\ntitle: ${title}\nspace: knowledge\nstatus: draft\n---\n\n`
+          : '';
+        await writeVaultFile(projectId.value, dir ? `${dir}/${file}` : file, frontmatter);
+      } else if (mode === 'new-folder') {
+        await createVaultFolder(projectId.value, dir ? `${dir}/${name}` : name);
+      } else if (mode === 'rename') {
+        const old = editing.path;
+        const newName = name;
+        editing.path = '';
+        await moveVaultPath(projectId.value, old, dir ? `${dir}/${newName}` : newName);
+      }
+      await loadTree();
+    } catch {
+      message.error('操作失败');
+      await loadTree();
+    }
+  }
+
   function transformTree(nodes: VaultTreeNode[]): any[] {
     return nodes.map((node) => {
       if (node.isDir) dirPaths.add(node.path);
       return {
         key: node.path,
-        label: node.meta?.title && node.meta.title !== node.name
-          ? `${node.name}（${node.meta.title}）`
-          : node.name,
+        label: nodeLabel(node),
         isLeaf: !node.isDir,
         prefix: () => (node.isDir ? '📁' : '📄'),
         // 空目录给空数组：undefined 会被 n-tree 当异步节点显示 loading
@@ -396,37 +492,9 @@
       uploadInputRef.value?.click();
       return;
     }
-    createType.value = key as 'folder' | 'doc';
-    createForm.name = '';
-    showCreateModal.value = true;
-  }
-
-  async function handleCreateSubmit() {
-    try {
-      await createFormRef.value?.validate();
-    } catch {
-      return false;
-    }
-    const name = createForm.name.trim();
-    const baseDir = ctxTargetDir !== null ? ctxTargetDir : selectedDir.value;
-    const path = baseDir ? `${baseDir}/${name}` : name;
-    try {
-      if (createType.value === 'folder') {
-        await createVaultFolder(projectId.value, path);
-      } else {
-        const title = name.replace(/\.md$/i, '');
-        const frontmatter = isKnowledge.value
-          ? `---\ntitle: ${title}\nspace: knowledge\nstatus: draft\n---\n\n`
-          : '';
-        await writeVaultFile(projectId.value, path.endsWith('.md') ? path : `${path}.md`, frontmatter);
-      }
-      message.success('创建成功');
-      showCreateModal.value = false;
-      loadTree();
-    } catch {
-      message.error('创建失败');
-      return false;
-    }
+    // 新建走树内内联编辑（落点：右键目录 > 当前选中文件父目录 > 视图默认根）
+    const baseDir = dir !== undefined ? dir : selectedDir.value;
+    startInlineCreate(baseDir, key === 'folder' ? 'new-folder' : 'new-doc');
   }
 
   async function handleUpload(e: Event) {
@@ -531,14 +599,16 @@
         { label: `在「${target.name}」中新建文档`, key: 'new-doc' },
         { label: `在「${target.name}」中新建文件夹`, key: 'new-folder' },
         { label: `上传到「${target.name}」`, key: 'upload' },
-        { label: '重命名 / 移动', key: 'move', divider: true },
+        { label: '重命名', key: 'rename' },
+        { label: '移动到…', key: 'move' },
         // 非空目录禁止删除（后端同样校验），防止误删整棵子树
         { label: '删除（仅空目录）', key: 'delete', disabled: target.hasChildren },
       ];
     } else {
       ctxMenu.options = [
         { label: '打开', key: 'open' },
-        { label: '重命名 / 移动', key: 'move', divider: true },
+        { label: '重命名', key: 'rename', divider: true },
+        { label: '移动到…', key: 'move' },
         { label: '删除', key: 'delete' },
       ];
     }
@@ -557,16 +627,19 @@
     const dir = t ? (t.isDir ? t.path : t.path.slice(0, t.path.lastIndexOf('/')) || '') : undefined;
     switch (key) {
       case 'new-doc':
-        handleAddNode('doc', dir);
+        startInlineCreate(dir, 'new-doc');
         break;
       case 'new-folder':
-        handleAddNode('folder', dir);
+        startInlineCreate(dir, 'new-folder');
         break;
       case 'upload':
         handleAddNode('upload', dir);
         break;
       case 'open':
         if (t) openFile(t.path);
+        break;
+      case 'rename':
+        if (t) startInlineRename(t.path);
         break;
       case 'move':
         if (t) openMoveModal(t.path);
