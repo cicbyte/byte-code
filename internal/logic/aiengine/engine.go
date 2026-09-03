@@ -17,59 +17,101 @@ import (
 const (
 	engineScanInterval = "0 */2 * * * *" // 每 2 分钟扫描一次
 	engineMaxTasks     = 3               // 每轮最多处理 3 个任务
+	// enabledConfigKey 运行开关持久化：重启进程后据此自启（此前只存内存，重启即丢）
+	enabledConfigKey = "ai_engine_enabled"
 )
 
 var (
-	engineOnce sync.Once
-	engineStop = make(chan struct{})
-	isRunning = false
-	runMu     sync.Mutex
+	engineMu     sync.Mutex
+	engineEntry  *gcron.Entry // gcron 具名条目：start=注册 / stop=移除，可反复启停
+	engineCancel context.CancelFunc
+	engineCtx    context.Context
+	isRunning    bool
 )
 
-// StartEngine 启动 AI 执行引擎
+// StartEngine 启动引擎：注册扫描条目（已注册则忽略），持久化开关。
+// 旧实现用 sync.Once 导致停后再启 cron 永不注册（引擎静默死亡），已弃用
 func StartEngine(ctx context.Context) {
-	engineOnce.Do(func() {
-		isRunning = true
-		g.Log().Info(ctx, "AI 执行引擎启动")
+	engineMu.Lock()
+	defer engineMu.Unlock()
+	if isRunning {
+		return
+	}
+	engineCtx, engineCancel = context.WithCancel(context.Background())
+	if _, err := gcron.AddSingleton(engineCtx, engineScanInterval, func(ctx context.Context) {
+		scanAndExecute(ctx)
+	}); err != nil {
+		g.Log().Errorf(ctx, "AI 引擎定时任务注册失败: %v", err)
+		return
+	}
+	isRunning = true
+	persistEnabled(ctx, true)
+	g.Log().Info(ctx, "AI 执行引擎启动")
 
-		_, err := gcron.AddSingleton(ctx, engineScanInterval, func(ctx context.Context) {
-			scanAndExecute(ctx)
-		})
-		if err != nil {
-			g.Log().Errorf(ctx, "AI 引擎定时任务注册失败: %v", err)
-		}
-
-		// 启动立即执行一次
-		go scanAndExecute(ctx)
-	})
+	// 启动立即执行一次
+	go scanAndExecute(engineCtx)
 }
 
-// StopEngine 停止引擎
+// StopEngine 停止引擎：移除条目 + 取消执行 ctx（进行中的 LLM 调用随 ctx 中断）
 func StopEngine(ctx context.Context) {
-	runMu.Lock()
-	defer runMu.Unlock()
-	if isRunning {
-		isRunning = false
-		close(engineStop)
-		g.Log().Info(ctx, "AI 执行引擎停止")
+	engineMu.Lock()
+	defer engineMu.Unlock()
+	if !isRunning {
+		return
 	}
+	if engineCancel != nil {
+		engineCancel()
+	}
+	if engineEntry != nil {
+		engineEntry.Stop()
+		engineEntry = nil
+	}
+	isRunning = false
+	persistEnabled(ctx, false)
+	g.Log().Info(ctx, "AI 执行引擎停止")
 }
 
 // IsRunning 引擎是否在运行
 func IsRunning() bool {
-	runMu.Lock()
-	defer runMu.Unlock()
+	engineMu.Lock()
+	defer engineMu.Unlock()
 	return isRunning
+}
+
+// RestoreEngine 服务启动时调用：开关持久化为开则自启（此前重启后不自启）
+func RestoreEngine(ctx context.Context) {
+	v, err := g.DB().Model("sys_config").Ctx(ctx).Where("key", enabledConfigKey).Value("value")
+	if err != nil {
+		g.Log().Warningf(ctx, "AI 引擎自启状态读取失败: %v", err)
+		return
+	}
+	if v.String() == "1" {
+		StartEngine(ctx)
+	}
+}
+
+// persistEnabled 开关落库（失败只记日志，不影响启停动作）
+func persistEnabled(ctx context.Context, on bool) {
+	val := "0"
+	if on {
+		val = "1"
+	}
+	cnt, _ := g.DB().Model("sys_config").Ctx(ctx).Where("key", enabledConfigKey).Count()
+	if cnt > 0 {
+		_, _ = g.DB().Model("sys_config").Ctx(ctx).Where("key", enabledConfigKey).Data("value", val).Update()
+	} else {
+		_, _ = g.DB().Model("sys_config").Ctx(ctx).Data(g.Map{"key": enabledConfigKey, "value": val}).Insert()
+	}
 }
 
 // scanAndExecute 扫描并执行一轮
 func scanAndExecute(ctx context.Context) {
-	runMu.Lock()
+	engineMu.Lock()
 	if !isRunning {
-		runMu.Unlock()
+		engineMu.Unlock()
 		return
 	}
-	runMu.Unlock()
+	engineMu.Unlock()
 
 	// 1. 获取引擎配置（模型地址/Key）
 	cfg, err := getEngineConfig(ctx)
@@ -94,7 +136,7 @@ func scanAndExecute(ctx context.Context) {
 
 	g.Log().Infof(ctx, "AI 引擎: 本轮发现 %d 个可处理任务", len(tasks))
 
-	// 3. 逐个处理
+	// 3. 逐个处理（ctx 已绑定引擎取消：StopEngine 时中断进行中的调用）
 	for _, task := range tasks {
 		processTask(ctx, cfg, task)
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
+	logicAiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
 	"github.com/cicbyte/byte-code/internal/router"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/auditwriter"
@@ -57,6 +58,9 @@ var (
 			}); err != nil {
 				g.Log().Warningf(ctx, "schedule memory materialize failed: %v", err)
 			}
+
+			// AI 执行引擎自启：开关持久化为开则恢复运行（配置在 sys_config）
+			logicAiengine.RestoreEngine(ctx)
 
 			// 只增表定期清理：启动即执行一次，此后每天 03:00 执行
 			dbclean.Run(ctx)
