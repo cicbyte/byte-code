@@ -28,6 +28,7 @@
     "@vueuse/core": "^9.13.0",
     "alova": "^3.3.4",
     "date-fns": "^2.30.0",
+    "dompurify": "^3.4.14",
     "echarts": "^5.6.0",
     "lodash-es": "^4.17.21",
     "mammoth": "^1.12.2",

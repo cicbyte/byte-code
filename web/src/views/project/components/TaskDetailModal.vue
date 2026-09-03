@@ -29,7 +29,7 @@
 
         <!-- 描述 -->
         <n-card title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
-          <div v-if="task.description" v-html="task.description" class="prose max-w-none"></div>
+          <div v-if="task.description" v-html="safeDescription" class="prose max-w-none"></div>
           <n-empty v-else description="暂无描述" size="small" />
         </n-card>
 
@@ -88,6 +88,7 @@
 </template>
 
 <script lang="ts" setup>
+  import DOMPurify from 'dompurify';
   import { ref, computed } from 'vue';
   import { useMessage } from 'naive-ui';
   import {
@@ -98,6 +99,9 @@
   } from '@/api/project/index';
   import type { TaskItem, CommentItem } from '@/api/project/index';
 
+
+  // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
+  const safeDescription = computed(() => DOMPurify.sanitize(task.value?.description || ''));
   const message = useMessage();
   const visible = ref(false);
   const loading = ref(false);

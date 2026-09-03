@@ -198,6 +198,7 @@
   import { useMessage, useDialog, NInput } from 'naive-ui';
   import { SearchOutlined, FileTextOutlined } from '@vicons/antd';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
+  import DOMPurify from 'dompurify';
   import {
     getVaultTree,
     getVaultFile,
@@ -528,7 +529,12 @@
       // mammoth 较大（~200KB），动态导入按需加载
       const mammoth = await import('mammoth/mammoth.browser');
       const result = await (mammoth as any).convertToHtml({ arrayBuffer: buf });
-      docxHtml.value = result.value || '<p>（空文档）</p>';
+      // mammoth 官方要求自行消毒：docx 超链接可携带 javascript: scheme 等注入面
+      docxHtml.value = DOMPurify.sanitize(result.value || '<p>（空文档）</p>', {
+        ALLOWED_TAGS: DOMPurify.allowedTags, // 默认白名单（禁 script/iframe 等）
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'colspan', 'rowspan'], // 最小属性集
+        ALLOW_DATA_ATTR: false,
+      });
     } catch {
       docxHtml.value = '';
     } finally {
