@@ -305,14 +305,13 @@
 
   function nodeLabel(node: VaultTreeNode) {
     // 恒返回函数：编辑态判断必须在渲染时求值（而非 transformTree 构建时），
-    // 否则 startInlineRename 只改 editing 状态不会触发 label 重渲染
+    // 否则 startInlineRename 只改 editing 状态不会触发 label 重渲染。
+    // 节点只显示文件名：frontmatter title（常与正文 H1 相同）在树里冗余
     return () => {
       if (editing.active && editing.mode === 'rename' && node.path === editing.path) {
         return renderNodeInput();
       }
-      return node.meta?.title && node.meta.title !== node.name
-        ? `${node.name}（${node.meta.title}）`
-        : node.name;
+      return node.name;
     };
   }
 
