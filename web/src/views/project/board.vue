@@ -126,8 +126,10 @@
 
 <style lang="less" scoped>
   // 看板铺满内容区视口高：列横向等宽排布，列内滚动，整页不滚
+  // 看板根：横向四列（布局层穿透规则已用 :not(.board) 排除）
   .board {
     display: flex;
+    flex-direction: row;
     gap: 10px;
     flex: 1;
     min-height: 0;
