@@ -748,3 +748,36 @@ func sanitizeFileName(name string) string {
 	return name
 }
 
+
+
+// ==================== 版本历史 ====================
+
+func (s *sVault) HistoryList(ctx context.Context, projectId int64, rel string) ([]api.HistoryItem, error) {
+	entries, err := docs.ListHistory(projectId, rel)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	out := make([]api.HistoryItem, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, api.HistoryItem{Snapshot: e.Snapshot, Size: e.Size})
+	}
+	return out, nil
+}
+
+func (s *sVault) HistoryRead(ctx context.Context, projectId int64, rel, snapshot string) (string, error) {
+	content, err := docs.ReadHistory(projectId, rel, snapshot)
+	if err != nil {
+		return "", gerror.New(err.Error())
+	}
+	return content, nil
+}
+
+func (s *sVault) HistoryRestore(ctx context.Context, projectId int64, rel, snapshot string) error {
+	if !textExt(path.Ext(rel)) {
+		return gerror.New("仅文本文件支持历史恢复")
+	}
+	if err := docs.RestoreHistory(ctx, projectId, rel, snapshot); err != nil {
+		return gerror.New(err.Error())
+	}
+	return nil
+}

@@ -226,3 +226,26 @@ export function expireMemory(projectId: number, key: string) {
 export function deleteMemory(projectId: number, key: string) {
   return Alova.Delete(`/v1/projects/${projectId}/memories/${encodeURIComponent(key)}`);
 }
+
+// ==================== 版本历史 ====================
+
+export interface HistoryItem {
+  snapshot: string;
+  size: number;
+}
+
+export function getDocsHistory(projectId: number, path: string) {
+  return Alova.Get<{ list: HistoryItem[] | null }>(`/v1/projects/${projectId}/docs/history`, {
+    params: { path },
+  });
+}
+
+export function readDocsHistory(projectId: number, path: string, snapshot: string) {
+  return Alova.Get<{ content: string }>(`/v1/projects/${projectId}/docs/history/read`, {
+    params: { path, snapshot },
+  });
+}
+
+export function restoreDocsHistory(projectId: number, path: string, snapshot: string) {
+  return Alova.Post(`/v1/projects/${projectId}/docs/history/restore`, { path, snapshot });
+}

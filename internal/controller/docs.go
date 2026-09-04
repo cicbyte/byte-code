@@ -135,3 +135,24 @@ func (c *vaultController) MemoryDelete(ctx context.Context, req *api.MemoryDelet
 func intToString(n int) string {
 	return g.NewVar(n).String()
 }
+
+
+// ==================== 版本历史 ====================
+
+func (c *vaultController) DocsHistoryList(ctx context.Context, req *api.DocsHistoryListReq) (res *api.DocsHistoryListRes, err error) {
+	res = new(api.DocsHistoryListRes)
+	res.List, err = service.Docs().HistoryList(ctx, req.Id, req.Path)
+	return
+}
+
+func (c *vaultController) DocsHistoryRead(ctx context.Context, req *api.DocsHistoryReadReq) (res *api.DocsHistoryReadRes, err error) {
+	res = new(api.DocsHistoryReadRes)
+	res.Content, err = service.Docs().HistoryRead(ctx, req.Id, req.Path, req.Snapshot)
+	return
+}
+
+func (c *vaultController) DocsHistoryRestore(ctx context.Context, req *api.DocsHistoryRestoreReq) (res *api.DocsHistoryRestoreRes, err error) {
+	res = new(api.DocsHistoryRestoreRes)
+	err = service.Docs().HistoryRestore(ctx, req.Id, req.Path, req.Snapshot)
+	return
+}

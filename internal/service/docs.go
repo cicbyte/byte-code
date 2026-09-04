@@ -24,6 +24,11 @@ type IDocs interface {
 	Linked(ctx context.Context, projectId int64, target string) ([]api.VaultSearchItem, error)
 	Refresh(ctx context.Context, projectId int64) (*api.VaultRefreshRes, error)
 
+	// 版本历史（.history 快照）
+	HistoryList(ctx context.Context, projectId int64, path string) ([]api.HistoryItem, error)
+	HistoryRead(ctx context.Context, projectId int64, path, snapshot string) (string, error)
+	HistoryRestore(ctx context.Context, projectId int64, path, snapshot string) error
+
 	// KV 记忆（状态机存储）
 	MemList(ctx context.Context, projectId int64, prefix, include string) ([]api.MemoryItem, error)
 	MemGet(ctx context.Context, projectId int64, key string) (*api.MemoryGetRes, error)

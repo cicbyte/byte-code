@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"context"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -229,4 +231,107 @@ func Snapshot(projectId int64, rel string) error {
 		dst = filepath.Join(histDir, fmt.Sprintf("%s-%02d%s", base, i, filepath.Ext(rel)))
 	}
 	return gfile.CopyFile(abs, dst)
+}
+
+// ==================== 版本历史（.history 快照） ====================
+
+// HistoryEntry 一个历史快照的元数据
+type HistoryEntry struct {
+	Snapshot string `json:"snapshot"` // 快照标识（文件名去扩展名，如 20260904-112137.000）
+	Size     int64  `json:"size"`
+	Ext      string `json:"ext"`
+}
+
+// historyDir 某文件的历史目录。SafeJoin 明确拒绝 .history（防用户直读），
+// 历史功能是服务端受控通道，此处专用拼接；rel 已由调用方经 SafeJoin 校验
+func historyDir(projectId int64, rel string) string {
+	return filepath.Join(RootPath(projectId), HistoryDir, filepath.FromSlash(filepath.ToSlash(rel)))
+}
+
+// ListHistory 列出某文件全部快照（新→旧）
+func ListHistory(projectId int64, rel string) ([]HistoryEntry, error) {
+	if _, err := SafeJoin(projectId, rel); err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(historyDir(projectId, rel))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []HistoryEntry{}, nil
+		}
+		return nil, err
+	}
+	var out []HistoryEntry
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		name := e.Name()
+		out = append(out, HistoryEntry{
+			Snapshot: strings.TrimSuffix(name, filepath.Ext(name)),
+			Size:     info.Size(),
+			Ext:      filepath.Ext(name),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Snapshot > out[j].Snapshot })
+	return out, nil
+}
+
+// ReadHistory 读某快照内容（snapshot 为 ListHistory 返回的标识）
+func ReadHistory(projectId int64, rel, snapshot string) (string, error) {
+	if _, err := SafeJoin(projectId, rel); err != nil {
+		return "", err
+	}
+	// snapshot 只允许时间戳形态（防路径注入穿越到 .history 之外）
+	if !historySnapshotRe.MatchString(snapshot) {
+		return "", fmt.Errorf("invalid snapshot id")
+	}
+	// 取该文件历史目录下匹配前缀的实际文件（扩展名未知，逐一匹配）
+	dir := historyDir(projectId, rel)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("快照不存在")
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if strings.TrimSuffix(e.Name(), filepath.Ext(e.Name())) == snapshot {
+			data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			if err != nil {
+				return "", fmt.Errorf("读取快照失败")
+			}
+			return string(data), nil
+		}
+	}
+	return "", fmt.Errorf("快照不存在")
+}
+
+var historySnapshotRe = regexp.MustCompile(`^\d{8}-\d{6}\.\d{3}(-\d{2})?$`)
+
+// RestoreHistory 恢复快照为当前版本：当前内容先快照保底（恢复可再撤销），
+// 覆盖写 + 索引同步
+func RestoreHistory(ctx context.Context, projectId int64, rel, snapshot string) error {
+	if _, err := SafeJoin(projectId, rel); err != nil {
+		return err
+	}
+	content, err := ReadHistory(projectId, rel, snapshot)
+	if err != nil {
+		return err
+	}
+	// 当前版本先入快照（恢复动作本身可撤销）
+	if err := Snapshot(projectId, rel); err != nil {
+		return fmt.Errorf("保底快照失败: %v", err)
+	}
+	abs, err := SafeJoin(projectId, rel)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("恢复写入失败")
+	}
+	return UpsertPath(ctx, projectId, rel)
 }

@@ -292,3 +292,44 @@ type MemoryDeleteReq struct {
 type MemoryDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
+
+// ==================== 版本历史 ====================
+
+type DocsHistoryListReq struct {
+	g.Meta `path:"/projects/{id}/docs/history" method:"get" tags:"文档中枢" summary:"文件版本历史列表（.history 快照）"`
+	Id     int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Path   string `json:"path" in:"query" v:"required#文件路径不能为空"`
+}
+
+type DocsHistoryListRes struct {
+	g.Meta `mime:"application/json"`
+	List   []HistoryItem `json:"list"`
+}
+
+type HistoryItem struct {
+	Snapshot string `json:"snapshot"`
+	Size     int64  `json:"size"`
+}
+
+type DocsHistoryReadReq struct {
+	g.Meta   `path:"/projects/{id}/docs/history/read" method:"get" tags:"文档中枢" summary:"读某快照内容"`
+	Id       int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Path     string `json:"path" in:"query" v:"required#文件路径不能为空"`
+	Snapshot string `json:"snapshot" in:"query" v:"required#快照标识不能为空"`
+}
+
+type DocsHistoryReadRes struct {
+	g.Meta `mime:"application/json"`
+	Content string `json:"content"`
+}
+
+type DocsHistoryRestoreReq struct {
+	g.Meta   `path:"/projects/{id}/docs/history/restore" method:"post" tags:"文档中枢" summary:"恢复快照为当前版本（当前内容自动保底快照）"`
+	Id       int64  `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Path     string `json:"path" v:"required#文件路径不能为空"`
+	Snapshot string `json:"snapshot" v:"required#快照标识不能为空"`
+}
+
+type DocsHistoryRestoreRes struct {
+	g.Meta `mime:"application/json"`
+}

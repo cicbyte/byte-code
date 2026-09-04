@@ -85,6 +85,7 @@
                 size="small"
                 @click="handlePublish"
               >人审发布</n-button>
+              <n-button size="small" @click="showHistory = true">历史</n-button>
               <n-button size="small" @click="openMetaModal">元数据</n-button>
               <n-button size="small" @click="openMoveModal()">移动/重命名</n-button>
               <n-button
@@ -192,6 +193,14 @@
       </n-form>
     </n-modal>
 
+    <!-- 版本历史弹窗 -->
+    <DocsHistoryModal
+      v-model:show="showHistory"
+      :project-id="projectId"
+      :path="currentFile?.path || ''"
+      @restored="onHistoryRestored"
+    />
+
     <!-- 上传：隐藏 input -->
     <input ref="uploadInputRef" type="file" style="display: none" multiple @change="handleUpload" />
 
@@ -235,6 +244,7 @@
   import { useCtxMenu } from './composables/useCtxMenu';
   import { useBinaryPreview } from './composables/useBinaryPreview';
   import { useDirtyGuard } from './composables/useDirtyGuard';
+  import DocsHistoryModal from './components/DocsHistoryModal.vue';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -257,6 +267,7 @@
   const refreshing = ref(false);
   const searchKeyword = ref('');
 
+  const showHistory = ref(false);
   const showMetaModal = ref(false);
   const metaForm = reactive({ title: '', tags: [] as string[], linked: [] as string[] });
 
@@ -398,6 +409,14 @@
     }
     selectedKeys.value = keys;
     await openFile(key);
+  }
+
+  // 历史恢复后：重读当前文件内容（快照保底使旧内容仍在历史中可回）
+  async function onHistoryRestored() {
+    if (currentFile.value) {
+      await openFile(currentFile.value.path);
+      loadTree();
+    }
   }
 
   function onExpandNode(keys: string[]) {
