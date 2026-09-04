@@ -4,6 +4,17 @@
       <!-- 左侧目录树 -->
       <n-gi span="1" class="docs-col">
         <n-card title="目录" size="small" :bordered="false" :segmented="{ content: true }" class="dir-card">
+          <n-progress
+            v-if="uploading.active"
+            type="line"
+            :percentage="uploading.total ? Math.round((uploading.done / uploading.total) * 100) : 0"
+            :height="6"
+            :border-radius="3"
+            class="mb-2"
+          >
+            {{ uploading.done }}/{{ uploading.total }}{{ uploading.failed ? `（${uploading.failed} 失败）` : '' }}
+          </n-progress>
+
           <n-input
             v-model:value="searchKeyword"
             size="small"
@@ -174,7 +185,7 @@
     </n-modal>
 
     <!-- 上传：隐藏 input -->
-    <input ref="uploadInputRef" type="file" style="display: none" @change="handleUpload" />
+    <input ref="uploadInputRef" type="file" style="display: none" multiple @change="handleUpload" />
 
     <!-- 树右键菜单：按空白区/目录/文件场景渲染 -->
     <n-dropdown
@@ -191,8 +202,8 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted, nextTick, h, watch } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { ref, reactive, computed, onMounted, onUnmounted, nextTick, h, watch } from 'vue';
+  import { useRoute, onBeforeRouteLeave } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
   import { useMessage, useDialog, NInput } from 'naive-ui';
@@ -469,6 +480,32 @@
     }
   }
 
+  // ==================== 未保存守卫：dirty 检测与离开拦截 ====================
+  // 编辑内容与打开时快照不一致即脏；二进制/未打开视为干净
+  const dirty = computed(
+    () => !!currentFile.value && !currentFile.value.binary && editContent.value !== openedSnapshot.value
+  );
+  const openedSnapshot = ref('');
+
+  function markOpened(content: string) {
+    openedSnapshot.value = content;
+  }
+
+  // 三选项确认：返回 true=放弃更改继续
+  function confirmDiscard(action: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      dialog.warning({
+        title: '有未保存的更改',
+        content: `当前文档已修改未保存，${action}将丢弃更改。`,
+        positiveText: '放弃更改',
+        negativeText: '留在本页',
+        onPositiveClick: () => resolve(true),
+        onNegativeClick: () => resolve(false),
+        onClose: () => resolve(false),
+      });
+    });
+  }
+
   async function onSelectNode(keys: string[]) {
     if (keys.length === 0) return;
     const key = String(keys[0]);
@@ -479,6 +516,13 @@
         ? expandedKeys.value.filter((k) => k !== key)
         : [...expandedKeys.value, key];
       return;
+    }
+    if (dirty.value && key !== currentFile.value?.path) {
+      if (!(await confirmDiscard('切换文件'))) {
+        // 恢复选中态到当前文件
+        selectedKeys.value = currentFile.value ? [currentFile.value.path] : [];
+        return;
+      }
     }
     selectedKeys.value = keys;
     await openFile(key);
@@ -547,6 +591,7 @@
       const res = await getDocsFile(projectId.value, path);
       currentFile.value = res || null;
       editContent.value = res?.content || '';
+      markOpened(res?.content || '');
       if (res?.binary) {
         await loadBinObjectUrl();
         if (path.toLowerCase().endsWith('.docx')) loadDocxPreview();
@@ -578,26 +623,40 @@
   // 右键菜单指定的落点（新建/上传目标目录）；null = 跟随当前选中文件所在目录
   let ctxTargetDir: string | null = null;
 
+  // 上传队列状态：多文件逐个上传，列表展示进度与结果
+  const uploading = reactive({ active: false, done: 0, total: 0, failed: 0 });
+
   async function handleUpload(e: Event) {
     const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const files = Array.from(input.files || []);
+    if (files.length === 0) return;
     const baseDir = ctxTargetDir !== null ? ctxTargetDir : selectedDir.value;
     if (!assertSpaceAllowed(baseDir)) {
       input.value = '';
       ctxTargetDir = null;
       return;
     }
-    try {
-      const res = await uploadDocsFile(projectId.value, baseDir, file);
-      message.success(`上传成功：${res?.path || file.name}`);
-      loadTree();
-    } catch {
-      message.error('上传失败');
-    } finally {
-      input.value = '';
-      ctxTargetDir = null;
+    uploading.active = true;
+    uploading.done = 0;
+    uploading.failed = 0;
+    uploading.total = files.length;
+    for (const file of files) {
+      try {
+        await uploadDocsFile(projectId.value, baseDir, file);
+      } catch {
+        uploading.failed++;
+        message.error(`上传失败：${file.name}`);
+      } finally {
+        uploading.done++;
+      }
     }
+    if (uploading.failed < uploading.total) {
+      message.success(`上传完成：${uploading.total - uploading.failed}/${uploading.total} 个文件`);
+    }
+    uploading.active = false;
+    input.value = '';
+    ctxTargetDir = null;
+    loadTree();
   }
 
   async function handleSave() {
@@ -607,6 +666,7 @@
       await writeDocsFile(projectId.value, currentFile.value.path, editContent.value);
       message.success('保存成功（旧版已快照至 .history）');
       await openFile(currentFile.value.path);
+      markOpened(editContent.value);
       loadTree();
     } catch {
       message.error('保存失败');
@@ -855,13 +915,30 @@
   // 知识库/文档两路由共用本组件：页内切换时组件复用不重建，
   // onMounted 不会重跑——必须监听视图模式变化重载树并清理编辑状态，
   // 否则文档页显示的还是知识库的树（刷新才正常）
-  watch(isKnowledge, () => {
+  watch(isKnowledge, async () => {
+    if (dirty.value && !(await confirmDiscard('切换视图'))) return;
     selectedKeys.value = [];
     currentFile.value = null;
     editContent.value = '';
+    markOpened('');
     cancelInline();
     loadTree(false);
   });
+
+  // 路由离开守卫：编辑中点菜单跳走需确认
+  onBeforeRouteLeave(async () => {
+    if (dirty.value && !(await confirmDiscard('离开页面'))) return false;
+    return true;
+  });
+
+  // 浏览器关闭/刷新兜底（原生确认框，SPA 内无法用自定义弹窗）
+  const beforeUnloadGuard = (e: BeforeUnloadEvent) => {
+    if (!dirty.value) return;
+    e.preventDefault();
+    e.returnValue = '';
+  };
+  onMounted(() => window.addEventListener('beforeunload', beforeUnloadGuard));
+  onUnmounted(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
 </script>
 
 <style lang="less" scoped>
