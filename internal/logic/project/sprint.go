@@ -1,0 +1,135 @@
+package project
+
+import (
+	"context"
+	"fmt"
+
+	api "github.com/cicbyte/byte-code/api/v1/project"
+	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
+)
+
+// Sprint CRUD 与任务管理
+
+func (s *sProject) CreateSprint(ctx context.Context, req *api.SprintCreateReq) (id int, err error) {
+	result, err := g.DB().Model("sprints").Ctx(ctx).Insert(g.Map{
+		"project_id": req.ProjectId,
+		"name":       req.Name,
+		"goal":       req.Goal,
+		"start_date": req.StartDate,
+		"end_date":   req.EndDate,
+		"status":     "planning",
+	})
+	if err != nil {
+		return 0, liberr.WrapDb(ctx, err, "创建Sprint失败")
+	}
+	lastId, _ := result.LastInsertId()
+	sprintId := int(lastId)
+
+	userId := 0
+	if uid := ctx.Value("userId"); uid != nil {
+		userId = uid.(int)
+	}
+	s.recordActivity(ctx, userId, "sprint.created", "sprint", sprintId, req.Name, req.ProjectId, "")
+	return sprintId, nil
+}
+
+func (s *sProject) UpdateSprint(ctx context.Context, req *api.SprintUpdateReq) (err error) {
+	data := g.Map{}
+	if req.Name != nil {
+		data["name"] = *req.Name
+	}
+	if req.Goal != nil {
+		data["goal"] = *req.Goal
+	}
+	if req.StartDate != nil {
+		data["start_date"] = *req.StartDate
+	}
+	if req.EndDate != nil {
+		data["end_date"] = *req.EndDate
+	}
+	if req.Status != nil {
+		data["status"] = *req.Status
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	_, err = g.DB().Model("sprints").Ctx(ctx).Where("id", req.Id).Data(data).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "更新Sprint失败")
+	}
+	return nil
+}
+
+func (s *sProject) DeleteSprint(ctx context.Context, id int) (err error) {
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 将 Sprint 下的任务的 sprint_id 置 0（解除绑定，任务保留）
+		if _, err := tx.Model("tasks").Where("sprint_id", id).Data(g.Map{"sprint_id": 0}).Update(); err != nil {
+			return err
+		}
+		_, err := tx.Delete("sprints", "id", id)
+		return err
+	})
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "删除Sprint失败")
+	}
+	return nil
+}
+
+func (s *sProject) GetSprint(ctx context.Context, id int) (res *api.SprintDetailRes, err error) {
+	var item api.SprintItem
+	err = g.DB().Model("sprints").Ctx(ctx).
+		Where("id", id).
+		Scan(&item)
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询Sprint失败")
+	}
+	if item.Id == 0 {
+		return nil, fmt.Errorf("Sprint不存在")
+	}
+	return &api.SprintDetailRes{SprintItem: item}, nil
+}
+
+func (s *sProject) ListSprints(ctx context.Context, req *api.SprintListReq) (res *api.SprintListRes, err error) {
+	res = &api.SprintListRes{}
+	m := g.DB().Model("sprints").Ctx(ctx).
+		Where("project_id", req.ProjectId)
+
+	if req.Status != "" {
+		m = m.Where("status", req.Status)
+	}
+
+	var list []api.SprintItem
+	err = m.Order("id DESC").Scan(&list)
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询Sprint列表失败")
+	}
+	res.List = list
+	return res, nil
+}
+
+// ==================== Sprint 任务管理 ====================
+
+func (s *sProject) AddTaskToSprint(ctx context.Context, sprintId, taskId int) (err error) {
+	_, err = g.DB().Model("tasks").Ctx(ctx).
+		Where("id", taskId).
+		Data(g.Map{"sprint_id": sprintId}).
+		Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "添加任务到Sprint失败")
+	}
+	return nil
+}
+
+func (s *sProject) RemoveTaskFromSprint(ctx context.Context, sprintId, taskId int) (err error) {
+	_, err = g.DB().Model("tasks").Ctx(ctx).
+		Where("id", taskId).
+		Where("sprint_id", sprintId).
+		Data(g.Map{"sprint_id": 0}).
+		Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "从Sprint移除任务失败")
+	}
+	return nil
+}
