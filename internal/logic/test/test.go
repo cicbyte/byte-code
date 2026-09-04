@@ -400,25 +400,36 @@ func (s *sTest) AddCasesToPlan(ctx context.Context, req *api.TestPlanAddCaseReq)
 		_, err = s.GetPlan(ctx, req.Id)
 		liberr.ErrIsNil(ctx, err, "测试计划不存在")
 
+		// 批量查重（一次 WhereIn 替代 N 次 Count），未存在的单事务批量插入
+		existingRows, err := g.DB().Model("test_plan_cases").Ctx(ctx).
+			Where("test_plan_id", req.Id).
+			WhereIn("test_case_id", req.CaseIds).
+			Fields("test_case_id").All()
+		liberr.ErrIsNil(ctx, err, "检查用例关联失败")
+		existing := map[int]bool{}
+		for _, r := range existingRows {
+			existing[r["test_case_id"].Int()] = true
+		}
+		now := time.Now().Format("2006-01-02 15:04:05")
+		rows := make([]g.Map, 0, len(req.CaseIds))
 		for _, caseId := range req.CaseIds {
-			// 检查是否已存在
-			count, err := g.DB().Model("test_plan_cases").Ctx(ctx).
-				Where("test_plan_id", req.Id).
-				Where("test_case_id", caseId).
-				Count()
-			liberr.ErrIsNil(ctx, err, "检查用例关联失败")
-			if count > 0 {
+			if existing[caseId] {
 				continue
 			}
-
-			_, err = g.DB().Model("test_plan_cases").Ctx(ctx).Insert(g.Map{
+			rows = append(rows, g.Map{
 				"test_plan_id": req.Id,
 				"test_case_id": caseId,
 				"assignee_id":  req.AssigneeId,
 				"status":       "pending",
-				"created_at":   time.Now().Format("2006-01-02 15:04:05"),
+				"created_at":   now,
 			})
-			liberr.ErrIsNil(ctx, err, "添加用例到计划失败")
+		}
+		if len(rows) > 0 {
+			txErr := g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+				_, err := tx.Ctx(ctx).Model("test_plan_cases").Insert(rows)
+				return err
+			})
+			liberr.ErrIsNil(ctx, txErr, "添加用例到计划失败")
 		}
 
 		activity.Record(ctx, activity.ActivityInput{
@@ -437,6 +448,19 @@ func (s *sTest) ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (e
 	err = g.Try(ctx, func(ctx context.Context) {
 		userId := ctx.Value("userId")
 		uid, _ := userId.(int)
+
+		// 所属计划须处于可执行状态：已关闭/已完成的计划不应再改写用例结果
+		planId, err := g.DB().Model("test_plan_cases").Ctx(ctx).
+			WherePri(req.Id).Value("test_plan_id")
+		liberr.ErrIsNil(ctx, err, "查询用例所属计划失败")
+		if !planId.IsNil() {
+			planStatus, perr := g.DB().Model("test_plans").Ctx(ctx).
+				WherePri(planId.Int()).Value("status")
+			liberr.ErrIsNil(ctx, perr, "查询计划失败")
+			if st := planStatus.String(); st == "closed" || st == "completed" {
+				liberr.ErrIsNil(ctx, fmt.Errorf("计划已%s，不可再执行用例", st), "计划已关闭")
+			}
+		}
 
 		data := g.Map{
 			"status":      req.Status,
