@@ -86,17 +86,29 @@
     >
       <n-spin :show="detailLoading">
         <template v-if="planResults">
-          <n-space class="mb-4" justify="space-around">
-            <n-statistic label="总计" :value="planResults.total" />
-            <n-statistic label="通过" :value="planResults.passed">
-              <template #suffix><span class="text-green-500 text-xs">passed</span></template>
-            </n-statistic>
-            <n-statistic label="失败" :value="planResults.failed">
-              <template #suffix><span class="text-red-500 text-xs">failed</span></template>
-            </n-statistic>
-            <n-statistic label="阻塞" :value="planResults.blocked">
-              <template #suffix><span class="text-yellow-500 text-xs">blocked</span></template>
-            </n-statistic>
+          <n-space class="mb-4" align="center" justify="space-between">
+            <n-space :size="24" align="center" justify="space-around" style="flex: 1">
+              <n-statistic label="总计" :value="planResults.total" />
+              <n-statistic label="通过" :value="planResults.passed">
+                <template #suffix><span class="text-green-500 text-xs">passed</span></template>
+              </n-statistic>
+              <n-statistic label="失败" :value="planResults.failed">
+                <template #suffix><span class="text-red-500 text-xs">failed</span></template>
+              </n-statistic>
+              <n-statistic label="阻塞" :value="planResults.blocked">
+                <template #suffix><span class="text-yellow-500 text-xs">blocked</span></template>
+              </n-statistic>
+            </n-space>
+            <n-space :size="8" align="center">
+              <n-select
+                :value="currentPlan?.status"
+                :options="planStatusOptions"
+                size="small"
+                style="width: 110px"
+                @update:value="onPlanStatusChange"
+              />
+              <n-button size="small" type="primary" ghost @click="openAddCases">添加用例</n-button>
+            </n-space>
           </n-space>
           <n-table :bordered="false" :single-line="false" size="small">
             <thead>
@@ -106,6 +118,7 @@
                 <th>结果</th>
                 <th>实际结果</th>
                 <th>执行时间</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -117,12 +130,69 @@
                 </td>
                 <td>{{ r.actualResult || '-' }}</td>
                 <td>{{ r.executedAt || '-' }}</td>
+                <td>
+                  <n-button text type="primary" size="tiny" @click="openExecute(r)">执行</n-button>
+                </td>
               </tr>
             </tbody>
           </n-table>
         </template>
         <n-empty v-else-if="!detailLoading" description="暂无执行结果" />
       </n-spin>
+    </n-modal>
+
+    <!-- 添加用例弹窗 -->
+    <n-modal
+      v-model:show="showAddCases"
+      preset="dialog"
+      title="添加用例到计划"
+      positive-text="添加"
+      negative-text="取消"
+      @positive-click="handleAddCases"
+      style="width: 520px"
+    >
+      <n-space vertical class="py-4">
+        <n-select
+          v-model:value="selectedCaseIds"
+          multiple
+          filterable
+          :options="addableCaseOptions"
+          placeholder="选择要加入计划的用例"
+        />
+        <span v-if="addableCaseOptions.length === 0" class="text-xs text-gray-400">
+          没有可添加的用例（项目内用例均已加入计划，或尚未创建用例）
+        </span>
+      </n-space>
+    </n-modal>
+
+    <!-- 执行用例弹窗 -->
+    <n-modal
+      v-model:show="showExecute"
+      preset="dialog"
+      :title="`执行：${executingCase?.testCaseTitle || ''}`"
+      positive-text="提交"
+      negative-text="取消"
+      @positive-click="handleExecute"
+      style="width: 480px"
+    >
+      <n-form label-placement="left" :label-width="80" class="py-4">
+        <n-form-item label="结果" required>
+          <n-radio-group v-model:value="executeForm.status">
+            <n-radio value="pass">通过</n-radio>
+            <n-radio value="fail">失败</n-radio>
+            <n-radio value="blocked">阻塞</n-radio>
+            <n-radio value="skip">跳过</n-radio>
+          </n-radio-group>
+        </n-form-item>
+        <n-form-item label="实际结果">
+          <n-input
+            v-model:value="executeForm.actualResult"
+            type="textarea"
+            :rows="3"
+            placeholder="实际观察到的结果（可选）"
+          />
+        </n-form-item>
+      </n-form>
     </n-modal>
   </div>
 </template>
@@ -138,8 +208,12 @@
     createTestPlan,
     deleteTestPlan,
     getTestPlanResults,
+    updateTestPlan,
+    addCasesToPlan,
+    executeTestCase,
+    getTestCases,
   } from '@/api/test/index';
-  import type { TestPlanItem, TestPlanResultsResult } from '@/api/test/index';
+  import type { TestPlanItem, TestPlanResultsResult, TestPlanCaseResult } from '@/api/test/index';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -253,6 +327,88 @@
         }
       },
     });
+  }
+
+  // ==================== 计划状态 / 添加用例 / 执行用例 ====================
+  const planStatusOptions = SPRINT_STATUS.options;
+
+  async function onPlanStatusChange(status: string) {
+    if (!currentPlan.value) return;
+    try {
+      await updateTestPlan(currentPlan.value.id, { name: currentPlan.value.name, status });
+      currentPlan.value.status = status;
+      message.success(`计划状态已改为：${SPRINT_STATUS.label(status)}`);
+      loadData();
+    } catch {
+      message.error('更新状态失败');
+    }
+  }
+
+  const showAddCases = ref(false);
+  const selectedCaseIds = ref<number[]>([]);
+  const allCases = ref<Array<{ id: number; title: string }>>([]);
+
+  const addableCaseOptions = computed(() => {
+    const inPlan = new Set((planResults.value?.results || []).map((r) => r.testCaseId));
+    return allCases.value
+      .filter((c) => !inPlan.has(c.id))
+      .map((c) => ({ label: c.title, value: c.id }));
+  });
+
+  async function openAddCases() {
+    selectedCaseIds.value = [];
+    showAddCases.value = true;
+    try {
+      const res = await getTestCases(projectId.value, { pageNum: 1, pageSize: 200 });
+      allCases.value = (res?.list || []).map((c: any) => ({ id: c.id, title: c.title }));
+    } catch {
+      allCases.value = [];
+    }
+  }
+
+  async function handleAddCases() {
+    if (!currentPlan.value || selectedCaseIds.value.length === 0) {
+      message.warning('请选择要添加的用例');
+      return false;
+    }
+    try {
+      await addCasesToPlan(currentPlan.value.id, { caseIds: selectedCaseIds.value });
+      message.success(`已添加 ${selectedCaseIds.value.length} 个用例`);
+      showAddCases.value = false;
+      openPlanDetail(currentPlan.value);
+      return true;
+    } catch {
+      message.error('添加用例失败');
+      return false;
+    }
+  }
+
+  const showExecute = ref(false);
+  const executingCase = ref<TestPlanCaseResult | null>(null);
+  const executeForm = reactive({ status: 'pass' as 'pass' | 'fail' | 'blocked' | 'skip', actualResult: '' });
+
+  function openExecute(r: TestPlanCaseResult) {
+    executingCase.value = r;
+    executeForm.status = 'pass';
+    executeForm.actualResult = '';
+    showExecute.value = true;
+  }
+
+  async function handleExecute() {
+    if (!executingCase.value) return false;
+    try {
+      await executeTestCase(executingCase.value.id, {
+        status: executeForm.status,
+        actualResult: executeForm.actualResult || undefined,
+      });
+      message.success('执行结果已记录');
+      showExecute.value = false;
+      if (currentPlan.value) openPlanDetail(currentPlan.value);
+      return true;
+    } catch {
+      message.error('提交执行结果失败');
+      return false;
+    }
   }
 
   onMounted(() => {
