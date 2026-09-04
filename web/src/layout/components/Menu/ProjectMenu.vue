@@ -44,30 +44,46 @@
     () => Number(route.params.projectId) || entityContext.currentProject?.id
   );
 
+  // 图标按路径段映射——纯视觉，缺省兜底；标题与顺序不在此定义
+  const iconBySegment: Record<string, any> = {
+    overview: HomeOutlined,
+    board: AppstoreOutlined,
+    tasks: UnorderedListOutlined,
+    requirements: ProfileOutlined,
+    milestones: FlagOutlined,
+    sprints: ThunderboltOutlined,
+    knowledge: BookOutlined,
+    docs: FileTextOutlined,
+    memories: BulbOutlined,
+    'test-cases': BugOutlined,
+    'test-plans': ExperimentOutlined,
+    members: TeamOutlined,
+    database: DatabaseOutlined,
+  };
+
   const renderIcon = (icon: any) =>
     () =>
       h(NIcon, null, {
         default: () => h(icon),
       });
 
+  // 菜单由路由表派生：标题的单一真相源在路由 meta.title（与面包屑同源），
+  // 顺序即路由 children 顺序——新增项目页只需在路由表加一条，此处零改动
   const menuOptions = computed(() => {
     const pid = projectId.value;
     if (!pid) return [];
-    return [
-      { label: '概览', key: `/project/${pid}/overview`, icon: renderIcon(HomeOutlined) },
-      { label: '任务看板', key: `/project/${pid}/board`, icon: renderIcon(AppstoreOutlined) },
-      { label: '任务列表', key: `/project/${pid}/tasks`, icon: renderIcon(UnorderedListOutlined) },
-      { label: '需求池', key: `/project/${pid}/requirements`, icon: renderIcon(ProfileOutlined) },
-      { label: '里程碑', key: `/project/${pid}/milestones`, icon: renderIcon(FlagOutlined) },
-      { label: 'Sprint', key: `/project/${pid}/sprints`, icon: renderIcon(ThunderboltOutlined) },
-      { label: '知识库', key: `/project/${pid}/knowledge`, icon: renderIcon(BookOutlined) },
-      { label: '文档', key: `/project/${pid}/docs`, icon: renderIcon(FileTextOutlined) },
-      { label: '记忆', key: `/project/${pid}/memories`, icon: renderIcon(BulbOutlined) },
-      { label: '测试用例', key: `/project/${pid}/test-cases`, icon: renderIcon(BugOutlined) },
-      { label: '测试计划', key: `/project/${pid}/test-plans`, icon: renderIcon(ExperimentOutlined) },
-      { label: '成员', key: `/project/${pid}/members`, icon: renderIcon(TeamOutlined) },
-      { label: '数据库', key: `/project/${pid}/database`, icon: renderIcon(DatabaseOutlined) },
-    ];
+    const ws = route.matched.find((r) => r.name === 'project_workspace');
+    if (!ws) return [];
+    return ws.children
+      .filter((c) => c.meta?.title && !c.redirect)
+      .map((c) => {
+        const seg = String(c.path);
+        return {
+          label: String(c.meta!.title),
+          key: `/project/${pid}/${seg}`,
+          icon: renderIcon(iconBySegment[seg] || AppstoreOutlined),
+        };
+      });
   });
 
   const activeKey = computed(() => {

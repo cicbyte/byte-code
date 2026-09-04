@@ -89,24 +89,6 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/sprints.vue'),
           },
           {
-            path: 'members',
-            name: `${routeName}_members`,
-            meta: {
-              title: '成员管理',
-              hideInMenu: true,
-            },
-            component: () => import('@/views/project/members.vue'),
-          },
-          {
-            path: 'database',
-            name: `${routeName}_database`,
-            meta: {
-              title: '数据库模型',
-              hideInMenu: true,
-            },
-            component: () => import('@/views/project/database.vue'),
-          },
-          {
             // 记忆/文档中枢：知识库视图（vault 知识库空间 + 人审发布流）
             path: 'knowledge',
             name: `${routeName}_knowledge`,
@@ -114,6 +96,16 @@ const routes: Array<RouteRecordRaw> = [
               title: '知识库',
               hideInMenu: true,
               vaultSpace: 'knowledge',
+            },
+            component: () => import('@/views/project/docs.vue'),
+          },
+          {
+            // 记忆/文档中枢：文档管理器（工作区空间）
+            path: 'docs',
+            name: `${routeName}_docs`,
+            meta: {
+              title: '文档',
+              hideInMenu: true,
             },
             component: () => import('@/views/project/docs.vue'),
           },
@@ -126,16 +118,6 @@ const routes: Array<RouteRecordRaw> = [
               hideInMenu: true,
             },
             component: () => import('@/views/project/memories.vue'),
-          },
-          {
-            // 记忆/文档中枢：文档管理器（工作区空间）
-            path: 'docs',
-            name: `${routeName}_docs`,
-            meta: {
-              title: '文档',
-              hideInMenu: true,
-            },
-            component: () => import('@/views/project/docs.vue'),
           },
           {
             path: 'test-cases',
@@ -154,6 +136,24 @@ const routes: Array<RouteRecordRaw> = [
               hideInMenu: true,
             },
             component: () => import('@/views/test/plans.vue'),
+          },
+          {
+            path: 'members',
+            name: `${routeName}_members`,
+            meta: {
+              title: '成员管理',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/members.vue'),
+          },
+          {
+            path: 'database',
+            name: `${routeName}_database`,
+            meta: {
+              title: '数据库模型',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/database.vue'),
           },
         ],
       },

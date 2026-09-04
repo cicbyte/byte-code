@@ -38,8 +38,9 @@ const setting = {
     //显示图标
     showIcon: false,
   },
-  //是否开启路由动画
-  isPageAnimate: true,
+  //是否开启路由动画（默认关：zoom-fade 与通栏 Header/视口锁高新布局有摩擦，
+  // 想要动效可在右上角项目设置抽屉里手动开）
+  isPageAnimate: false,
   //路由动画类型
   pageAnimateType: 'zoom-fade',
 };
