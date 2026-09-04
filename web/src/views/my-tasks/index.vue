@@ -57,6 +57,7 @@
   import { getMyTasks, getProjects } from '@/api/project/index';
   import type { MyTaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
+  import { dueTagType, dueLabel } from '@/utils/taskDue';
 
   const router = useRouter();
   const loading = ref(false);
@@ -128,6 +129,15 @@
       width: 110,
       render: (row) =>
         h(NTag, { size: 'small', type: statusTagType[row.status] || 'default' }, () => row.status),
+    },
+    {
+      title: '截止',
+      key: 'dueDate',
+      width: 150,
+      render: (row) =>
+        row.dueDate
+          ? h(NTag, { size: 'small', type: dueTagType(row.dueDate, row.status) || 'default' }, () => dueLabel(row.dueDate))
+          : h('span', {}, () => '-'),
     },
     { title: '更新时间', key: 'updatedAt', width: 170 },
     {

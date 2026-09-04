@@ -124,6 +124,7 @@ type TaskCreateReq struct {
 	Priority       int    `json:"priority" d:"3"`
 	AssigneeId     int    `json:"assigneeId"`
 	ParentTaskId   int    `json:"parentTaskId"`
+	DueDate        string `json:"dueDate" dc:"截止日期（Y-m-d），缺省无截止；格式在 logic 层校验"`
 }
 
 type TaskCreateRes struct {
@@ -143,6 +144,7 @@ type TaskUpdateReq struct {
 	SprintId     *int `json:"sprintId"`
 	ParentTaskId *int `json:"parentTaskId"`
 	SortOrder    *int `json:"sortOrder"`
+	DueDate      *string `json:"dueDate" dc:"截止日期（Y-m-d）；空串=清除"`
 }
 
 type TaskUpdateRes struct {
@@ -213,6 +215,7 @@ type TaskItem struct {
 	CreatorName         string `json:"creatorName"`
 	ParentTaskId        int    `json:"parentTaskId"`
 	Artifacts           string `json:"artifacts"`
+	DueDate             string `json:"dueDate"`
 	RequiresHumanReview int    `json:"requiresHumanReview"`
 	HumanReviewStatus   string `json:"humanReviewStatus"`
 	SortOrder           int    `json:"sortOrder"`

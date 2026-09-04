@@ -45,6 +45,18 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	lastId, _ := result.LastInsertId()
 	taskId := int(lastId)
 
+	// 截止日期独立更新：空串跳过，非法格式报错（创建路径不因日期格式回滚整个任务插入）
+	if req.DueDate != "" {
+		due, derr := normalizeDueDate(req.DueDate)
+		if derr != nil {
+			return 0, derr
+		}
+		if _, err = g.DB().Model("tasks").Ctx(ctx).Where("id", taskId).
+			Data("due_date", due).Update(); err != nil {
+			return 0, liberr.WrapDb(ctx, err, "创建任务失败")
+		}
+	}
+
 	// 记录活动
 	s.recordActivity(ctx, uid, "task.created", "task", taskId, req.Title, req.ProjectId, "")
 
@@ -101,6 +113,13 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	}
 	if req.SortOrder != nil {
 		data["sort_order"] = *req.SortOrder
+	}
+	if req.DueDate != nil {
+		due, derr := normalizeDueDate(*req.DueDate)
+		if derr != nil {
+			return derr
+		}
+		data["due_date"] = due
 	}
 	if len(data) == 0 {
 		return nil

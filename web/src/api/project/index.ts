@@ -76,6 +76,8 @@ export interface TaskItem {
   creatorName: string;
   parentTaskId: number;
   artifacts: string;
+  /** 截止日期（Y-m-d），空串无截止 */
+  dueDate: string;
   requiresHumanReview: number;
   humanReviewStatus: string;
   sortOrder: number;
@@ -133,6 +135,8 @@ export interface TaskCreateData {
   priority?: number;
   assigneeId?: number;
   parentTaskId?: number;
+  /** 截止日期（Y-m-d），缺省无截止 */
+  dueDate?: string;
 }
 
 export interface TaskUpdateData {
@@ -145,6 +149,8 @@ export interface TaskUpdateData {
   sprintId?: number;
   parentTaskId?: number;
   sortOrder?: number;
+  /** 截止日期（Y-m-d）；传空串清除 */
+  dueDate?: string;
 }
 
 export interface TaskImportData {

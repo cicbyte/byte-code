@@ -48,6 +48,7 @@
             <th>标签</th>
             <th>状态</th>
             <th>指派人</th>
+            <th>截止</th>
             <th>更新时间</th>
             <th>操作</th>
           </tr>
@@ -66,6 +67,14 @@
             </td>
             <td><n-tag size="small">{{ statusLabel(task.status) }}</n-tag></td>
             <td>{{ task.assigneeName }}</td>
+            <td>
+              <n-tag
+                v-if="task.dueDate"
+                size="small"
+                :type="dueTagType(task.dueDate, task.status) || 'default'"
+              >{{ dueLabel(task.dueDate) }}</n-tag>
+              <span v-else>-</span>
+            </td>
             <td>{{ task.updatedAt }}</td>
             <td>
               <n-space size="small">
@@ -107,6 +116,16 @@
         <n-form-item label="优先级" path="priority">
           <n-input-number v-model:value="formData.priority" :min="1" :max="4" placeholder="1=低 4=紧急" style="width: 100%" />
         </n-form-item>
+        <n-form-item label="截止日期" path="dueDate">
+          <n-date-picker
+            v-model:formatted-value="formData.dueDate"
+            type="date"
+            value-format="yyyy-MM-dd"
+            clearable
+            placeholder="缺省无截止"
+            style="width: 100%"
+          />
+        </n-form-item>
         <n-form-item label="描述" path="description">
           <n-input v-model:value="formData.description" type="textarea" placeholder="请输入描述" :rows="3" />
         </n-form-item>
@@ -125,6 +144,7 @@
   import { getTasks, createTask, deleteTask } from '@/api/project/index';
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
+  import { dueTagType, dueLabel } from '@/utils/taskDue';
 
   const route = useRoute();
   const message = useMessage();
@@ -144,14 +164,15 @@
   ];
 
   const typeColor: Record<string, string> = {
-    bug: 'error', feature: 'success', improvement: 'info', task: 'default',
+    bug: 'error', feature: 'success', chore: 'default', test: 'info',
   };
 
+  // 与 tasks 表 CHECK(type IN feature/bug/chore/test) 一致——多出的选项会创建失败
   const typeOptions = [
     { label: 'Bug', value: 'bug' },
     { label: 'Feature', value: 'feature' },
-    { label: 'Improvement', value: 'improvement' },
-    { label: 'Task', value: 'task' },
+    { label: 'Chore', value: 'chore' },
+    { label: 'Test', value: 'test' },
   ];
 
   const statusLabels: Record<string, string> = {
@@ -187,7 +208,7 @@
   }
   loadTagOptions();
 
-  const formData = reactive({ title: '', type: 'task', priority: 2, description: '' });
+  const formData = reactive({ title: '', type: 'task', priority: 2, description: '', dueDate: null as string | null });
   const formRules = { title: { required: true, message: '请输入任务标题', trigger: 'blur' } };
 
   async function loadTasks() {
@@ -220,10 +241,13 @@
   async function handleCreate() {
     try { await formRef.value?.validate(); } catch { return false; }
     try {
-      await createTask(projectId.value, { ...formData });
+      await createTask(projectId.value, {
+        ...formData,
+        dueDate: formData.dueDate || undefined,
+      });
       message.success('任务创建成功');
       showCreateModal.value = false;
-      formData.title = ''; formData.type = 'task'; formData.priority = 2; formData.description = '';
+      formData.title = ''; formData.type = 'task'; formData.priority = 2; formData.description = ''; formData.dueDate = null;
       loadTasks();
     } catch { message.error('创建失败'); return false; }
   }

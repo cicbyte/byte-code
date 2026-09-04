@@ -23,6 +23,25 @@
             <n-tag size="small" :type="priorityType">P{{ task.priority }}</n-tag>
           </n-descriptions-item>
           <n-descriptions-item label="指派人">{{ task.assigneeName || '-' }}</n-descriptions-item>
+          <n-descriptions-item label="截止日期">
+            <n-space :size="4" align="center">
+              <n-tag
+                v-if="task.dueDate"
+                size="small"
+                :type="dueTagType(task.dueDate, task.status) || 'default'"
+              >{{ dueLabel(task.dueDate) }}</n-tag>
+              <n-date-picker
+                :formatted-value="task.dueDate || null"
+                type="date"
+                value-format="yyyy-MM-dd"
+                size="tiny"
+                clearable
+                placeholder="设置截止"
+                style="width: 140px"
+                @update:formatted-value="onDueChange"
+              />
+            </n-space>
+          </n-descriptions-item>
           <n-descriptions-item label="创建人">{{ task.creatorName || '-' }}</n-descriptions-item>
           <n-descriptions-item label="创建时间">{{ task.createdAt }}</n-descriptions-item>
         </n-descriptions>
@@ -214,8 +233,10 @@
     createComment,
     reviewTask,
     getAiLogs,
+    updateTask,
   } from '@/api/project/index';
   import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
+  import { dueTagType, dueLabel } from '@/utils/taskDue';
 
 
   // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
@@ -444,6 +465,20 @@
       message.error('评论发送失败');
     } finally {
       submitting.value = false;
+    }
+  }
+
+  // 截止日期内联修改：null=清除（传空串），失败回读旧值
+  async function onDueChange(val: string | null) {
+    if (!task.value) return;
+    const old = task.value.dueDate;
+    try {
+      await updateTask(task.value.id, { dueDate: val || '' });
+      task.value.dueDate = val || '';
+      message.success(val ? `截止日期已设为 ${val}` : '已清除截止日期');
+    } catch {
+      task.value.dueDate = old;
+      message.error('更新截止日期失败');
     }
   }
 

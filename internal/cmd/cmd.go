@@ -6,6 +6,7 @@ import (
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
 	logicAiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
+	"github.com/cicbyte/byte-code/internal/logic/project"
 	"github.com/cicbyte/byte-code/internal/router"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/auditwriter"
@@ -45,6 +46,9 @@ var (
 				if err := service.Docs().MemMaterialize(bgCtx); err != nil {
 					g.Log().Warningf(bgCtx, "memory materialize failed: %v", err)
 				}
+				if err := project.ScanDueTasks(bgCtx); err != nil {
+					g.Log().Warningf(bgCtx, "task due scan failed: %v", err)
+				}
 			}()
 			if _, err := gcron.AddSingleton(ctx, "0 10 3 * * *", func(ctx context.Context) {
 				if err := docs.ScanAll(ctx); err != nil {
@@ -55,10 +59,19 @@ var (
 			}
 			if _, err := gcron.AddSingleton(ctx, "0 20 3 * * *", func(ctx context.Context) {
 				if err := service.Docs().MemMaterialize(ctx); err != nil {
-					g.Log().Warningf(ctx, "memory materialize failed: %v", err)
+					g.Log().Warningf(ctx, "schedule memory materialize failed: %v", err)
 				}
 			}); err != nil {
 				g.Log().Warningf(ctx, "schedule memory materialize failed: %v", err)
+			}
+
+			// 任务到期提醒：每天 09:00（工作时段推送；启动首跑见上方异步块）
+			if _, err := gcron.AddSingleton(ctx, "0 0 9 * * *", func(ctx context.Context) {
+				if err := project.ScanDueTasks(ctx); err != nil {
+					g.Log().Warningf(ctx, "schedule task due scan failed: %v", err)
+				}
+			}); err != nil {
+				g.Log().Warningf(ctx, "schedule task due scan failed: %v", err)
 			}
 
 			// AI 执行引擎自启：开关持久化为开则恢复运行（配置在 sys_config）

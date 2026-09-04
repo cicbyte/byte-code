@@ -73,8 +73,8 @@
   const typeColor: Record<string, string> = {
     bug: 'error',
     feature: 'success',
-    improvement: 'info',
-    task: 'default',
+    chore: 'default',
+    test: 'info',
   };
 
   function priorityColor(p: number): 'default' | 'info' | 'warning' | 'error' {
