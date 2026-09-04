@@ -118,6 +118,9 @@ var (
 			})
 			})
 			s.Run()
+			// ghttp 优雅关停完成后 Run 返回：排空审计缓冲再退出
+			// （否则最后 flushInterval 窗口内的审计随进程一起丢）
+			auditwriter.Stop()
 			return nil
 		},
 	}
