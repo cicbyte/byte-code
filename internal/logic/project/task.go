@@ -25,7 +25,15 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	}
 	uid := userId.(int)
 
-	result, err := g.DB().Model("tasks").Ctx(ctx).Insert(g.Map{
+	// 截止日期校验前置：非法格式在插入前报错，避免"报错但任务已落库，
+	// 重试产生重复任务"（normalizeDueDate 是纯函数，无 IO 代价）
+	due := ""
+	if req.DueDate != "" {
+		if due, err = normalizeDueDate(req.DueDate); err != nil {
+			return 0, err
+		}
+	}
+	insert := g.Map{
 		"project_id":     req.ProjectId,
 		"requirement_id": req.RequirementId,
 		"sprint_id":      req.SprintId,
@@ -38,24 +46,16 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 		"creator_id":     uid,
 		"parent_task_id": req.ParentTaskId,
 		"source":         "human",
-	})
+	}
+	if due != "" {
+		insert["due_date"] = due
+	}
+	result, err := g.DB().Model("tasks").Ctx(ctx).Insert(insert)
 	if err != nil {
 		return 0, liberr.WrapDb(ctx, err, "创建任务失败")
 	}
 	lastId, _ := result.LastInsertId()
 	taskId := int(lastId)
-
-	// 截止日期独立更新：空串跳过，非法格式报错（创建路径不因日期格式回滚整个任务插入）
-	if req.DueDate != "" {
-		due, derr := normalizeDueDate(req.DueDate)
-		if derr != nil {
-			return 0, derr
-		}
-		if _, err = g.DB().Model("tasks").Ctx(ctx).Where("id", taskId).
-			Data("due_date", due).Update(); err != nil {
-			return 0, liberr.WrapDb(ctx, err, "创建任务失败")
-		}
-	}
 
 	// 记录活动
 	s.recordActivity(ctx, uid, "task.created", "task", taskId, req.Title, req.ProjectId, "")

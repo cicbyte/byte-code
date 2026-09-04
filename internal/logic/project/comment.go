@@ -75,8 +75,9 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 	return int(lastId), nil
 }
 
-// notifyMentions @提及通知：评论内容与 @用户名 做真实用户名的字符串精确比对
-// （避免正则猜测用户名字符集带来的误报/漏报），作者本人与已通知对象不重复打扰
+// notifyMentions @提及通知：评论内容与 @用户名 比对时要求命中处下一字节是边界
+// （空白/标点/结尾）——纯子串包含会把 bo 命中 bob、email 的 user@example.com
+// 命中 example；作者本人与已通知对象不重复打扰
 func notifyMentions(ctx context.Context, content, taskTitle, authorName string, taskId int, notified map[int]bool) {
 	if !strings.Contains(content, "@") {
 		return
@@ -91,15 +92,51 @@ func notifyMentions(ctx context.Context, content, taskTitle, authorName string, 
 		if uid <= 0 || notified[uid] {
 			continue
 		}
-		if strings.Contains(content, "@"+u["username"].String()) {
-			notified[uid] = true
-			who := authorName
-			if who == "" {
-				who = "有人"
-			}
-			notify.Send(ctx, uid, "评论提及了你",
-				fmt.Sprintf("%s 在任务「%s」的评论中提及了你", who, taskTitle), "info", "task", taskId)
+		if !mentionHit(content, u["username"].String()) {
+			continue
 		}
+		notified[uid] = true
+		who := authorName
+		if who == "" {
+			who = "有人"
+		}
+		notify.Send(ctx, uid, "评论提及了你",
+			fmt.Sprintf("%s 在任务「%s」的评论中提及了你", who, taskTitle), "info", "task", taskId)
+	}
+}
+
+// mentionHit 判断内容中是否出现完整的 @用户名：@ 前与用户名后均须是边界
+// （行首/行尾/非词字符）。词内字符按 ASCII 口径（字母数字_-）——中文用户名
+// 之间无法在字节级区分汉字与标点，≥0x80 一律视为边界（宁可多命中不漏报；
+// 登录名实际为 ASCII，中文走 real_name 展示）
+func mentionHit(content, username string) bool {
+	if username == "" {
+		return false
+	}
+	isWordByte := func(b byte) bool {
+		switch {
+		case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
+			return true
+		case b == '_' || b == '-':
+			return true
+		}
+		return false
+	}
+	needle := "@" + username
+	from := 0
+	for {
+		i := strings.Index(content[from:], needle)
+		if i < 0 {
+			return false
+		}
+		at := from + i
+		end := at + len(needle)
+		prevOK := at == 0 || !isWordByte(content[at-1])
+		nextOK := end >= len(content) || !isWordByte(content[end])
+		if prevOK && nextOK {
+			return true
+		}
+		from = at + 1
 	}
 }
 

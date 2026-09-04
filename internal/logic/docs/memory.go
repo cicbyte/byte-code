@@ -88,17 +88,21 @@ func (s *sVault) MemList(ctx context.Context, projectId int64, prefix, include s
 		model = model.WhereLike("key", prefix+"%")
 	}
 	// 状态过滤在 SQL 层完成：expired/stale 行不在 include 时根本不取——
-	// 否则长期运行的终态行会占满 Limit 配额，把活跃记忆挤出结果集
-	model = model.Where("project_memories.status IN (?)", g.Slice{"pending", "active"})
+	// 否则长期运行的终态行会占满 Limit 配额，把活跃记忆挤出结果集。
+	// 必须收进同一个 IN 列表：gf 的 WhereOr 不给已有 AND 组加括号，
+	// 单独 OR 追加会让状态条件逃逸 project_id 过滤（P0 跨项目泄漏，
+	// 见 status-2026-09-04.md）
+	statuses := g.Slice{"pending", "active"}
 	if includeStale {
-		model = model.WhereOr("project_memories.status = ?", "stale")
+		statuses = append(statuses, "stale")
 	}
 	if includeExpired {
-		model = model.WhereOr("project_memories.status = ?", "expired")
+		statuses = append(statuses, "expired")
 	}
+	model = model.Where("project_memories.status IN (?)", statuses)
 	rows, err := model.Fields("project_memories.*, sys_users.username").Order("key ASC").Limit(1000).All()
 	if err != nil {
-		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
+		return nil, liberr.WrapDb(ctx, err, "查询记忆列表失败")
 	}
 
 	now := gtime.Now()
@@ -125,7 +129,7 @@ func (s *sVault) MemGet(ctx context.Context, projectId int64, key string) (*api.
 		Where("project_id", projectId).Where("key", key).
 		Fields("project_memories.*, sys_users.username").One()
 	if err != nil {
-		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
+		return nil, liberr.WrapDb(ctx, err, "查询记忆失败")
 	}
 	if r.IsEmpty() {
 		return nil, gerror.New("记忆不存在")
@@ -155,53 +159,55 @@ func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *a
 	}
 	uid := int(perm.UserId(ctx))
 	now := gtime.Now()
-	data := g.Map{
-		"value":             req.Value,
-		"status":            status,
-		"expires_at":        nil,
-		"last_verified_at":  now,
-		"verified_by":       uid,
-		"updated_by":        uid,
-		"updated_at":        now,
-	}
+	var expiresAt interface{}
 	if ttl > 0 {
-		data["expires_at"] = now.Add(ttl)
+		expiresAt = now.Add(ttl)
 	}
-	cnt, err := g.DB().Model("project_memories").Ctx(ctx).
-		Where("project_id", projectId).Where("key", key).Count()
+	// 单语句原子 upsert：count-then-insert 在并发写同 key 时会撞
+	// UNIQUE(project_id, key)——报"索引同步失败"完全误导排障方向
+	_, err = g.DB().Exec(ctx,
+		`INSERT INTO project_memories
+			(project_id, key, value, status, expires_at, last_verified_at, verified_by, updated_by, created_at, updated_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?)
+		ON CONFLICT(project_id, key) DO UPDATE SET
+			value = excluded.value, status = excluded.status, expires_at = excluded.expires_at,
+			last_verified_at = excluded.last_verified_at, verified_by = excluded.verified_by,
+			updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+		projectId, key, req.Value, status, expiresAt, now, uid, uid, now, now)
 	if err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
-	}
-	if cnt > 0 {
-		if _, err := g.DB().Model("project_memories").Ctx(ctx).
-			Where("project_id", projectId).Where("key", key).Data(data).Update(); err != nil {
-			return liberr.WrapDb(ctx, err, "索引同步失败")
-		}
-		return nil
-	}
-	data["project_id"] = projectId
-	data["key"] = key
-	data["created_at"] = now
-	if _, err := g.DB().Model("project_memories").Ctx(ctx).Data(data).Insert(); err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
+		return liberr.WrapDb(ctx, err, "写入记忆失败")
 	}
 	return nil
 }
 
 func (s *sVault) MemVerify(ctx context.Context, projectId int64, key string, userId int64) error {
+	return s.memVerifyDo(ctx, projectId, key, userId, gtime.Now())
+}
+
+// memVerifyDo 验证保鲜：置回 active 并刷新验证时间；已过期的 TTL 一并清除
+// （验证意味着内容确认有效，留着过去的 expires_at 会让读路径的惰性判定
+// 立刻又判回 expired，落库状态与逻辑状态打架）
+func (s *sVault) memVerifyDo(ctx context.Context, projectId int64, key string, userId int64, now *gtime.Time) error {
 	res, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", projectId).Where("key", key).
 		Data(g.Map{
 			"status":           "active",
-			"last_verified_at": gtime.Now(),
+			"last_verified_at": now,
 			"verified_by":      userId,
-			"updated_at":       gtime.Now(),
+			"updated_at":       now,
 		}).Update()
 	if err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
+		return liberr.WrapDb(ctx, err, "验证记忆失败")
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return gerror.New("记忆不存在")
+	}
+	_, err = g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", projectId).Where("key", key).
+		Where("expires_at IS NOT NULL").Where("expires_at <= ?", now).
+		Data("expires_at", nil).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "验证记忆失败")
 	}
 	return nil
 }
@@ -211,7 +217,7 @@ func (s *sVault) MemExpire(ctx context.Context, projectId int64, key string) err
 		Where("project_id", projectId).Where("key", key).
 		Data("status", "expired").Update()
 	if err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
+		return liberr.WrapDb(ctx, err, "废弃记忆失败")
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return gerror.New("记忆不存在")
@@ -223,7 +229,7 @@ func (s *sVault) MemDelete(ctx context.Context, projectId int64, key string) err
 	res, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", projectId).Where("key", key).Delete()
 	if err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
+		return liberr.WrapDb(ctx, err, "删除记忆失败")
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return gerror.New("记忆不存在")
@@ -242,7 +248,7 @@ func (s *sVault) MemMaterialize(ctx context.Context) error {
 		Where("expires_at IS NOT NULL").
 		Where("expires_at <= ?", now).
 		Data("status", "expired").Update(); err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
+		return liberr.WrapDb(ctx, err, "记忆状态物化失败")
 	}
 	// 超阈值未验证 → stale
 	threshold := now.Add(-time.Duration(staleDays) * 24 * time.Hour)
@@ -251,7 +257,7 @@ func (s *sVault) MemMaterialize(ctx context.Context) error {
 		Where("last_verified_at IS NOT NULL").
 		Where("last_verified_at < ?", threshold).
 		Data("status", "stale").Update(); err != nil {
-		return liberr.WrapDb(ctx, err, "索引同步失败")
+		return liberr.WrapDb(ctx, err, "记忆状态物化失败")
 	}
 	return nil
 }

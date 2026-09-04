@@ -107,6 +107,10 @@
   import echarts from '@/utils/lib/echarts';
   import { getDashboardStats } from '@/api/platform/index';
   import type { DashboardStatsResult, RecentTaskItem, AiStatItem } from '@/api/platform/index';
+  import {
+    statusLabel as enumsStatusLabel,
+    statusTagType as enumsStatusTagType,
+  } from '@/enums/task';
   import { CountTo } from '@/components/CountTo/index';
   import {
     FileTextOutlined,
@@ -129,20 +133,9 @@
     recentTasks: [],
   });
 
-  const statusMap: Record<string, { label: string; type: string }> = {
-    open: { label: '待处理', type: 'default' },
-    in_progress: { label: '进行中', type: 'info' },
-    review: { label: '审核中', type: 'warning' },
-    done: { label: '已完成', type: 'success' },
-  };
-
-  function statusLabel(status: string) {
-    return statusMap[status]?.label || status;
-  }
-
-  function statusTagType(status: string): 'default' | 'info' | 'warning' | 'success' {
-    return (statusMap[status]?.type as any) || 'default';
-  }
+  // 任务状态字典统一出口：enums/task.ts（原本地 statusMap 缺 closed）
+  const statusLabel = enumsStatusLabel;
+  const statusTagType = enumsStatusTagType;
 
   function initChart(data: AiStatItem[]) {
     if (!chartRef.value) return;

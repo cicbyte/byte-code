@@ -41,7 +41,7 @@
               </template>
               <template #header-extra>
                 <n-tag :type="item.status === 1 ? 'success' : 'default'" size="small">
-                  {{ item.status === 1 ? '进行中' : '已结束' }}
+                  {{ PROJECT_STATUS.label(item.status) }}
                 </n-tag>
               </template>
               <p class="text-gray-500 text-sm line-clamp-2">{{ item.description || '暂无描述' }}</p>
@@ -91,6 +91,7 @@
 </template>
 
 <script lang="ts" setup>
+  import { PROJECT_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
@@ -116,10 +117,7 @@
 
   const pagination = reactive({ page: 1, size: 12 });
   const filter = reactive({ keyword: '', status: null as number | null });
-  const statusOptions = [
-    { label: '进行中', value: 1 },
-    { label: '已结束', value: 2 },
-  ];
+  const statusOptions = PROJECT_STATUS.options;
 
   const formData = reactive({
     name: '',

@@ -9,11 +9,9 @@
       <!-- 过滤栏 -->
       <n-space class="mb-4" align="center">
         <n-radio-group v-model:value="statusFilter" size="small" @update:value="onFilterChange">
-          <n-radio-button value="">进行中</n-radio-button>
+          <n-radio-button value="">未完成</n-radio-button>
           <n-radio-button value="all">全部</n-radio-button>
-          <n-radio-button value="open">Open</n-radio-button>
-          <n-radio-button value="in_progress">In Progress</n-radio-button>
-          <n-radio-button value="review">Review</n-radio-button>
+          <n-radio-button v-for="s in TASK_STATUS" :key="s.value" :value="s.value">{{ s.label }}</n-radio-button>
         </n-radio-group>
         <n-select
           v-model:value="projectId"
@@ -67,7 +65,7 @@
   import type { MyTaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
-  import { statusLabel, statusTagType, priorityTagType, typeTagType, typeLabel } from '@/enums/task';
+  import { TASK_STATUS, statusLabel, statusTagType, priorityTagType, typeTagType, typeLabel } from '@/enums/task';
 
   const router = useRouter();
   const loading = ref(false);

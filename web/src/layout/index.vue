@@ -241,7 +241,7 @@
       > * {
         width: 100%;
 
-        &:last-child:not(.board):not(.vault-page) {
+        &:last-child:not(.board):not(.docs-page) {
           flex: 1;
           min-height: 0;
           display: flex;

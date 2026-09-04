@@ -72,6 +72,7 @@
 </template>
 
 <script lang="ts" setup>
+  import { REQ_STATUS, REQ_TYPES } from '@/enums/entities';
   import { ref, reactive, computed, onMounted, h } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog, NTag, NSpace, NButton } from 'naive-ui';
@@ -102,15 +103,10 @@
       .map((r) => ({ label: `${r.title} (${r.type})`, value: r.id }))
   );
 
-  const typeOptions = [
-    { label: 'Epic', value: 'epic' },
-    { label: 'Story', value: 'story' },
-    { label: 'Task', value: 'task' },
-  ];
-
+  // 字典统一出口：enums/entities.ts（需求域）
+  const typeOptions = REQ_TYPES.options;
   const priorityLabels: Record<number, string> = { 1: '低', 2: '中', 3: '高', 4: '紧急' };
   const priorityColor: Record<number, string> = { 1: 'default', 2: 'info', 3: 'warning', 4: 'error' };
-  const typeColor: Record<string, string> = { epic: 'success', story: 'info', task: 'default' };
 
   const statusTransitions: Record<string, { label: string; target: string }[]> = {
     draft: [{ label: '激活', target: 'active' }],
@@ -143,7 +139,7 @@
       key: 'type',
       width: 80,
       render(row: RequirementItem) {
-        return h(NTag, { type: typeColor[row.type] as any, size: 'small' }, () => row.type.toUpperCase());
+        return h(NTag, { type: REQ_TYPES.tagType(row.type), size: 'small' }, () => REQ_TYPES.label(row.type));
       },
     },
     {
@@ -159,8 +155,7 @@
       key: 'status',
       width: 100,
       render(row: RequirementItem) {
-        const statusLabels: Record<string, string> = { draft: '草稿', active: '进行中', completed: '已完成', archived: '已归档' };
-        return h(NTag, { size: 'small' }, () => statusLabels[row.status] || row.status);
+        return h(NTag, { size: 'small', type: REQ_STATUS.tagType(row.status) }, () => REQ_STATUS.label(row.status));
       },
     },
     { title: '指派人', key: 'assigneeName', width: 100 },

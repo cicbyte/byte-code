@@ -11,6 +11,7 @@ import (
 	"github.com/cicbyte/byte-code/internal/consts"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/notify"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -41,21 +42,34 @@ func ScanDueTasks(ctx context.Context) error {
 	tomorrow := gtime.Now().AddDate(0, 0, 1).Format("Y-m-d")
 	dayStart := today + " 00:00:00"
 
-	rows, err := g.DB().Model("tasks t").Ctx(ctx).
-		Fields("t.id, t.title, t.due_date, t.assignee_id, p.name AS project_name").
-		LeftJoin("projects p", "p.id = t.project_id").
-		Where("t.status IN (?)", consts.TaskActiveStatuses).
-		Where("t.due_date IS NOT NULL").Where("t.due_date != ''").
-		// Y-m-d 字符串比较即日期比较；只取明晚之前（含逾期）的
-		Where("t.due_date <= ?", tomorrow).
-		Where("t.assignee_id > 0").
-		Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'human')").
+	// 分两段查询：逾期任务长期堆积会占满单一 Limit 配额，把今天/明天到期
+	// 的挤出结果集（越堆积越只提醒最老的）。今明段全量，逾期段封顶防失控
+	const overdueCap = 200
+	baseQuery := func() *gdb.Model {
+		return g.DB().Model("tasks t").Ctx(ctx).
+			Fields("t.id, t.title, t.due_date, t.assignee_id, p.name AS project_name").
+			LeftJoin("projects p", "p.id = t.project_id").
+			Where("t.status IN (?)", consts.TaskActiveStatuses).
+			Where("t.due_date IS NOT NULL").Where("t.due_date != ''").
+			Where("t.assignee_id > 0").
+			Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'human')")
+	}
+	overdueRows, err := baseQuery().
+		Where("t.due_date < ?", today).
 		Order("t.due_date ASC").
-		Limit(500).
+		Limit(overdueCap).
 		All()
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "到期任务扫描失败")
 	}
+	todayRows, err := baseQuery().
+		Where("t.due_date >= ? AND t.due_date <= ?", today, tomorrow).
+		Order("t.due_date ASC").
+		All()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "到期任务扫描失败")
+	}
+	rows := append(overdueRows, todayRows...)
 
 	sent := 0
 	for _, r := range rows {

@@ -9,7 +9,7 @@
             </n-descriptions-item>
             <n-descriptions-item label="状态">
               <n-tag :type="project.status === 1 ? 'success' : 'default'" size="small">
-                {{ project.status === 1 ? '进行中' : '已结束' }}
+                {{ PROJECT_STATUS.label(project.status) }}
               </n-tag>
             </n-descriptions-item>
             <n-descriptions-item label="创建人">{{ project.creatorName || '-' }}</n-descriptions-item>
@@ -26,6 +26,7 @@
 </template>
 
 <script lang="ts" setup>
+  import { PROJECT_STATUS } from '@/enums/entities';
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { getProject } from '@/api/project/index';

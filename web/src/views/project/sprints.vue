@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">
+  import { SPRINT_STATUS } from '@/enums/entities';
   import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage } from 'naive-ui';
@@ -178,11 +179,8 @@
     name: { required: true, message: '请输入名称' },
   };
 
-  const statusMap: Record<string, { type: 'default' | 'info' | 'success' | 'warning'; label: string }> = {
-    planning: { type: 'default', label: '规划中' },
-    active: { type: 'info', label: '进行中' },
-    completed: { type: 'success', label: '已完成' },
-  };
+  // 字典统一出口：enums/entities.ts（与 test/plans.vue 共用同一套 Sprint 状态）
+  const statusMap = SPRINT_STATUS;
 
   async function loadSprints() {
     loading.value = true;

@@ -128,6 +128,7 @@
 </template>
 
 <script lang="ts" setup>
+  import { SPRINT_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
@@ -167,10 +168,7 @@
     return 'default';
   }
 
-  function planStatusLabel(s: string) {
-    const m: Record<string, string> = { planning: '规划中', active: '进行中', completed: '已完成' };
-    return m[s] || s;
-  }
+  const planStatusLabel = SPRINT_STATUS.label;
 
   function resultType(s: string): 'success' | 'error' | 'warning' | 'default' {
     if (s === 'pass') return 'success';

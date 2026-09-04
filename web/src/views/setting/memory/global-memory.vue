@@ -90,6 +90,7 @@
 </template>
 
 <script lang="ts" setup>
+  import { MEMORY_STATUS } from '@/enums/entities';
   import { ref, reactive, computed, h, onMounted } from 'vue';
   import { NButton, NSpace, NTag, useMessage, useDialog } from 'naive-ui';
   import type { DataTableColumns } from 'naive-ui';
@@ -129,18 +130,9 @@
     { label: '30 天', value: '30d' },
   ];
 
-  const statusTagType: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-    active: 'success',
-    pending: 'warning',
-    stale: 'error',
-    expired: 'default',
-  };
-  const statusLabel: Record<string, string> = {
-    active: '有效',
-    pending: '待验证',
-    stale: '已腐化',
-    expired: '已过期',
-  };
+  // 字典统一出口：enums/entities.ts（与 memories.vue 共用）
+  const statusTagType = MEMORY_STATUS.tagType;
+  const statusLabel = MEMORY_STATUS.label;
 
   const columns = computed<DataTableColumns<MemoryItem>>(() => {
     const cols: DataTableColumns<MemoryItem> = [
@@ -152,7 +144,7 @@
         width: 110,
         render: (row) =>
           h(NSpace, { size: 4, align: 'center' }, () => [
-            h(NTag, { size: 'small', type: statusTagType[row.status] || 'default' }, () => statusLabel[row.status] || row.status),
+            h(NTag, { size: 'small', type: statusTagType(row.status) }, () => statusLabel(row.status)),
             row.status === 'active' && row.staleDays >= 21
               ? h(NTag, { size: 'small', type: 'warning', bordered: false }, () => `${row.staleDays}天未验证`)
               : null,

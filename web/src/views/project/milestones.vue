@@ -68,6 +68,7 @@
 <script lang="ts" setup>
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
+  import { MILESTONE_STATUS } from '@/enums/entities';
   import { useMessage, useDialog } from 'naive-ui';
   import { getMilestones, createMilestone, updateMilestone, deleteMilestone } from '@/api/project/index';
   import type { MilestoneItem } from '@/api/project/index';
@@ -87,22 +88,10 @@
   const form = ref({ name: '', description: '', targetDate: '', status: 'planning' });
   const rules = { name: { required: true, message: '请输入名称' } };
 
-  const statusOptions = [
-    { label: '规划中', value: 'planning' },
-    { label: '进行中', value: 'in_progress' },
-    { label: '已发布', value: 'released' },
-  ];
-
-  function statusLabel(s: string): string {
-    const m: Record<string, string> = { planning: '规划中', in_progress: '进行中', released: '已发布' };
-    return m[s] || s;
-  }
-
-  function statusType(s: string): 'default' | 'info' | 'success' {
-    if (s === 'released') return 'success';
-    if (s === 'in_progress') return 'info';
-    return 'default';
-  }
+  // 字典统一出口：enums/entities.ts（原 statusOptions 与 statusLabel 内映射重复两遍）
+  const statusOptions = MILESTONE_STATUS.options;
+  const statusLabel = MILESTONE_STATUS.label;
+  const statusType = MILESTONE_STATUS.tagType;
 
   function openCreate() {
     isEdit.value = false;
