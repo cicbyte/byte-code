@@ -629,6 +629,8 @@ func (s *sProject) ImportTasks(ctx context.Context, req *api.TaskImportReq) (tas
 	// 需求 ID 到任务 ID 的映射（用于处理父子关系）
 	reqToTask := make(map[int]int)
 
+	// 整批导入包事务：中途失败整体回滚，不留半截导入（父子映射也会断）
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 	for _, r := range requirements {
 		parentTaskId := 0
 		if r.ParentId > 0 {
@@ -637,7 +639,7 @@ func (s *sProject) ImportTasks(ctx context.Context, req *api.TaskImportReq) (tas
 			}
 		}
 
-		result, err := g.DB().Model("tasks").Ctx(ctx).Insert(g.Map{
+		result, err := tx.Ctx(ctx).Model("tasks").Insert(g.Map{
 			"project_id":     req.ProjectId,
 			"requirement_id": r.Id,
 			"sprint_id":      req.SprintId,
@@ -651,17 +653,21 @@ func (s *sProject) ImportTasks(ctx context.Context, req *api.TaskImportReq) (tas
 			"source":         "pm_import",
 		})
 		if err != nil {
-			return taskIds, liberr.WrapDb(ctx, err, "导入任务失败")
+			return liberr.WrapDb(ctx, err, "导入任务失败")
 		}
 		lastId, _ := result.LastInsertId()
 		tid := int(lastId)
 		taskIds = append(taskIds, tid)
 		reqToTask[r.Id] = tid
 
-		// 记录活动
+		// 记录活动（事务外补记也不影响一致性，这里顺路同事务写入）
 		s.recordActivity(ctx, userId, "task.imported", "task", tid, r.Title, req.ProjectId, fmt.Sprintf("从需求 #%d 导入", r.Id))
 	}
-
+	return nil
+	})
+	if err != nil {
+		return nil, err
+	}
 	return taskIds, nil
 }
 
