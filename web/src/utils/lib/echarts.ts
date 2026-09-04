@@ -1,55 +1,27 @@
 import * as echarts from 'echarts/core';
 
-import {
-  BarChart,
-  LineChart,
-  PieChart,
-  MapChart,
-  PictorialBarChart,
-  RadarChart,
-} from 'echarts/charts';
+import { BarChart, LineChart } from 'echarts/charts';
 
 import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
-  PolarComponent,
-  AriaComponent,
-  ParallelComponent,
   LegendComponent,
-  RadarComponent,
-  ToolboxComponent,
-  DataZoomComponent,
-  VisualMapComponent,
-  TimelineComponent,
-  CalendarComponent,
-  GraphicComponent,
 } from 'echarts/components';
 
 import { SVGRenderer } from 'echarts/renderers';
 
+// 按需注册：当前仅控制台柱状图与 Sprint 燃尽折线图在用。
+// 需要新图表类型（饼图/雷达/地图/缩放等）时在此追加对应模块，
+// 全量注册曾使 chunk 达 778KB
 echarts.use([
-  LegendComponent,
+  BarChart,
+  LineChart,
   TitleComponent,
   TooltipComponent,
   GridComponent,
-  PolarComponent,
-  AriaComponent,
-  ParallelComponent,
-  BarChart,
-  LineChart,
-  PieChart,
-  MapChart,
-  RadarChart,
+  LegendComponent,
   SVGRenderer,
-  PictorialBarChart,
-  RadarComponent,
-  ToolboxComponent,
-  DataZoomComponent,
-  VisualMapComponent,
-  TimelineComponent,
-  CalendarComponent,
-  GraphicComponent,
 ]);
 
 export default echarts;
