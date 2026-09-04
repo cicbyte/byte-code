@@ -26,6 +26,14 @@
           style="width: 140px"
           @update:value="handleSearch"
         />
+        <n-select
+          v-model:value="filter.tagId"
+          :options="tagOptions"
+          clearable
+          placeholder="标签"
+          style="width: 130px"
+          @update:value="handleSearch"
+        />
         <n-button type="primary" @click="handleSearch">查询</n-button>
         <n-button @click="handleReset">重置</n-button>
         <n-button type="primary" @click="showCreateModal = true">新建任务</n-button>
@@ -37,6 +45,7 @@
             <th>标题</th>
             <th>类型</th>
             <th>优先级</th>
+            <th>标签</th>
             <th>状态</th>
             <th>指派人</th>
             <th>更新时间</th>
@@ -50,6 +59,11 @@
             </td>
             <td><n-tag :type="typeColor[task.type] as any" size="small">{{ task.type }}</n-tag></td>
             <td><n-tag :type="priorityColor(task.priority) as any" size="small">P{{ task.priority }}</n-tag></td>
+            <td>
+              <n-space :size="2">
+                <n-tag v-for="t in task.tags || []" :key="t" size="small" round :bordered="false">{{ t }}</n-tag>
+              </n-space>
+            </td>
             <td><n-tag size="small">{{ statusLabel(task.status) }}</n-tag></td>
             <td>{{ task.assigneeName }}</td>
             <td>{{ task.updatedAt }}</td>
@@ -107,6 +121,7 @@
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
+  import { getTags } from '@/api/platform/index';
   import { getTasks, createTask, deleteTask } from '@/api/project/index';
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
@@ -119,7 +134,6 @@
   const taskList = ref<TaskItem[]>([]);
   const total = ref(0);
   const pagination = reactive({ page: 1, size: 20 });
-  const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null });
   const taskDetailRef = ref();
 
   const boardColumns = [
@@ -160,6 +174,19 @@
   // 新建任务
   const showCreateModal = ref(false);
   const formRef = ref<any>(null);
+  const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null, tagId: null as number | null });
+  // 标签筛选选项（平台级标签）
+  const tagOptions = ref<Array<{ label: string; value: number }>>([]);
+  async function loadTagOptions() {
+    try {
+      const res = await getTags();
+      tagOptions.value = (res?.list || []).map((t: any) => ({ label: t.name, value: t.id }));
+    } catch {
+      // ignore
+    }
+  }
+  loadTagOptions();
+
   const formData = reactive({ title: '', type: 'task', priority: 2, description: '' });
   const formRules = { title: { required: true, message: '请输入任务标题', trigger: 'blur' } };
 
@@ -169,6 +196,7 @@
         page: pagination.page, size: pagination.size,
         status: filter.status ?? undefined,
         type: filter.type ?? undefined,
+        tagId: filter.tagId ?? undefined,
         keyword: filter.keyword || undefined,
       });
       if (res) { taskList.value = res.list || []; total.value = res.total || 0; }
@@ -184,6 +212,7 @@
     filter.keyword = '';
     filter.status = null;
     filter.type = null;
+    filter.tagId = null;
     pagination.page = 1;
     loadTasks();
   }

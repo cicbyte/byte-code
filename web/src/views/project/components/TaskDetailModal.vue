@@ -33,6 +33,31 @@
           <n-empty v-else description="暂无描述" size="small" />
         </n-card>
 
+        <!-- 标签 -->
+        <n-card title="标签" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+          <n-space :size="4" align="center">
+            <n-tag
+              v-for="t in task.tags || []"
+              :key="t"
+              size="small"
+              round
+              closable
+              @close="detachByName(t)"
+            >{{ t }}</n-tag>
+            <n-select
+              v-model:value="attachTagId"
+              :options="attachableTagOptions"
+              size="tiny"
+              filterable
+              tag
+              placeholder="+ 挂标签（输入回车可新建）"
+              style="width: 200px"
+              :show-arrow="false"
+              @update:value="onAttachSelect"
+            />
+          </n-space>
+        </n-card>
+
         <!-- 审核操作 -->
         <n-card
           v-if="task.requiresHumanReview && task.humanReviewStatus === 'pending'"
@@ -89,6 +114,7 @@
 
 <script lang="ts" setup>
   import DOMPurify from 'dompurify';
+  import { getTags, attachTag, detachTag, createTag } from '@/api/platform/index';
   import { ref, computed } from 'vue';
   import { useMessage } from 'naive-ui';
   import {
@@ -108,6 +134,51 @@
   const submitting = ref(false);
   const task = ref<TaskItem | null>(null);
   const comments = ref<CommentItem[]>([]);
+
+  // 标签管理：attach 选择（含新建：tag 模式回车创建后挂载）
+  const attachTagId = ref<number | null>(null);
+  const allTags = ref<Array<{ id: number; name: string }>>([]);
+
+  const attachableTagOptions = computed(() => {
+    const attached = new Set(task.value?.tags || []);
+    return allTags.value
+      .filter((t) => !attached.has(t.name))
+      .map((t) => ({ label: t.name, value: t.id }));
+  });
+
+  async function loadAllTags() {
+    try {
+      const res = await getTags();
+      allTags.value = (res?.list || []).map((t: any) => ({ id: t.id, name: t.name }));
+    } catch {
+      // ignore
+    }
+  }
+
+  async function onAttachSelect(val: number | null) {
+    if (!task.value || !val) return;
+    try {
+      await attachTag(val, { entityType: 'task', entityId: task.value.id });
+      const t = allTags.value.find((x) => x.id === val);
+      if (t) task.value.tags = [...(task.value.tags || []), t.name];
+      attachTagId.value = null;
+    } catch {
+      message.error('挂标签失败');
+      attachTagId.value = null;
+    }
+  }
+
+  async function detachByName(name: string) {
+    if (!task.value) return;
+    const t = allTags.value.find((x) => x.name === name);
+    if (!t) return;
+    try {
+      await detachTag(t.id, 'task', task.value.id);
+      task.value.tags = (task.value.tags || []).filter((x) => x !== name);
+    } catch {
+      message.error('移除标签失败');
+    }
+  }
   const newComment = ref('');
 
   const priorityType = computed(() => {
@@ -122,6 +193,7 @@
   async function openModal(taskId: number) {
     visible.value = true;
     loading.value = true;
+    loadAllTags();
     try {
       const [taskRes, commentRes] = await Promise.all([
         getTask(taskId),

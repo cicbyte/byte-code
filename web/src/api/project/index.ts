@@ -66,6 +66,7 @@ export interface TaskItem {
   sprintId: number;
   title: string;
   description: string;
+  tags?: string[] | null;
   type: string;
   status: string;
   priority: number;
@@ -93,6 +94,7 @@ export interface TaskListParams {
   type?: string;
   sprintId?: number;
   assigneeId?: number;
+  tagId?: number;
   keyword?: string;
   page?: number;
   size?: number;

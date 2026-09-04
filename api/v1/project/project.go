@@ -166,6 +166,7 @@ type TaskListReq struct {
 	SprintId  int    `json:"sprintId" in:"query"`
 	AssigneeId int   `json:"assigneeId" in:"query"`
 	Keyword   string `json:"keyword" in:"query"`
+	TagId     int    `json:"tagId" in:"query" dc:"按标签筛选"`
 	Page      int    `json:"page" in:"query" d:"1"`
 	Size      int    `json:"size" in:"query" d:"50"`
 }
@@ -195,6 +196,7 @@ type TaskItem struct {
 	HumanReviewStatus   string `json:"humanReviewStatus"`
 	SortOrder           int    `json:"sortOrder"`
 	Source              string `json:"source"`
+	Tags                []string `json:"tags"`
 	CreatedAt           string `json:"createdAt"`
 	UpdatedAt           string `json:"updatedAt"`
 }

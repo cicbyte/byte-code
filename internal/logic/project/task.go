@@ -160,7 +160,27 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 	if item.Id == 0 {
 		return nil, fmt.Errorf("任务不存在")
 	}
+	// 标签回填（与列表口径一致）
+	item.Tags = taskTagNames(ctx, id)
 	return &api.TaskDetailRes{TaskItem: item}, nil
+}
+
+// taskTagNames 查单个任务的标签名列表
+func taskTagNames(ctx context.Context, taskId int) []string {
+	rows, err := g.DB().Model("entity_tags et").Ctx(ctx).
+		LeftJoin("tags g", "g.id = et.tag_id").
+		Fields("g.name").
+		Where("et.entity_type", "task").
+		Where("et.entity_id", taskId).
+		All()
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r["name"].String())
+	}
+	return out
 }
 
 func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *api.TaskListRes, err error) {
@@ -184,6 +204,10 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
 		countM = countM.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
+	}
+	if req.TagId > 0 {
+		tagCond := "EXISTS (SELECT 1 FROM entity_tags et WHERE et.entity_type = 'task' AND et.entity_id = t.id AND et.tag_id = ?)"
+		countM = countM.Where(tagCond, req.TagId)
 	}
 
 	total, err := countM.Count()
@@ -214,11 +238,37 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 		kw := "%" + escape.Like(req.Keyword) + "%"
 		m = m.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
 	}
+	if req.TagId > 0 {
+		tagCond := "EXISTS (SELECT 1 FROM entity_tags et WHERE et.entity_type = 'task' AND et.entity_id = t.id AND et.tag_id = ?)"
+		m = m.Where(tagCond, req.TagId)
+	}
 
 	var list []api.TaskItem
 	err = m.Page(req.Page, req.Size).Order("t.sort_order ASC, t.id DESC").Scan(&list)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询任务列表失败")
+	}
+	// 批量回填任务标签（一次 IN 查询，避免逐任务 N+1）
+	if len(list) > 0 {
+		ids := make([]int, 0, len(list))
+		for _, it := range list {
+			ids = append(ids, it.Id)
+		}
+		tagRows, terr := g.DB().Model("entity_tags et").Ctx(ctx).
+			LeftJoin("tags g", "g.id = et.tag_id").
+			Fields("et.entity_id, g.name").
+			Where("et.entity_type", "task").
+			WhereIn("et.entity_id", ids).
+			All()
+		if terr == nil {
+			tagsByTask := make(map[int][]string)
+			for _, tr := range tagRows {
+				tagsByTask[tr["entity_id"].Int()] = append(tagsByTask[tr["entity_id"].Int()], tr["name"].String())
+			}
+			for i := range list {
+				list[i].Tags = tagsByTask[list[i].Id]
+			}
+		}
 	}
 	res.List = list
 	return res, nil
