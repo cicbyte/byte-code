@@ -47,6 +47,8 @@ export interface MemberItem {
   realName: string;
   role: string;
   joinedAt: string;
+  /** human/ai（@提及候选只列 human） */
+  userType?: string;
 }
 
 export interface MemberListResult {

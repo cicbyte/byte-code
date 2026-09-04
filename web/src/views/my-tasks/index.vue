@@ -8,7 +8,7 @@
 
       <!-- 过滤栏 -->
       <n-space class="mb-4" align="center">
-        <n-radio-group v-model:value="statusFilter" size="small" @update:value="load">
+        <n-radio-group v-model:value="statusFilter" size="small" @update:value="onFilterChange">
           <n-radio-button value="">进行中</n-radio-button>
           <n-radio-button value="all">全部</n-radio-button>
           <n-radio-button value="open">Open</n-radio-button>
@@ -22,7 +22,7 @@
           clearable
           placeholder="全部项目"
           style="width: 200px"
-          @update:value="load"
+          @update:value="onFilterChange"
         />
         <n-input
           v-model:value="keyword"
@@ -30,10 +30,10 @@
           style="width: 220px"
           placeholder="标题 / 描述"
           clearable
-          @keyup.enter="load"
-          @clear="load"
+          @keyup.enter="onFilterChange"
+          @clear="onFilterChange"
         />
-        <n-button size="small" @click="load">查询</n-button>
+        <n-button size="small" @click="onFilterChange">查询</n-button>
       </n-space>
 
       <n-data-table
@@ -43,6 +43,15 @@
         :row-key="(row: MyTaskItem) => row.id"
         size="small"
       />
+
+      <div class="mt-4 flex justify-end" v-if="total > pagination.size">
+        <n-pagination
+          v-model:page="pagination.page"
+          :page-size="pagination.size"
+          :item-count="total"
+          @update:page="load"
+        />
+      </div>
     </n-card>
 
     <TaskDetailModal ref="taskDetailRef" />
@@ -50,7 +59,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, computed, h, onMounted } from 'vue';
+  import { ref, reactive, computed, h, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { NButton, NTag, NSpace } from 'naive-ui';
   import type { DataTableColumns } from 'naive-ui';
@@ -64,6 +73,7 @@
   const loading = ref(false);
   const list = ref<MyTaskItem[]>([]);
   const total = ref(0);
+  const pagination = reactive({ page: 1, size: 20 });
   const statusFilter = ref('');
   const projectId = ref<number | null>(null);
   const keyword = ref('');
@@ -152,6 +162,12 @@
     },
   ];
 
+  // 过滤条件变化回到第一页再查
+  function onFilterChange() {
+    pagination.page = 1;
+    load();
+  }
+
   async function load() {
     loading.value = true;
     try {
@@ -159,7 +175,8 @@
         ...(statusFilter.value ? { status: statusFilter.value } : {}),
         ...(projectId.value ? { projectId: projectId.value } : {}),
         ...(keyword.value ? { keyword: keyword.value } : {}),
-        size: 100,
+        page: pagination.page,
+        size: pagination.size,
       });
       list.value = res?.list || [];
       total.value = res?.total || 0;

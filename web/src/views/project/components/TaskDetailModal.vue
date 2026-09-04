@@ -192,15 +192,19 @@
             </div>
           </n-space>
           <n-divider />
-          <n-space>
-            <n-input
+          <n-space vertical :size="4">
+            <n-mention
               v-model:value="newComment"
               type="textarea"
-              placeholder="输入评论内容"
+              placeholder="输入评论内容，@ 可提及成员（将发送通知）"
               :rows="2"
+              :options="mentionOptions"
+              :prefix="['@']"
               style="flex: 1"
             />
-            <n-button type="primary" @click="handleAddComment" :loading="submitting">发送</n-button>
+            <n-space justify="end">
+              <n-button type="primary" @click="handleAddComment" :loading="submitting">发送</n-button>
+            </n-space>
           </n-space>
         </n-card>
       </template>
@@ -234,6 +238,7 @@
     reviewTask,
     getAiLogs,
     updateTask,
+    getMembers,
   } from '@/api/project/index';
   import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
@@ -309,6 +314,24 @@
     }
   }
   const newComment = ref('');
+
+  // @提及候选：项目成员中的 human（AI 成员由引擎自调度，@提及不产生通知，
+  // 列出只会造成"提及了却没通知"的困惑）；插入值为 username（与后端
+  // notifyMentions 的 @用户名 精确匹配口径一致——显示名仅在候选列表里辅助识别）
+  const mentionOptions = ref<Array<{ label: string; value: string }>>([]);
+  async function loadMentionOptions(projectId: number) {
+    try {
+      const res = await getMembers(projectId);
+      mentionOptions.value = (res?.list || [])
+        .filter((m) => !m.userType || m.userType === 'human')
+        .map((m) => ({
+          label: `${m.realName || m.username}（${m.username}）`,
+          value: m.username,
+        }));
+    } catch {
+      mentionOptions.value = [];
+    }
+  }
 
   const router = useRouter();
 
@@ -393,6 +416,7 @@
       if (task.value) {
         loadLinkedDocs(task.value.projectId, taskId);
         loadAiLogs(taskId);
+        loadMentionOptions(task.value.projectId);
       }
     } catch (e) {
       message.error('加载任务详情失败');

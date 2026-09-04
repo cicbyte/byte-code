@@ -60,7 +60,7 @@ func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.Mem
 	var list []api.MemberItem
 	err = g.DB().Model("project_members pm").Ctx(ctx).
 		LeftJoin("sys_users u", "pm.user_id = u.id").
-		Fields("pm.id, pm.user_id, u.username, COALESCE(u.real_name, '') as real_name, pm.role, pm.created_at as joined_at").
+		Fields("pm.id, pm.user_id, u.username, COALESCE(u.real_name, '') as real_name, pm.role, pm.created_at as joined_at, COALESCE(u.type, 'human') as user_type").
 		Where("pm.project_id", projectId).
 		Order("pm.id ASC").
 		Scan(&list)

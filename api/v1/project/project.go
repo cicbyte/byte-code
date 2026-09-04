@@ -105,6 +105,7 @@ type MemberItem struct {
 	RealName string `json:"realName"`
 	Role     string `json:"role"`
 	JoinedAt string `json:"joinedAt"`
+	UserType string `json:"userType" dc:"human/ai（回填，@提及候选只列 human）"`
 }
 
 type MemberListRes struct {
