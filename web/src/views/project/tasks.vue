@@ -36,7 +36,7 @@
         />
         <n-button type="primary" @click="handleSearch">查询</n-button>
         <n-button @click="handleReset">重置</n-button>
-        <n-button type="primary" @click="showCreateModal = true">新建任务</n-button>
+        <n-button type="primary" @click="openCreate">新建任务</n-button>
       </n-space>
 
       <n-table :bordered="false" :single-line="false" size="small">
@@ -79,6 +79,7 @@
             <td>
               <n-space size="small">
                 <n-button text type="info" @click="openTaskDetail(task)">详情</n-button>
+                <n-button text type="primary" @click="openEdit(task)">编辑</n-button>
                 <n-button text type="error" @click="handleDelete(task)">删除</n-button>
               </n-space>
             </td>
@@ -96,14 +97,14 @@
       </div>
     </n-card>
 
-    <!-- 新建任务弹窗 -->
+    <!-- 新建/编辑任务弹窗（复用：editingId 区分） -->
     <n-modal
       v-model:show="showCreateModal"
       preset="dialog"
-      title="新建任务"
+      :title="editingId ? '编辑任务' : '新建任务'"
       positive-text="确定"
       negative-text="取消"
-      @positive-click="handleCreate"
+      @positive-click="handleSubmit"
       style="width: 560px"
     >
       <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="left" :label-width="80" class="py-4">
@@ -115,6 +116,15 @@
         </n-form-item>
         <n-form-item label="优先级" path="priority">
           <n-input-number v-model:value="formData.priority" :min="1" :max="4" placeholder="1=低 4=紧急" style="width: 100%" />
+        </n-form-item>
+        <n-form-item label="指派人" path="assigneeId">
+          <n-select
+            v-model:value="formData.assigneeId"
+            :options="assigneeOptions"
+            clearable
+            filterable
+            placeholder="缺省不指派（可后续 AI 认领）"
+          />
         </n-form-item>
         <n-form-item label="截止日期" path="dueDate">
           <n-date-picker
@@ -141,7 +151,7 @@
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { getTags } from '@/api/platform/index';
-  import { getTasks, createTask, deleteTask } from '@/api/project/index';
+  import { getTasks, createTask, updateTask, deleteTask, getMembers } from '@/api/project/index';
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
@@ -168,8 +178,9 @@
     taskDetailRef.value?.openModal(task.id);
   }
 
-  // 新建任务
+  // 新建/编辑任务（弹窗复用：editingId 为空=新建）
   const showCreateModal = ref(false);
+  const editingId = ref<number | null>(null);
   const formRef = ref<any>(null);
   const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null, tagId: null as number | null });
   // 标签筛选选项（平台级标签）
@@ -184,8 +195,44 @@
   }
   loadTagOptions();
 
-  const formData = reactive({ title: '', type: 'task', priority: 2, description: '', dueDate: null as string | null });
+  // 指派人选项：项目成员（转派通知由 UpdateTask 后端触发）
+  const assigneeOptions = ref<Array<{ label: string; value: number }>>([]);
+  async function loadAssigneeOptions() {
+    try {
+      const res = await getMembers(projectId.value);
+      assigneeOptions.value = (res?.list || []).map((m) => ({
+        label: m.realName || m.username,
+        value: m.userId,
+      }));
+    } catch {
+      // ignore
+    }
+  }
+  loadAssigneeOptions();
+
+  const formData = reactive({
+    title: '', type: 'feature', priority: 2, description: '',
+    assigneeId: null as number | null, dueDate: null as string | null,
+  });
   const formRules = { title: { required: true, message: '请输入任务标题', trigger: 'blur' } };
+
+  function openCreate() {
+    editingId.value = null;
+    formData.title = ''; formData.type = 'feature'; formData.priority = 2;
+    formData.description = ''; formData.assigneeId = null; formData.dueDate = null;
+    showCreateModal.value = true;
+  }
+
+  function openEdit(task: TaskItem) {
+    editingId.value = task.id;
+    formData.title = task.title;
+    formData.type = typeOptions.some((o) => o.value === task.type) ? task.type : 'feature';
+    formData.priority = task.priority;
+    formData.description = task.description || '';
+    formData.assigneeId = task.assigneeId || null;
+    formData.dueDate = task.dueDate || null;
+    showCreateModal.value = true;
+  }
 
   async function loadTasks() {
     try {
@@ -214,18 +261,32 @@
     loadTasks();
   }
 
-  async function handleCreate() {
+  async function handleSubmit() {
     try { await formRef.value?.validate(); } catch { return false; }
     try {
-      await createTask(projectId.value, {
-        ...formData,
-        dueDate: formData.dueDate || undefined,
-      });
-      message.success('任务创建成功');
+      if (editingId.value) {
+        // 编辑：全字段更新（指派变更触发转派通知）
+        await updateTask(editingId.value, {
+          title: formData.title,
+          type: formData.type,
+          priority: formData.priority,
+          description: formData.description,
+          assigneeId: formData.assigneeId ?? 0,
+          dueDate: formData.dueDate || '',
+        });
+        message.success('任务已更新');
+      } else {
+        await createTask(projectId.value, {
+          ...formData,
+          assigneeId: formData.assigneeId ?? undefined,
+          dueDate: formData.dueDate || undefined,
+        });
+        message.success('任务创建成功');
+      }
       showCreateModal.value = false;
-      formData.title = ''; formData.type = 'task'; formData.priority = 2; formData.description = ''; formData.dueDate = null;
+      openCreate();
       loadTasks();
-    } catch { message.error('创建失败'); return false; }
+    } catch { message.error(editingId.value ? '更新失败' : '创建失败'); return false; }
   }
 
   function handleDelete(task: TaskItem) {
