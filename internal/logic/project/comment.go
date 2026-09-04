@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
@@ -35,7 +36,7 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 		"user_type": userType,
 	})
 	// 评论通知（评论本身不阻塞）：通知任务负责人与创建者（排除自己）；
-	// 回复时额外通知被回复评论的作者
+	// 回复时额外通知被回复评论的作者；内容中 @用户名 精确匹配触发提及通知
 	if err == nil {
 		taskRow, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.TaskId).
 			Fields("title, assignee_id, creator_id").One()
@@ -59,6 +60,12 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 					}
 				}
 			}
+			authorName := ""
+			if an, _ := g.DB().Model("sys_users").Where("id", userId).
+				Fields("COALESCE(NULLIF(real_name, ''), username)").Value(); an != nil {
+				authorName = an.String()
+			}
+			notifyMentions(ctx, req.Content, title, authorName, req.TaskId, notified)
 		}
 	}
 	if err != nil {
@@ -66,6 +73,34 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
+}
+
+// notifyMentions @提及通知：评论内容与 @用户名 做真实用户名的字符串精确比对
+// （避免正则猜测用户名字符集带来的误报/漏报），作者本人与已通知对象不重复打扰
+func notifyMentions(ctx context.Context, content, taskTitle, authorName string, taskId int, notified map[int]bool) {
+	if !strings.Contains(content, "@") {
+		return
+	}
+	users, err := g.DB().Model("sys_users").Ctx(ctx).
+		Fields("id, username").Where("type", "human").All()
+	if err != nil {
+		return
+	}
+	for _, u := range users {
+		uid := u["id"].Int()
+		if uid <= 0 || notified[uid] {
+			continue
+		}
+		if strings.Contains(content, "@"+u["username"].String()) {
+			notified[uid] = true
+			who := authorName
+			if who == "" {
+				who = "有人"
+			}
+			notify.Send(ctx, uid, "评论提及了你",
+				fmt.Sprintf("%s 在任务「%s」的评论中提及了你", who, taskTitle), "info", "task", taskId)
+		}
+	}
 }
 
 func (s *sProject) ListComments(ctx context.Context, taskId int) (res *api.CommentListRes, err error) {

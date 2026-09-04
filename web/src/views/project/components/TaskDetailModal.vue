@@ -14,7 +14,7 @@
             <span class="font-medium">{{ task.title }}</span>
           </n-descriptions-item>
           <n-descriptions-item label="状态">
-            <n-tag size="small">{{ task.status }}</n-tag>
+            <n-tag size="small" :type="statusTagType(task.status)">{{ statusLabel(task.status) }}</n-tag>
           </n-descriptions-item>
           <n-descriptions-item label="类型">
             <n-tag size="small" type="info">{{ task.type }}</n-tag>
@@ -188,7 +188,7 @@
                 </n-space>
                 <span class="text-xs text-gray-400">{{ comment.createdAt }}</span>
               </n-space>
-              <p class="mt-1 text-sm text-gray-600">{{ comment.content }}</p>
+              <p class="mt-1 text-sm text-gray-600 comment-body" v-html="renderComment(comment.content)"></p>
             </div>
           </n-space>
           <n-divider />
@@ -237,10 +237,26 @@
   } from '@/api/project/index';
   import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
+  import { priorityTagType, statusLabel, statusTagType } from '@/enums/task';
 
 
   // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
   const safeDescription = computed(() => DOMPurify.sanitize(task.value?.description || ''));
+
+  // 评论正文：纯文本渲染但高亮 @提及——先整体 HTML 转义，再把 @词 包上样式 span，
+  // 最后 DOMPurify 兜底（转义后内容理论无标签，消毒是纵深防御）
+  function renderComment(content: string): string {
+    const escaped = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const highlighted = escaped.replace(
+      /(@[\w\u4e00-\u9fa5-]+)/g,
+      '<span class="mention">$1</span>'
+    );
+    return DOMPurify.sanitize(highlighted);
+  }
   const message = useMessage();
   const visible = ref(false);
   const loading = ref(false);
@@ -356,14 +372,7 @@
     return log.detail.slice(0, 200) + '…';
   }
 
-  const priorityType = computed(() => {
-    const p = task.value?.priority;
-    if (p === undefined || p === null) return 'default';
-    if (p >= 4) return 'error';
-    if (p >= 3) return 'warning';
-    if (p >= 2) return 'info';
-    return 'default';
-  });
+  const priorityType = computed(() => priorityTagType(task.value?.priority));
 
   async function openModal(taskId: number) {
     visible.value = true;
@@ -507,5 +516,13 @@
     &:hover {
       background: var(--hover-bg, #f5f5f5);
     }
+  }
+
+  :deep(.mention) {
+    color: #18a058;
+    font-weight: 500;
+    background: rgb(24 160 88 / 8%);
+    border-radius: 3px;
+    padding: 0 3px;
   }
 </style>

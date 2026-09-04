@@ -1,27 +1,27 @@
 <template>
   <div class="board">
-    <div v-for="col in boardColumns" :key="col.status" class="board-col" :data-status="col.status">
+    <div v-for="col in boardColumns" :key="col.value" class="board-col" :data-status="col.value">
       <div class="board-col-head">
         <span class="board-col-title">{{ col.label }}</span>
-        <n-tag size="small" round :bordered="false">{{ columnTasks[col.status].length }}</n-tag>
+        <n-tag size="small" round :bordered="false">{{ columnTasks[col.value].length }}</n-tag>
       </div>
       <n-spin :show="loading" size="small">
         <Draggable
-          :list="columnTasks[col.status]"
+          :list="columnTasks[col.value]"
           item-key="id"
           group="board"
           animation="200"
           class="board-col-list"
-          @change="onDrop(col.status, $event)"
+          @change="onDrop(col.value, $event)"
         >
           <template #item="{ element }">
             <div class="task-card" @click="openTaskDetail(element)">
               <div class="task-title">{{ element.title }}</div>
               <div class="task-meta">
-                <n-tag :type="typeColor[element.type] as any" size="tiny" :bordered="false">
-                  {{ element.type }}
+                <n-tag :type="typeTagType(element.type)" size="tiny" :bordered="false">
+                  {{ typeLabel(element.type) }}
                 </n-tag>
-                <n-tag :type="priorityColor(element.priority)" size="tiny" :bordered="false">
+                <n-tag :type="priorityTagType(element.priority)" size="tiny" :bordered="false">
                   P{{ element.priority }}
                 </n-tag>
                 <span v-if="element.assigneeName" class="task-assignee">{{ element.assigneeName }}</span>
@@ -29,7 +29,7 @@
             </div>
           </template>
         </Draggable>
-        <div v-if="!loading && columnTasks[col.status].length === 0" class="board-col-empty">
+        <div v-if="!loading && columnTasks[col.value].length === 0" class="board-col-empty">
           暂无任务（可拖入）
         </div>
       </n-spin>
@@ -47,6 +47,10 @@
   import { getTasks, updateTask } from '@/api/project/index';
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
+  import { BOARD_COLUMNS, typeLabel, typeTagType, priorityTagType } from '@/enums/task';
+
+  // 看板列（closed 不入板）：字典统一出口 enums/task.ts
+  const boardColumns = BOARD_COLUMNS;
 
   const route = useRoute();
   const message = useMessage();
@@ -55,13 +59,6 @@
   const loading = ref(false);
   const taskDetailRef = ref();
 
-  const boardColumns = [
-    { status: 'open', label: 'Open' },
-    { status: 'in_progress', label: 'In Progress' },
-    { status: 'review', label: 'Review' },
-    { status: 'done', label: 'Done' },
-  ];
-
   // 每列独立的任务数组供 Draggable 原地变更；closed 状态不在看板四列内，不展示
   const columnTasks = reactive<Record<string, TaskItem[]>>({
     open: [],
@@ -69,20 +66,6 @@
     review: [],
     done: [],
   });
-
-  const typeColor: Record<string, string> = {
-    bug: 'error',
-    feature: 'success',
-    chore: 'default',
-    test: 'info',
-  };
-
-  function priorityColor(p: number): 'default' | 'info' | 'warning' | 'error' {
-    if (p >= 4) return 'error';
-    if (p >= 3) return 'warning';
-    if (p >= 2) return 'info';
-    return 'default';
-  }
 
   function syncColumns(list: TaskItem[]) {
     const map: Record<string, TaskItem[]> = { open: [], in_progress: [], review: [], done: [] };

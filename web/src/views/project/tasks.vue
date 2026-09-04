@@ -12,7 +12,7 @@
         />
         <n-select
           v-model:value="filter.status"
-          :options="boardColumns.map((c) => ({ label: c.label, value: c.status }))"
+          :options="statusOptions"
           placeholder="状态"
           clearable
           style="width: 140px"
@@ -58,14 +58,14 @@
             <td>
               <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
             </td>
-            <td><n-tag :type="typeColor[task.type] as any" size="small">{{ task.type }}</n-tag></td>
-            <td><n-tag :type="priorityColor(task.priority) as any" size="small">P{{ task.priority }}</n-tag></td>
+            <td><n-tag :type="typeTagType(task.type)" size="small">{{ typeLabel(task.type) }}</n-tag></td>
+            <td><n-tag :type="priorityTagType(task.priority)" size="small">P{{ task.priority }}</n-tag></td>
             <td>
               <n-space :size="2">
                 <n-tag v-for="t in task.tags || []" :key="t" size="small" round :bordered="false">{{ t }}</n-tag>
               </n-space>
             </td>
-            <td><n-tag size="small">{{ statusLabel(task.status) }}</n-tag></td>
+            <td><n-tag size="small" :type="statusTagType(task.status)">{{ statusLabel(task.status) }}</n-tag></td>
             <td>{{ task.assigneeName }}</td>
             <td>
               <n-tag
@@ -145,6 +145,10 @@
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
+  import {
+    TASK_STATUS, TASK_TYPES,
+    statusLabel, statusTagType, typeLabel, typeTagType, priorityTagType,
+  } from '@/enums/task';
 
   const route = useRoute();
   const message = useMessage();
@@ -156,37 +160,9 @@
   const pagination = reactive({ page: 1, size: 20 });
   const taskDetailRef = ref();
 
-  const boardColumns = [
-    { status: 'open', label: 'Open' },
-    { status: 'in_progress', label: 'In Progress' },
-    { status: 'review', label: 'Review' },
-    { status: 'done', label: 'Done' },
-  ];
-
-  const typeColor: Record<string, string> = {
-    bug: 'error', feature: 'success', chore: 'default', test: 'info',
-  };
-
-  // 与 tasks 表 CHECK(type IN feature/bug/chore/test) 一致——多出的选项会创建失败
-  const typeOptions = [
-    { label: 'Bug', value: 'bug' },
-    { label: 'Feature', value: 'feature' },
-    { label: 'Chore', value: 'chore' },
-    { label: 'Test', value: 'test' },
-  ];
-
-  const statusLabels: Record<string, string> = {
-    open: '待处理', in_progress: '进行中', review: '审核中', done: '已完成',
-  };
-
-  function statusLabel(status: string) { return statusLabels[status] || status; }
-
-  function priorityColor(p: number): 'default' | 'info' | 'warning' | 'error' {
-    if (p >= 4) return 'error';
-    if (p >= 3) return 'warning';
-    if (p >= 2) return 'info';
-    return 'default';
-  }
+  // 状态/类型/优先级字典统一出口：enums/task.ts
+  const statusOptions = TASK_STATUS.map((s) => ({ label: s.label, value: s.value }));
+  const typeOptions = TASK_TYPES.map((t) => ({ label: t.label, value: t.value }));
 
   function openTaskDetail(task: TaskItem) {
     taskDetailRef.value?.openModal(task.id);

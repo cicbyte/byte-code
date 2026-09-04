@@ -58,6 +58,7 @@
   import type { MyTaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
+  import { statusLabel, statusTagType, priorityTagType, typeTagType, typeLabel } from '@/enums/task';
 
   const router = useRouter();
   const loading = ref(false);
@@ -72,14 +73,6 @@
   const projectOptions = computed(() =>
     projects.value.map((p) => ({ label: p.name, value: p.id }))
   );
-
-  const statusTagType: Record<string, 'success' | 'info' | 'warning' | 'default'> = {
-    open: 'default',
-    in_progress: 'info',
-    review: 'warning',
-    done: 'success',
-    closed: 'success',
-  };
 
   const columns: DataTableColumns<MyTaskItem> = [
     {
@@ -105,12 +98,18 @@
           () => row.title
         ),
     },
-    { title: '类型', key: 'type', width: 90 },
+    {
+      title: '类型',
+      key: 'type',
+      width: 90,
+      render: (row) =>
+        h(NTag, { size: 'small', bordered: false, type: typeTagType(row.type) }, () => typeLabel(row.type)),
+    },
     {
       title: '优先级',
       key: 'priority',
       width: 80,
-      render: (row) => h(NTag, { size: 'small' }, () => `P${row.priority}`),
+      render: (row) => h(NTag, { size: 'small', type: priorityTagType(row.priority) }, () => `P${row.priority}`),
     },
     {
       title: '标签',
@@ -128,7 +127,7 @@
       key: 'status',
       width: 110,
       render: (row) =>
-        h(NTag, { size: 'small', type: statusTagType[row.status] || 'default' }, () => row.status),
+        h(NTag, { size: 'small', type: statusTagType(row.status) }, () => statusLabel(row.status)),
     },
     {
       title: '截止',
