@@ -186,9 +186,22 @@
                   </n-tag>
                   <span class="text-sm font-medium">{{ comment.realName || comment.username }}</span>
                 </n-space>
-                <span class="text-xs text-gray-400">{{ comment.createdAt }}</span>
+                <n-space :size="4" align="center">
+                  <span class="text-xs text-gray-400">{{ comment.createdAt }}</span>
+                  <template v-if="isMyComment(comment)">
+                    <n-button text type="primary" size="tiny" @click="startEditComment(comment)">编辑</n-button>
+                    <n-button text type="error" size="tiny" @click="handleDeleteComment(comment)">删除</n-button>
+                  </template>
+                </n-space>
               </n-space>
-              <p class="mt-1 text-sm text-gray-600 comment-body" v-html="renderComment(comment.content)"></p>
+              <template v-if="editingCommentId === comment.id">
+                <n-input v-model:value="editCommentContent" type="textarea" :rows="2" />
+                <n-space :size="4" class="mt-1" justify="end">
+                  <n-button size="tiny" @click="cancelEditComment">取消</n-button>
+                  <n-button size="tiny" type="primary" :loading="savingComment" @click="saveEditComment">保存</n-button>
+                </n-space>
+              </template>
+              <p v-else class="mt-1 text-sm text-gray-600 comment-body" v-html="renderComment(comment.content)"></p>
             </div>
           </n-space>
           <n-divider />
@@ -230,7 +243,7 @@
   import { PaperClipOutlined, FileTextOutlined } from '@vicons/antd';
   import { ref, computed } from 'vue';
   import { useRouter } from 'vue-router';
-  import { useMessage } from 'naive-ui';
+  import { useMessage, useDialog } from 'naive-ui';
   import {
     getTask,
     getComments,
@@ -239,8 +252,11 @@
     getAiLogs,
     updateTask,
     getMembers,
+    updateComment,
+    deleteComment,
   } from '@/api/project/index';
   import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
+  import { useUserStore } from '@/store/modules/user';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
   import { priorityTagType, statusLabel, statusTagType } from '@/enums/task';
 
@@ -263,6 +279,8 @@
     return DOMPurify.sanitize(highlighted);
   }
   const message = useMessage();
+  const dialog = useDialog();
+  const userStore = useUserStore();
   const visible = ref(false);
   const loading = ref(false);
   const submitting = ref(false);
@@ -479,6 +497,66 @@
     } catch {
       message.error('删除附件失败');
     }
+  }
+
+  // ==================== 评论编辑/删除（仅作者本人） ====================
+  const myUsername = computed(() => userStore.getUserInfo?.username || userStore.username || '');
+
+  function isMyComment(c: CommentItem) {
+    return c.userType !== 'ai' && !!c.username && c.username === myUsername.value;
+  }
+
+  const editingCommentId = ref<number | null>(null);
+  const editCommentContent = ref('');
+  const savingComment = ref(false);
+
+  function startEditComment(c: CommentItem) {
+    editingCommentId.value = c.id;
+    editCommentContent.value = c.content;
+  }
+
+  function cancelEditComment() {
+    editingCommentId.value = null;
+    editCommentContent.value = '';
+  }
+
+  async function saveEditComment() {
+    if (!editingCommentId.value || !editCommentContent.value.trim()) {
+      message.warning('评论内容不能为空');
+      return;
+    }
+    savingComment.value = true;
+    try {
+      await updateComment(editingCommentId.value, editCommentContent.value);
+      message.success('评论已更新');
+      cancelEditComment();
+      if (task.value) {
+        const res = await getComments(task.value.id);
+        comments.value = res?.list || [];
+      }
+    } catch {
+      message.error('更新评论失败');
+    } finally {
+      savingComment.value = false;
+    }
+  }
+
+  function handleDeleteComment(c: CommentItem) {
+    dialog.warning({
+      title: '确认删除评论',
+      content: '删除后不可恢复，其下所有回复将一并删除。',
+      positiveText: '删除',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await deleteComment(c.id);
+          message.success('已删除');
+          comments.value = comments.value.filter((x) => x.id !== c.id);
+        } catch {
+          message.error('删除评论失败');
+        }
+      },
+    });
   }
 
   async function handleAddComment() {
