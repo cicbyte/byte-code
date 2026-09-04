@@ -7,7 +7,6 @@ const {
   navTheme,
   isMobile,
   headerSetting,
-  showFooter,
   menuSetting,
   crumbsSetting,
   isPageAnimate,
@@ -18,7 +17,6 @@ interface ProjectSettingState {
   navMode: string;
   navTheme: string;
   headerSetting: IHeaderSetting;
-  showFooter: boolean;
   menuSetting: IMenuSetting;
   crumbsSetting: ICrumbsSetting;
   isPageAnimate: boolean;
@@ -33,8 +31,7 @@ export const useProjectSettingStore = defineStore({
     navTheme,
     isMobile,
     headerSetting,
-    showFooter,
-    menuSetting,
+      menuSetting,
     crumbsSetting,
     isPageAnimate,
     pageAnimateType,
@@ -51,9 +48,6 @@ export const useProjectSettingStore = defineStore({
     },
     getHeaderSetting(): object {
       return this.headerSetting;
-    },
-    getShowFooter(): boolean {
-      return this.showFooter;
     },
     getMenuSetting(): object {
       return this.menuSetting;

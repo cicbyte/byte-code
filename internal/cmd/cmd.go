@@ -50,21 +50,6 @@ var (
 					g.Log().Warningf(bgCtx, "task due scan failed: %v", err)
 				}
 			}()
-			if _, err := gcron.AddSingleton(ctx, "0 10 3 * * *", func(ctx context.Context) {
-				if err := docs.ScanAll(ctx); err != nil {
-					g.Log().Warningf(ctx, "docs scheduled scan failed: %v", err)
-				}
-			}); err != nil {
-				g.Log().Warningf(ctx, "schedule docs scan failed: %v", err)
-			}
-			if _, err := gcron.AddSingleton(ctx, "0 20 3 * * *", func(ctx context.Context) {
-				if err := service.Docs().MemMaterialize(ctx); err != nil {
-					g.Log().Warningf(ctx, "schedule memory materialize failed: %v", err)
-				}
-			}); err != nil {
-				g.Log().Warningf(ctx, "schedule memory materialize failed: %v", err)
-			}
-
 			// 任务到期提醒：每天 09:00（工作时段推送；启动首跑见上方异步块）
 			if _, err := gcron.AddSingleton(ctx, "0 0 9 * * *", func(ctx context.Context) {
 				if err := project.ScanDueTasks(ctx); err != nil {
@@ -77,20 +62,30 @@ var (
 			// AI 执行引擎自启：开关持久化为开则恢复运行（配置在 sys_config）
 			logicAiengine.RestoreEngine(ctx)
 
-			// 只增表定期清理：启动即执行一次，此后每天 03:00 执行
-			dbclean.Run(ctx)
-			if _, err := gcron.AddSingleton(ctx, "0 0 3 * * *", func(ctx context.Context) {
-				dbclean.Run(ctx)
-			}); err != nil {
-				g.Log().Warningf(ctx, "schedule dbclean failed: %v", err)
+			// 03:00 维护窗口单入口串行执行：清理 → 文档扫描 → 记忆物化 → 备份。
+			// 原先四个独立 cron 各自错峰 10 分钟，但互不防叠——前序任务跑超时
+			// 即与备份（VACUUM INTO）并发写，SQLite 单写者下只是紧张而非死锁，
+			// 串行化后彻底消除叠跑窗口；单步失败告警不阻断后续步骤
+			maintenance := []struct {
+				name string
+				run  func(context.Context) error
+			}{
+				{"dbclean", func(c context.Context) error { dbclean.Run(c); return nil }},
+				{"docs scan", func(c context.Context) error { return docs.ScanAll(c) }},
+				{"mem materialize", func(c context.Context) error { return service.Docs().MemMaterialize(c) }},
+				{"db backup", func(c context.Context) error { dbbackup.Run(c); return nil }},
 			}
-
-			// 数据库在线备份：启动即执行一次，此后每天 03:30 执行（错开清理任务）
-			dbbackup.Run(ctx)
-			if _, err := gcron.AddSingleton(ctx, "0 30 3 * * *", func(ctx context.Context) {
-				dbbackup.Run(ctx)
-			}); err != nil {
-				g.Log().Warningf(ctx, "schedule dbbackup failed: %v", err)
+			runMaintenance := func(c context.Context) {
+				for _, step := range maintenance {
+					if err := step.run(c); err != nil {
+						g.Log().Warningf(c, "maintenance %s failed: %v", step.name, err)
+					}
+				}
+			}
+			// 启动即跑一次（错过夜间窗口的补执行）
+			go runMaintenance(context.Background())
+			if _, err := gcron.AddSingleton(ctx, "0 0 3 * * *", runMaintenance); err != nil {
+				g.Log().Warningf(ctx, "schedule maintenance failed: %v", err)
 			}
 
 			// 审计日志异步落盘协程

@@ -63,6 +63,7 @@
         <n-pagination
           v-model:page="pagination.page"
           v-model:page-size="pagination.size"
+          @update:page-size="loadProjects"
           :item-count="total"
           @update:page="loadData"
         />

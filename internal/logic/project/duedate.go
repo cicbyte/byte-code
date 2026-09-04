@@ -52,7 +52,7 @@ func ScanDueTasks(ctx context.Context) error {
 			Where("t.status IN (?)", consts.TaskActiveStatuses).
 			Where("t.due_date IS NOT NULL").Where("t.due_date != ''").
 			Where("t.assignee_id > 0").
-			Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'human')")
+			Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'human' AND u.status = 1)")
 	}
 	overdueRows, err := baseQuery().
 		Where("t.due_date < ?", today).
@@ -71,6 +71,26 @@ func ScanDueTasks(ctx context.Context) error {
 	}
 	rows := append(overdueRows, todayRows...)
 
+	// 当天已发提醒集合一次取回：去重键为 (source_id, user_id, title)——
+	// 含 user_id 使任务当天改派后新负责人仍能收到自己的提醒；
+	// 也消除了逐行 COUNT 的 N+1（最多 500 次额外查询）
+	type dedupKey struct {
+		sourceId int64
+		userId   int
+		title    string
+	}
+	sentToday := make(map[dedupKey]bool)
+	if notifiedRows, nerr := g.DB().Model("notifications").Ctx(ctx).
+		Fields("source_id, user_id, title").
+		Where("source_type", "task").
+		Where("title IN (?)", g.Slice{"任务已逾期", "任务今天到期", "任务明天到期"}).
+		Where("created_at >= ?", dayStart).
+		All(); nerr == nil {
+		for _, n := range notifiedRows {
+			sentToday[dedupKey{n["source_id"].Int64(), n["user_id"].Int(), n["title"].String()}] = true
+		}
+	}
+
 	sent := 0
 	for _, r := range rows {
 		due := r["due_date"].String()
@@ -80,6 +100,7 @@ func ScanDueTasks(ctx context.Context) error {
 		if projectName != "" {
 			scope = fmt.Sprintf("[%s] %s", projectName, taskTitle)
 		}
+		assignee := r["assignee_id"].Int()
 
 		var title, content, ntype string
 		switch {
@@ -100,17 +121,11 @@ func ScanDueTasks(ctx context.Context) error {
 			ntype = "info"
 		}
 
-		// 当天同任务同类提醒已发过则跳过（定时+启动双跑会重复触发）
-		cnt, cerr := g.DB().Model("notifications").Ctx(ctx).
-			Where("source_type", "task").
-			Where("source_id", r["id"].Int64()).
-			Where("title", title).
-			Where("created_at >= ?", dayStart).
-			Count()
-		if cerr != nil || cnt > 0 {
+		if sentToday[dedupKey{r["id"].Int64(), assignee, title}] {
 			continue
 		}
-		notify.Send(ctx, r["assignee_id"].Int(), title, content, ntype, "task", r["id"].Int())
+		sentToday[dedupKey{r["id"].Int64(), assignee, title}] = true
+		notify.Send(ctx, assignee, title, content, ntype, "task", r["id"].Int())
 		sent++
 	}
 	if sent > 0 {

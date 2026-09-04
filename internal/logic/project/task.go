@@ -343,7 +343,7 @@ func (s *sProject) MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res 
 	err = base().
 		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name, COALESCE(p.name, '') as project_name").
 		// 状态推进顺序排前，同态按优先级与更新时间倒序
-		Order("CASE t.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'review' THEN 2 ELSE 3 END, t.priority DESC, t.updated_at DESC").
+		Order(fmt.Sprintf("CASE t.status WHEN '%s' THEN 0 WHEN '%s' THEN 1 WHEN '%s' THEN 2 ELSE 3 END, t.priority DESC, t.updated_at DESC", consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusReview)).
 		Page(req.Page, req.Size).
 		Scan(&list)
 	if err != nil {

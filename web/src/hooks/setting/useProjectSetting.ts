@@ -16,7 +16,6 @@ export function useProjectSetting() {
 
   const crumbsSetting = computed(() => projectStore.crumbsSetting);
 
-  const showFooter = computed(() => projectStore.showFooter);
 
   const isPageAnimate = computed(() => projectStore.isPageAnimate);
 
@@ -29,7 +28,6 @@ export function useProjectSetting() {
     headerSetting,
     menuSetting,
     crumbsSetting,
-    showFooter,
     isPageAnimate,
     pageAnimateType,
   };

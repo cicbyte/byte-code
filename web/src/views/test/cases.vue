@@ -53,7 +53,7 @@
           <tbody>
             <tr v-for="item in caseList" :key="item.id">
               <td>{{ item.title }}</td>
-              <td>{{ item.category }}</td>
+              <td>{{ categoryLabel(item.category) }}</td>
               <td>{{ item.module }}</td>
               <td>
                 <n-tag :type="priorityType(item.priority)" size="small">{{ item.priority }}</n-tag>
@@ -158,6 +158,10 @@
   const projectId = computed(() => Number(route.params.projectId));
   const pagination = reactive({ page: 1, pageSize: 10 });
   const filters = reactive({ category: null as string | null, status: null as string | null, keyword: '' });
+
+  function categoryLabel(c: string) {
+    return categoryOptions.find((o) => o.value === c)?.label || c;
+  }
 
   const categoryOptions = [
     { label: '功能测试', value: 'functional' },

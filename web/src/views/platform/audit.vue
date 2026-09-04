@@ -38,7 +38,7 @@
           <tbody>
             <tr v-for="item in logList" :key="item.id">
               <td>
-                <n-tag size="small">{{ item.action }}</n-tag>
+                <n-tag size="small">{{ actionLabel(item.action) }}</n-tag>
               </td>
               <td>{{ item.targetType }}</td>
               <td>{{ item.targetName }}</td>
@@ -65,6 +65,14 @@
 </template>
 
 <script lang="ts" setup>
+  // 审计 action 常见值中文化（未知值原样展示）
+  const actionLabels: Record<string, string> = {
+    login: '登录', logout: '登出', create: '创建', update: '更新', delete: '删除',
+    claim: '认领', complete: '完成', review: '审核', verify: '验证', expire: '废弃',
+  };
+  function actionLabel(a: string) {
+    return actionLabels[a] || a;
+  }
   import { ref, reactive, onMounted } from 'vue';
   import { getAuditLogs } from '@/api/platform/index';
   import type { AuditLogItem } from '@/api/platform/index';

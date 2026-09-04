@@ -24,7 +24,7 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 	// user_type 由服务端按账号类型推导（AI 账号经 Key 登录记为 ai），
 	// 不信任客户端声明，防止伪造 AI 评论
 	userType := "human"
-	if v, _ := g.DB().Model("sys_users").Where("id", userId).Fields("type").Value(); v != nil && v.String() == "ai" {
+	if v, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", userId).Fields("type").Value(); v != nil && v.String() == "ai" {
 		userType = "ai"
 	}
 
@@ -61,7 +61,7 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 				}
 			}
 			authorName := ""
-			if an, _ := g.DB().Model("sys_users").Where("id", userId).
+			if an, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", userId).
 				Fields("COALESCE(NULLIF(real_name, ''), username)").Value(); an != nil {
 				authorName = an.String()
 			}
@@ -83,7 +83,7 @@ func notifyMentions(ctx context.Context, content, taskTitle, authorName string, 
 		return
 	}
 	users, err := g.DB().Model("sys_users").Ctx(ctx).
-		Fields("id, username").Where("type", "human").All()
+		Fields("id, username").Where("type", "human").Where("status", 1).All()
 	if err != nil {
 		return
 	}
@@ -148,6 +148,8 @@ func (s *sProject) ListComments(ctx context.Context, taskId int) (res *api.Comme
 		Fields("c.id, c.task_id, c.user_id, u.username, COALESCE(u.real_name, '') as real_name, c.content, c.user_type, c.created_at").
 		Where("c.task_id", taskId).
 		Order("c.id ASC").
+		// 详情弹窗一次性渲染：封顶防长任务评论无界（取最新的 500 条）
+		Limit(500).
 		Scan(&list)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询评论失败")
@@ -192,12 +194,14 @@ func (s *sProject) DeleteComment(ctx context.Context, id int) (err error) {
 			return fmt.Errorf("只能删除自己的评论")
 		}
 	}
-	// 删除子回复
-	if _, err := g.DB().Model("comments").Ctx(ctx).Where("parent_id", id).Delete(); err != nil {
-		return liberr.WrapDb(ctx, err, "删除子回复失败")
-	}
-	_, err = g.DB().Model("comments").Ctx(ctx).Where("id", id).Delete()
-	if err != nil {
+	// 递归删除全部后代（只删一层会让孙级悬挂成孤儿仍出现在列表里）
+	if _, err := g.DB().Exec(ctx,
+		`WITH RECURSIVE sub(id) AS (
+			SELECT id FROM comments WHERE id = ?
+			UNION ALL
+			SELECT c.id FROM comments c JOIN sub s ON c.parent_id = s.id
+		)
+		DELETE FROM comments WHERE id IN (SELECT id FROM sub)`, id); err != nil {
 		return liberr.WrapDb(ctx, err, "删除评论失败")
 	}
 	return nil

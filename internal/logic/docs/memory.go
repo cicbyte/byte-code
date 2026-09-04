@@ -15,18 +15,28 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 )
 
-// staleDaysConfigKey 腐化阈值（天）：last_verified_at 距今超过该值视为 stale
 const staleDaysConfigKey = "memory_stale_days"
 
+var (
+	staleDaysCache     int
+	staleDaysCacheAt   time.Time
+)
+
+// memoryStaleDays 腐化阈值（天）。sys_config 每请求都查一次太重，
+// 进程内缓存 30s——阈值是运营配置，秒级生效无意义（并发竞态最坏多查一次，无害）
 func memoryStaleDays(ctx context.Context) int {
+	if time.Since(staleDaysCacheAt) < 30*time.Second {
+		return staleDaysCache
+	}
 	v, err := g.DB().Model("sys_config").Ctx(ctx).Where("key", staleDaysConfigKey).Value("value")
-	if err != nil || v == nil {
-		return 30
+	n := 30
+	if err == nil && v != nil {
+		if parsed, perr := strconv.Atoi(v.String()); perr == nil && parsed > 0 {
+			n = parsed
+		}
 	}
-	if n, err := strconv.Atoi(v.String()); err == nil && n > 0 {
-		return n
-	}
-	return 30
+	staleDaysCache, staleDaysCacheAt = n, time.Now()
+	return n
 }
 
 // parseTtl 解析 30m/12h/7d 形式的有效期；空串返回 0（永不过期）
@@ -163,6 +173,12 @@ func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *a
 	if ttl > 0 {
 		expiresAt = now.Add(ttl)
 	}
+	// pending 语义是"未确认推测"：写 NULL 验证时间，避免与 active 同天起算
+	// 腐化阈值（否则 pending 永不比 active 更快变 stale，状态失去区分度）
+	var lastVerified interface{}
+	if status == "active" {
+		lastVerified = now
+	}
 	// 单语句原子 upsert：count-then-insert 在并发写同 key 时会撞
 	// UNIQUE(project_id, key)——报"索引同步失败"完全误导排障方向
 	_, err = g.DB().Exec(ctx,
@@ -173,7 +189,7 @@ func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *a
 			value = excluded.value, status = excluded.status, expires_at = excluded.expires_at,
 			last_verified_at = excluded.last_verified_at, verified_by = excluded.verified_by,
 			updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
-		projectId, key, req.Value, status, expiresAt, now, uid, uid, now, now)
+		projectId, key, req.Value, status, expiresAt, lastVerified, uid, uid, now, now)
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "写入记忆失败")
 	}

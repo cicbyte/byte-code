@@ -169,7 +169,11 @@ var projectEntityRules = []struct {
 // testPlanCaseRe /test-plan-cases/{id} 需两跳解析（test_plan_cases.test_plan_id -> test_plans.project_id）
 var testPlanCaseRe = regexp.MustCompile(`^/api/v1/test-plan-cases/(\d+)`)
 
-// resolveProjectId 从请求路径解析所属项目 id：直接项目路径、两跳计划用例、
+// commentRe /comments/{id} 两跳解析（comments.task_id -> tasks.project_id）：
+// 评论编辑/删除原本只靠业务层作者校验兜底，补一层项目归属防御
+var commentRe = regexp.MustCompile(`^/api/v1/comments/(\d+)`)
+
+// resolveProjectId 从请求路径解析所属项目 id：直接项目路径、两跳计划用例/评论、
 // 或按实体前缀表查 project_id。非项目资源路径返回 0（不校验）。
 func resolveProjectId(ctx context.Context, path string) int {
 	if m := projectDirectRe.FindStringSubmatch(path); m != nil {
@@ -180,6 +184,11 @@ func resolveProjectId(ctx context.Context, path string) int {
 		id, _ := strconv.Atoi(m[1])
 		planId := perm.EntityFieldInt(ctx, "test_plan_cases", id, "test_plan_id")
 		return perm.EntityProjectId(ctx, "test_plans", planId)
+	}
+	if m := commentRe.FindStringSubmatch(path); m != nil {
+		id, _ := strconv.Atoi(m[1])
+		taskId := perm.EntityFieldInt(ctx, "comments", id, "task_id")
+		return perm.EntityProjectId(ctx, "tasks", taskId)
 	}
 	for _, rule := range projectEntityRules {
 		if m := rule.re.FindStringSubmatch(path); m != nil {

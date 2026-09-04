@@ -113,7 +113,7 @@
                 <td>{{ r.testCaseTitle }}</td>
                 <td>{{ r.assigneeName || '-' }}</td>
                 <td>
-                  <n-tag :type="resultType(r.status)" size="small">{{ r.status }}</n-tag>
+                  <n-tag :type="resultType(r.status)" size="small">{{ resultLabel(r.status) }}</n-tag>
                 </td>
                 <td>{{ r.actualResult || '-' }}</td>
                 <td>{{ r.executedAt || '-' }}</td>
@@ -169,6 +169,11 @@
   }
 
   const planStatusLabel = SPRINT_STATUS.label;
+
+  const resultLabels: Record<string, string> = { pass: '通过', fail: '失败', blocked: '阻塞', pending: '未执行' };
+  function resultLabel(s: string) {
+    return resultLabels[s] || s;
+  }
 
   function resultType(s: string): 'success' | 'error' | 'warning' | 'default' {
     if (s === 'pass') return 'success';

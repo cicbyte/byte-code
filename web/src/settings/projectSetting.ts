@@ -15,7 +15,6 @@ const setting = {
     isReload: true,
   },
   //页脚
-  showFooter: true,
   //菜单
   menuSetting: {
     //最小宽度

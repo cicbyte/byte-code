@@ -193,7 +193,15 @@ func globalConventionMemos(ctx context.Context) []g.Map {
 		return nil
 	}
 	memos := make([]g.Map, 0, len(rows))
+	now := gtime.Now()
+	sd := memoryStaleDays(ctx)
 	for _, r := range rows {
+		// 物化是每日定时任务，TTL 刚到期的行 status 列还停在 active——
+		// 与 mem_list 同口径惰性判定，过期条目跳过不注入
+		st, _ := memStatusHint(r["status"].String(), r["expires_at"].GTime(), r["last_verified_at"].GTime(), now, sd)
+		if st == "expired" {
+			continue
+		}
 		v := r["value"].String()
 		if len(v) > 600 {
 			v = v[:600] + "…"
@@ -266,15 +274,26 @@ func (t *DocLinkedTool) InvokableRun(ctx context.Context, argsInJSON string, opt
 
 // ==================== 记忆工具 ====================
 
+var (
+	staleDaysCache     int
+	staleDaysCacheAt   time.Time
+)
+
+// memoryStaleDays 腐化阈值（天）。sys_config 每请求都查一次太重，
+// 进程内缓存 30s——阈值是运营配置，秒级生效无意义（并发竞态最坏多查一次，无害）
 func memoryStaleDays(ctx context.Context) int {
+	if time.Since(staleDaysCacheAt) < 30*time.Second {
+		return staleDaysCache
+	}
 	v, err := g.DB().Model("sys_config").Ctx(ctx).Where("key", "memory_stale_days").Value("value")
-	if err != nil || v == nil {
-		return 30
+	n := 30
+	if err == nil && v != nil {
+		if parsed, perr := strconv.Atoi(v.String()); perr == nil && parsed > 0 {
+			n = parsed
+		}
 	}
-	if n, err := strconv.Atoi(v.String()); err == nil && n > 0 {
-		return n
-	}
-	return 30
+	staleDaysCache, staleDaysCacheAt = n, time.Now()
+	return n
 }
 
 // memStatusHint 惰性判定（不物化，物化由定时任务负责）：
@@ -471,9 +490,14 @@ func (t *MemSetTool) InvokableRun(ctx context.Context, argsInJSON string, opts .
 	}
 	uid := aiUserId(ctx)
 	now := gtime.Now()
+	// pending 语义是未确认推测：写 NULL 验证时间，与 docs 包 MemSet 同口径
+	var lastVerified interface{}
+	if p.Status == "active" {
+		lastVerified = now
+	}
 	data := g.Map{
 		"value": p.Value, "status": p.Status,
-		"expires_at": nil, "last_verified_at": now,
+		"expires_at": nil, "last_verified_at": lastVerified,
 		"verified_by": uid, "updated_by": uid, "updated_at": now,
 	}
 	if ttl > 0 {
