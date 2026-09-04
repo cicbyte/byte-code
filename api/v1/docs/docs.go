@@ -293,6 +293,68 @@ type MemoryDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// ==================== 全局记忆（project_id=0，跨项目通用约定） ====================
+
+type GlobalMemoryListReq struct {
+	g.Meta  `path:"/global-memories" method:"get" tags:"全局记忆" summary:"全局记忆列表（全员可读；默认 pending+active）"`
+	Prefix  string `json:"prefix" in:"query" dc:"key 前缀过滤（点分层级，如 conventions.）"`
+	Include string `json:"include" in:"query" dc:"额外包含的状态：stale,expired"`
+}
+
+type GlobalMemoryListRes struct {
+	g.Meta `mime:"application/json"`
+	List   []MemoryItem `json:"list"`
+}
+
+type GlobalMemoryGetReq struct {
+	g.Meta `path:"/global-memories/{key}" method:"get" tags:"全局记忆" summary:"读取单条全局记忆"`
+	Key    string `json:"-" in:"path" v:"required#key不能为空"`
+}
+
+type GlobalMemoryGetRes struct {
+	g.Meta `mime:"application/json"`
+	MemoryItem
+}
+
+type GlobalMemorySetReq struct {
+	g.Meta `path:"/global-memories/{key}" method:"put" tags:"全局记忆" summary:"写入/更新全局记忆（仅管理员）"`
+	Key    string `json:"-" in:"path" v:"required#key不能为空"`
+	Value  string `json:"value" v:"max-length:65536#单值上限64KB"`
+	Ttl    string `json:"ttl" dc:"有效期：30m/12h/7d，缺省永不过期"`
+	Status string `json:"status" v:"in:,pending,active#状态必须是pending/active" dc:"缺省active"`
+}
+
+type GlobalMemorySetRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type GlobalMemoryVerifyReq struct {
+	g.Meta `path:"/global-memories/{key}/verify" method:"post" tags:"全局记忆" summary:"验证保鲜（仅管理员）"`
+	Key    string `json:"-" in:"path" v:"required#key不能为空"`
+}
+
+type GlobalMemoryVerifyRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type GlobalMemoryExpireReq struct {
+	g.Meta `path:"/global-memories/{key}/expire" method:"post" tags:"全局记忆" summary:"主动废弃（仅管理员）"`
+	Key    string `json:"-" in:"path" v:"required#key不能为空"`
+}
+
+type GlobalMemoryExpireRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type GlobalMemoryDeleteReq struct {
+	g.Meta `path:"/global-memories/{key}" method:"delete" tags:"全局记忆" summary:"删除全局记忆（仅管理员）"`
+	Key    string `json:"-" in:"path" v:"required#key不能为空"`
+}
+
+type GlobalMemoryDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // ==================== 版本历史 ====================
 
 type DocsHistoryListReq struct {

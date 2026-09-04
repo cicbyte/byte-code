@@ -31,6 +31,14 @@ const routes: Array<RouteRecordRaw> = [
         },
         component: () => import('@/views/setting/system/system.vue'),
       },
+      {
+        path: 'global-memory',
+        name: 'setting-global-memory',
+        meta: {
+          title: '全局记忆',
+        },
+        component: () => import('@/views/setting/memory/global-memory.vue'),
+      },
     ],
   },
 ];

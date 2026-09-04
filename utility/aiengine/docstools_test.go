@@ -186,6 +186,71 @@ func TestDocTools(t *testing.T) {
 	}
 }
 
+func TestGlobalMemoryInjection(t *testing.T) {
+	ctx := setupToolsTest(t)
+
+	// 全局记忆（project_id=0）+ 同名项目记忆（覆盖语义验证）
+	g.DB().Exec(context.Background(),
+		`INSERT INTO project_memories (project_id, key, value, status, last_verified_at, updated_by)
+		VALUES (0, 'conventions.code-style', '全局：gofmt 统一排序', 'active', ?, 1),
+		       (0, 'deploy.default', '部署走 Docker', 'active', ?, 1),
+		       (0, 'conventions.expired-one', '已废弃', 'expired', ?, 1),
+		       (1, 'conventions.code-style', '本项目覆盖：分号禁用', 'active', ?, 1)`,
+		gtime.Now(), gtime.Now(), gtime.Now(), gtime.Now())
+
+	// mem_list：全局在前、scope 标注、expired 不出
+	list := runTool(t, ctx, &MemListTool{}, `{"projectId":1}`)
+	l := list["list"].([]interface{})
+	if len(l) != 3 {
+		t.Fatalf("mem_list 应含 2 全局 + 1 项目: %v", list)
+	}
+	first := l[0].(map[string]interface{})
+	if first["key"] != "conventions.code-style" || first["scope"] != "global" {
+		t.Fatalf("全局约定应排最前且 scope=global: %v", first)
+	}
+	second := l[1].(map[string]interface{})
+	if second["key"] != "deploy.default" || second["scope"] != "global" {
+		t.Fatalf("deploy.default 应为 global: %v", second)
+	}
+	last := l[len(l)-1].(map[string]interface{})
+	if last["key"] != "conventions.code-style" || last["scope"] != "project" {
+		t.Fatalf("项目记忆应在全局块之后: %v", last)
+	}
+
+	// mem_get：项目作用域优先覆盖同名全局
+	got := runTool(t, ctx, &MemGetTool{}, `{"projectId":1,"key":"conventions.code-style"}`)
+	if got["scope"] != "project" || got["value"] != "本项目覆盖：分号禁用" {
+		t.Fatalf("同名 key 项目记忆应优先: %v", got)
+	}
+	// mem_get：项目未命中回落全局
+	got = runTool(t, ctx, &MemGetTool{}, `{"projectId":1,"key":"deploy.default"}`)
+	if got["scope"] != "global" || got["value"] != "部署走 Docker" {
+		t.Fatalf("未命中应回落全局: %v", got)
+	}
+
+	// kb_get_conventions：全局 conventions.* 注入（expired 剔除、非 conventions 前缀不注入）
+	kb := runTool(t, ctx, &KbConventionsTool{}, `{"projectId":1}`)
+	memos := kb["globalConventions"].([]interface{})
+	if len(memos) != 1 {
+		t.Fatalf("globalConventions 应只含 1 条 active 约定: %v", kb)
+	}
+	m := memos[0].(map[string]interface{})
+	if m["key"] != "conventions.code-style" || m["value"] != "全局：gofmt 统一排序" {
+		t.Fatalf("约定内容不符: %v", m)
+	}
+	if _, hasItems := kb["items"]; !hasItems {
+		t.Fatalf("项目文档条目应仍在: %v", kb)
+	}
+
+	// mem_set 不落全局：同 key upsert 只影响项目作用域行
+	runTool(t, ctx, &MemSetTool{}, `{"projectId":1,"key":"deploy.default","value":"项目级覆盖"}`)
+	cnt, _ := g.DB().Model("project_memories").
+		Where("project_id", 0).Where("key", "deploy.default").Where("value", "项目级覆盖").Count()
+	if cnt != 0 {
+		t.Fatal("mem_set 不应改写全局记忆")
+	}
+}
+
 func TestGetToolsRegistration(t *testing.T) {
 	ctx := context.Background()
 	tools := GetTools()

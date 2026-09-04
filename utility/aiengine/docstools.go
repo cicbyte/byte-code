@@ -119,7 +119,7 @@ func textExt(ext string) bool {
 type KbConventionsTool struct{}
 
 func (t *KbConventionsTool) Info(ctx context.Context) (*ToolInfo, error) {
-	return toolInfo("kb_get_conventions", "获取项目知识库已发布文档（规范/架构/决策/手册），开工前优先阅读",
+	return toolInfo("kb_get_conventions", "获取项目知识库已发布文档（规范/架构/决策/手册）与全局约定（conventions.* 记忆），开工前优先阅读",
 		map[string]*ParameterInfo{
 			"projectId": paramInfo("integer", "项目ID"),
 		}, nil,
@@ -144,8 +144,18 @@ func (t *KbConventionsTool) InvokableRun(ctx context.Context, argsInJSON string,
 	if err != nil {
 		return "", fmt.Errorf("查询失败")
 	}
+	// 全局约定（project_id=0 的 conventions.* 记忆）：即使项目知识库为空也要带出，
+	// 公司级规范不依赖单个项目的内容产出
+	globalMemos := globalConventionMemos(ctx)
 	if len(rows) == 0 {
-		return marshalString(g.Map{"items": []string{}, "hint": "知识库暂无已发布文档"}), nil
+		resp := g.Map{"items": []string{}}
+		if len(globalMemos) > 0 {
+			resp["globalConventions"] = globalMemos
+			resp["hint"] = "知识库暂无已发布文档，已附全局约定"
+		} else {
+			resp["hint"] = "知识库暂无已发布文档"
+		}
+		return marshalString(resp), nil
 	}
 	const maxBody = 1500
 	root := docs.RootPath(int64(p.ProjectId))
@@ -164,7 +174,33 @@ func (t *KbConventionsTool) InvokableRun(ctx context.Context, argsInJSON string,
 		}
 		items = append(items, item)
 	}
-	return marshalString(g.Map{"items": items}), nil
+	resp := g.Map{"items": items}
+	if len(globalMemos) > 0 {
+		resp["globalConventions"] = globalMemos
+	}
+	return marshalString(resp), nil
+}
+
+// globalConventionMemos 全局记忆中 conventions. 前缀的约定（project_id=0，跨项目通用，
+// 仅管理员经 Web 端维护；AI 侧只读注入）
+func globalConventionMemos(ctx context.Context) []g.Map {
+	rows, err := g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", 0).
+		Where("status IN (?)", g.Slice{"pending", "active"}).
+		WhereLike("key", "conventions.%").
+		Order("key ASC").Limit(10).All()
+	if err != nil {
+		return nil
+	}
+	memos := make([]g.Map, 0, len(rows))
+	for _, r := range rows {
+		v := r["value"].String()
+		if len(v) > 600 {
+			v = v[:600] + "…"
+		}
+		memos = append(memos, g.Map{"key": r["key"].String(), "value": v})
+	}
+	return memos
 }
 
 // ---- 按任务反查关联文档 ----
@@ -269,7 +305,7 @@ func memStatusHint(status string, expiresAt, lastVerified *gtime.Time, now *gtim
 type MemListTool struct{}
 
 func (t *MemListTool) Info(ctx context.Context) (*ToolInfo, error) {
-	return toolInfo("mem_list", "列出项目 KV 记忆（点分层级 key，如 conventions. / build.），开工前先扫描项目记忆",
+	return toolInfo("mem_list", "列出全局与项目 KV 记忆（点分层级 key，如 conventions. / build.；scope=global 为跨项目通用约定，优先遵守），开工前先扫描记忆",
 		map[string]*ParameterInfo{
 			"projectId": paramInfo("integer", "项目ID"),
 		},
@@ -292,13 +328,14 @@ func (t *MemListTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 	} else {
 		p.ProjectId = pid
 	}
+	// project_id IN (0, pid)：全局记忆（0）与项目记忆合并返回，全局在前
 	m := g.DB().Model("project_memories").Ctx(ctx).
-		Where("project_id", p.ProjectId).
+		Where("project_id IN (?)", g.Slice{0, p.ProjectId}).
 		Where("status IN (?)", g.Slice{"pending", "active"})
 	if p.Prefix != "" {
 		m = m.WhereLike("key", p.Prefix+"%")
 	}
-	rows, err := m.Order("key ASC").Limit(50).All()
+	rows, err := m.Order("project_id ASC, key ASC").Limit(50).All()
 	if err != nil {
 		return "", fmt.Errorf("查询失败")
 	}
@@ -311,6 +348,7 @@ func (t *MemListTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 		Key      string `json:"key"`
 		Value    string `json:"value"`
 		Status   string `json:"status"`
+		Scope    string `json:"scope" dc:"global=全局约定（跨项目通用），project=项目记忆"`
 		Hint     string `json:"hint,omitempty"`
 		Verified string `json:"lastVerifiedAt"`
 	}
@@ -321,7 +359,11 @@ func (t *MemListTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 		if len(v) > 600 {
 			v = v[:600] + "…"
 		}
-		list = append(list, item{Key: r["key"].String(), Value: v, Status: st, Hint: hint, Verified: r["last_verified_at"].String()})
+		scope := "project"
+		if r["project_id"].Int64() == 0 {
+			scope = "global"
+		}
+		list = append(list, item{Key: r["key"].String(), Value: v, Status: st, Scope: scope, Hint: hint, Verified: r["last_verified_at"].String()})
 	}
 	return marshalString(g.Map{"list": list}), nil
 }
@@ -331,7 +373,7 @@ func (t *MemListTool) InvokableRun(ctx context.Context, argsInJSON string, opts 
 type MemGetTool struct{}
 
 func (t *MemGetTool) Info(ctx context.Context) (*ToolInfo, error) {
-	return toolInfo("mem_get", "读取单条项目记忆（含可用性提示：过期/腐化/待验证）",
+	return toolInfo("mem_get", "读取单条记忆（项目作用域优先，未命中回落全局约定；含可用性提示：过期/腐化/待验证）",
 		map[string]*ParameterInfo{
 			"projectId": paramInfo("integer", "项目ID"),
 			"key":       paramInfo("string", "记忆 key，点分层级如 build.cmd"),
@@ -357,12 +399,22 @@ func (t *MemGetTool) InvokableRun(ctx context.Context, argsInJSON string, opts .
 	if err != nil {
 		return "", fmt.Errorf("查询失败")
 	}
+	scope := "project"
 	if r.IsEmpty() {
-		return "", fmt.Errorf("记忆不存在: %s", p.Key)
+		// 项目作用域未命中回落全局（project_id=0）：同名 key 项目记忆可覆盖全局约定
+		r, err = g.DB().Model("project_memories").Ctx(ctx).
+			Where("project_id", 0).Where("key", p.Key).One()
+		if err != nil {
+			return "", fmt.Errorf("查询失败")
+		}
+		if r.IsEmpty() {
+			return "", fmt.Errorf("记忆不存在: %s", p.Key)
+		}
+		scope = "global"
 	}
 	st, hint := memStatusHint(r["status"].String(), r["expires_at"].GTime(), r["last_verified_at"].GTime(), gtime.Now(), memoryStaleDays(ctx))
 	return marshalString(g.Map{
-		"key": p.Key, "value": r["value"].String(), "status": st, "hint": hint,
+		"key": p.Key, "value": r["value"].String(), "status": st, "hint": hint, "scope": scope,
 		"lastVerifiedAt": r["last_verified_at"].String(),
 	}), nil
 }

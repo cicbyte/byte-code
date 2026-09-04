@@ -64,6 +64,13 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.Docs,
 			)
 
+			// 全局记忆读取（project_id=0，跨项目通用约定；全员可读，
+			// 写操作在下方管理组——不能整绑控制器，须逐方法注册）
+			group.Bind(
+				controller.GlobalMemories.List,
+				controller.GlobalMemories.Get,
+			)
+
 			// 附件：上传/下载/列表对所有登录用户开放（存储配置在管理组）
 			group.Bind(
 				controller.AttachmentCtrl.AttachmentUpload,
@@ -120,6 +127,14 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		)
 
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
+			// 全局记忆写操作（影响所有项目的 AI 上下文，仅管理员）
+			group.Bind(
+				controller.GlobalMemories.Set,
+				controller.GlobalMemories.Verify,
+				controller.GlobalMemories.Expire,
+				controller.GlobalMemories.Delete,
+			)
+
 			// AI 用户管理（AiLogin 已在公开组）
 			group.Bind(
 				controller.AiUserCtrl.Create,

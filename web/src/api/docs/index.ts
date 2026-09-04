@@ -227,6 +227,38 @@ export function deleteMemory(projectId: number, key: string) {
   return Alova.Delete(`/v1/projects/${projectId}/memories/${encodeURIComponent(key)}`);
 }
 
+// ==================== Global Memories API（project_id=0，读全员/写仅管理员） ====================
+
+/** 全局记忆列表 */
+export function getGlobalMemories(prefix?: string, include?: string) {
+  return Alova.Get<MemoryListResult>('/v1/global-memories', {
+    params: { ...(prefix ? { prefix } : {}), ...(include ? { include } : {}) },
+  });
+}
+
+/** 写入全局记忆（upsert，仅管理员） */
+export function setGlobalMemory(
+  key: string,
+  data: { value: string; ttl?: string; status?: 'pending' | 'active' }
+) {
+  return Alova.Put(`/v1/global-memories/${encodeURIComponent(key)}`, data);
+}
+
+/** 验证保鲜（仅管理员） */
+export function verifyGlobalMemory(key: string) {
+  return Alova.Post(`/v1/global-memories/${encodeURIComponent(key)}/verify`);
+}
+
+/** 主动废弃（仅管理员） */
+export function expireGlobalMemory(key: string) {
+  return Alova.Post(`/v1/global-memories/${encodeURIComponent(key)}/expire`);
+}
+
+/** 删除（仅管理员） */
+export function deleteGlobalMemory(key: string) {
+  return Alova.Delete(`/v1/global-memories/${encodeURIComponent(key)}`);
+}
+
 // ==================== 版本历史 ====================
 
 export interface HistoryItem {
