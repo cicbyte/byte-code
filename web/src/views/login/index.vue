@@ -213,7 +213,7 @@
       position: absolute;
       border-radius: 50%;
       opacity: 0.08;
-      background: #fff;
+      background: var(--panel-bg, #fff);
 
       &-1 {
         width: 400px;
@@ -343,13 +343,13 @@
     .form-title {
       font-size: 26px;
       font-weight: 700;
-      color: #0f172a;
+      color: var(--text-1, #24292f);
       margin: 0 0 8px;
     }
 
     .form-subtitle {
       font-size: 15px;
-      color: #64748b;
+      color: var(--text-2, #57606a);
       margin: 0;
     }
   }
@@ -358,7 +358,7 @@
     :deep(.n-form-item-label) {
       font-size: 14px;
       font-weight: 500;
-      color: #334155;
+      color: var(--text-2, #57606a);
       padding-bottom: 6px;
     }
 

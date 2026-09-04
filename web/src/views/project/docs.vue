@@ -15,6 +15,13 @@
             {{ uploading.done }}/{{ uploading.total }}{{ uploading.failed ? `（${uploading.failed} 失败）` : '' }}
           </n-progress>
 
+          <div v-if="searchMode" class="search-banner">
+            <span>搜索结果</span>
+            <n-button size="tiny" quaternary type="primary" @click="searchKeyword = ''; exitSearchMode()">
+              返回目录
+            </n-button>
+          </div>
+
           <n-input
             v-model:value="searchKeyword"
             size="small"
@@ -22,6 +29,7 @@
             clearable
             class="mb-2"
             @keyup.enter="handleSearch"
+            @clear="exitSearchMode"
           >
             <template #suffix>
               <n-icon style="cursor: pointer" @click="handleSearch"><SearchOutlined /></n-icon>
@@ -869,10 +877,24 @@
     }
   }
 
+  // ==================== 搜索结果态与目录树态 ====================
+  // 两态显式建模：进入/退出统一收口（清 dirPaths、取消内联编辑、恢复展开态），
+  // 否则残留的 dirPaths/编辑态会让搜索结果里的目录操作错乱
+  const searchMode = ref(false);
+  const savedExpanded = ref<string[]>([]);
+
+  function exitSearchMode() {
+    if (!searchMode.value) return;
+    searchMode.value = false;
+    expandedKeys.value = savedExpanded.value;
+    cancelInline();
+    loadTree();
+  }
+
   async function handleSearch() {
     const q = searchKeyword.value.trim();
     if (!q) {
-      loadTree();
+      exitSearchMode();
       return;
     }
     try {
@@ -882,7 +904,13 @@
         message.info('未搜索到匹配文档');
         return;
       }
-      // 搜索结果平铺为树（点击直接打开文件）
+      // 进入搜索态：记住展开态；结果平铺（点击直接打开文件）
+      if (!searchMode.value) {
+        searchMode.value = true;
+        savedExpanded.value = [...expandedKeys.value];
+        cancelInline();
+        dirPaths.clear(); // 搜索结果无目录语义，旧集合跨态残留会导致误判
+      }
       treeData.value = items.map((it) => ({
         key: it.path,
         label: `${it.title} — ${it.path}`,
@@ -1006,6 +1034,18 @@
       flex: 1;
       min-height: 0;
     }
+  }
+
+  .search-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--hover-bg);
+    font-size: 12px;
+    color: var(--text-2, #57606a);
   }
 
   // docx 预览排版（Word 转出的 HTML 无样式，补基础阅读版式）

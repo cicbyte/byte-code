@@ -200,7 +200,7 @@
 
   .notif-empty {
     padding: 24px 0;
-    color: #999;
+    color: var(--text-3, #8b949e);
     text-align: center;
   }
 
@@ -214,7 +214,7 @@
     }
 
     &:hover {
-      background: rgba(0, 0, 0, 0.02);
+      background: var(--hover-bg);
     }
 
     &.unread .notif-item-name {
@@ -240,13 +240,13 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #f00;
+    background: #d03050;
   }
 
   .notif-item-content {
     margin-top: 4px;
     overflow: hidden;
-    color: #666;
+    color: var(--text-2, #57606a);
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -254,7 +254,7 @@
 
   .notif-item-time {
     margin-top: 2px;
-    color: #999;
+    color: var(--text-3, #8b949e);
     font-size: 12px;
   }
 </style>

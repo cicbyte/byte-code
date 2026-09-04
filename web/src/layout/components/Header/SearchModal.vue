@@ -120,7 +120,7 @@
 <style lang="less" scoped>
   .search-empty {
     padding: 24px 0;
-    color: #999;
+    color: var(--text-3, #8b949e);
     text-align: center;
   }
 
@@ -136,7 +136,7 @@
   }
 
   .search-group-count {
-    color: #999;
+    color: var(--text-3, #8b949e);
     font-size: 12px;
   }
 
@@ -149,7 +149,7 @@
     border-radius: 4px;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.03);
+      background: var(--hover-bg);
     }
   }
 
@@ -163,7 +163,7 @@
   .search-item-id {
     flex: none;
     margin-left: 12px;
-    color: #bbb;
+    color: var(--text-3, #8b949e);
     font-size: 12px;
   }
 </style>
