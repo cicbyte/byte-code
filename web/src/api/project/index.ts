@@ -158,6 +158,7 @@ export interface AiLogItem {
   id: number;
   taskId: number;
   aiUserId: number;
+  aiUsername?: string;
   action: string;
   detail: string;
   status: string;

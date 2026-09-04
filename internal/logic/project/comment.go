@@ -148,9 +148,11 @@ func (s *sProject) CreateAiLog(ctx context.Context, req *api.AiLogCreateReq) (id
 func (s *sProject) ListAiLogs(ctx context.Context, taskId int) (res *api.AiLogListRes, err error) {
 	res = &api.AiLogListRes{}
 	var list []api.AiLogItem
-	err = g.DB().Model("ai_execution_logs").Ctx(ctx).
-		Where("task_id", taskId).
-		Order("id DESC").
+	err = g.DB().Model("ai_execution_logs l").Ctx(ctx).
+		LeftJoin("sys_users u", "u.id = l.ai_user_id").
+		Fields("l.*, u.username AS ai_username").
+		Where("l.task_id", taskId).
+		Order("l.id DESC").
 		Scan(&list)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询AI执行日志失败")

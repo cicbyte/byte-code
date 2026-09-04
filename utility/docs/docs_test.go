@@ -48,6 +48,25 @@ func TestParseFrontmatterBroken(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterScalarTags(t *testing.T) {
+	// 手写逗号标量（tags: go,api / linked: task:3）：曾因 []string 严格解码
+	// 导致整个 frontmatter 静默丢失、索引只剩默认值
+	content := "---\ntitle: 手写文档\nspace: knowledge\ntype: convention\nstatus: published\ntags: go,api\nlinked: task:3,req:9\n---\n\n正文\n"
+	fm, _, err := ParseFrontmatter(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fm.Title != "手写文档" || fm.Space != "knowledge" || fm.Type != "convention" || fm.Status != "published" {
+		t.Fatalf("scalar frontmatter mismatch: %+v", fm)
+	}
+	if len(fm.Tags) != 2 || fm.Tags[0] != "go" || fm.Tags[1] != "api" {
+		t.Fatalf("scalar tags mismatch: %v", fm.Tags)
+	}
+	if len(fm.Linked) != 2 || fm.Linked[0] != "task:3" || fm.Linked[1] != "req:9" {
+		t.Fatalf("scalar linked mismatch: %v", fm.Linked)
+	}
+}
+
 func TestFrontmatterRoundTrip(t *testing.T) {
 	fm := Frontmatter{
 		Title:  `标题: 含"引号"与\反斜杠`,

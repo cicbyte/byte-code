@@ -122,12 +122,12 @@ func ParseFrontmatter(content string) (fm Frontmatter, body string, err error) {
 	body = strings.TrimPrefix(body, "\r\n")
 
 	var raw struct {
-		Title  string   `yaml:"title" json:"title"`
-		Space  string   `yaml:"space" json:"space"`
-		Type   string   `yaml:"type" json:"type"`
-		Status string   `yaml:"status" json:"status"`
-		Tags   []string `yaml:"tags" json:"tags"`
-		Linked []string `yaml:"linked" json:"linked"`
+		Title  string      `yaml:"title" json:"title"`
+		Space  string      `yaml:"space" json:"space"`
+		Type   string      `yaml:"type" json:"type"`
+		Status string      `yaml:"status" json:"status"`
+		Tags   interface{} `yaml:"tags" json:"tags"`
+		Linked interface{} `yaml:"linked" json:"linked"`
 	}
 	if err = gyaml.DecodeTo([]byte(head), &raw); err != nil {
 		// frontmatter 损坏不致命：按裸文件处理，避免单个坏文件拖垮扫描
@@ -138,8 +138,8 @@ func ParseFrontmatter(content string) (fm Frontmatter, body string, err error) {
 		Space:  strings.TrimSpace(raw.Space),
 		Type:   strings.TrimSpace(raw.Type),
 		Status: strings.TrimSpace(raw.Status),
-		Tags:   raw.Tags,
-		Linked: raw.Linked,
+		Tags:   flexStrings(raw.Tags),
+		Linked: flexStrings(raw.Linked),
 	}
 	for i := range fm.Tags {
 		fm.Tags[i] = strings.TrimSpace(fm.Tags[i])
@@ -148,6 +148,30 @@ func ParseFrontmatter(content string) (fm Frontmatter, body string, err error) {
 		fm.Linked[i] = strings.TrimSpace(fm.Linked[i])
 	}
 	return fm, body, nil
+}
+
+// flexStrings 兼容 YAML 列表与逗号标量两种写法：
+// 手写 frontmatter 常见 `tags: go,api`，若按 []string 严格解码会让整个
+// frontmatter 解析失败（title/linked 全部静默丢失、索引只剩默认值）
+func flexStrings(v interface{}) []string {
+	switch t := v.(type) {
+	case []interface{}:
+		out := make([]string, 0, len(t))
+		for _, e := range t {
+			if s, ok := e.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		return t
+	case string:
+		if t == "" {
+			return nil
+		}
+		return strings.Split(t, ",")
+	}
+	return nil
 }
 
 var yamlQuoteNeeds = regexp.MustCompile(`[:#\[\]{}&*!|>'"%@,]`)

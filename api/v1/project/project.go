@@ -328,13 +328,14 @@ type AiLogListReq struct {
 }
 
 type AiLogItem struct {
-	Id        int    `json:"id"`
-	TaskId    int    `json:"taskId"`
-	AiUserId  int    `json:"aiUserId"`
-	Action    string `json:"action"`
-	Detail    string `json:"detail"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"createdAt"`
+	Id         int    `json:"id"`
+	TaskId     int    `json:"taskId"`
+	AiUserId   int    `json:"aiUserId"`
+	AiUsername string `json:"aiUsername" dc:"执行 AI 用户名（回填）"`
+	Action     string `json:"action"`
+	Detail     string `json:"detail"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"createdAt"`
 }
 
 type AiLogListRes struct {

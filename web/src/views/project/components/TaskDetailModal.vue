@@ -80,6 +80,67 @@
           </n-space>
         </n-card>
 
+        <!-- 关联文档 -->
+        <n-card title="关联文档" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+          <n-empty v-if="linkedDocs.length === 0" description="暂无关联文档（文档 frontmatter linked 指向本任务时出现）" size="small" />
+          <n-space v-else vertical :size="4">
+            <n-space
+              v-for="d in linkedDocs"
+              :key="d.path"
+              align="center"
+              :size="8"
+              class="linked-doc"
+              @click="gotoDoc(d)"
+            >
+              <n-tag size="tiny" :type="d.space === 'knowledge' ? 'success' : 'info'" :bordered="false">
+                {{ d.space === 'knowledge' ? '知识库' : '文档' }}
+              </n-tag>
+              <n-icon size="14" class="text-gray-400"><FileTextOutlined /></n-icon>
+              <span class="text-sm">{{ d.title || d.path }}</span>
+              <span class="text-xs text-gray-400">{{ d.path }}</span>
+            </n-space>
+          </n-space>
+        </n-card>
+
+        <!-- AI 执行日志时间线 -->
+        <n-card title="AI 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+          <n-empty v-if="aiLogs.length === 0" description="暂无 AI 执行记录" size="small" />
+          <n-timeline v-else>
+            <n-timeline-item
+              v-for="log in aiLogs"
+              :key="log.id"
+              :type="logTimelineType(log)"
+              :title="`${logTitle(log)}${log.aiUsername ? ' · ' + log.aiUsername : ''}`"
+              :time="log.createdAt"
+            >
+              <template #default>
+                <div v-if="log.detail">
+                  <div class="text-xs text-gray-600 whitespace-pre-wrap">{{ shortDetail(log) }}</div>
+                  <n-button
+                    v-if="log.detail.length > 200"
+                    text
+                    type="primary"
+                    size="tiny"
+                    @click="expandedLogs.has(log.id) ? expandedLogs.delete(log.id) : expandedLogs.add(log.id)"
+                  >{{ expandedLogs.has(log.id) ? '收起' : '展开全文' }}</n-button>
+                </div>
+              </template>
+            </n-timeline-item>
+          </n-timeline>
+        </n-card>
+
+        <!-- AI 产出（artifacts，markdown 渲染） -->
+        <n-card
+          v-if="task.artifacts"
+          title="AI 产出"
+          size="small"
+          class="mb-4"
+          :bordered="true"
+          :segmented="{ content: true }"
+        >
+          <MdPreview :id="mdPreviewId" :model-value="task.artifacts" :sanitize="sanitizeHtml" />
+        </n-card>
+
         <!-- 审核操作 -->
         <n-card
           v-if="task.requiresHumanReview && task.humanReviewStatus === 'pending'"
@@ -137,18 +198,24 @@
 
 <script lang="ts" setup>
   import DOMPurify from 'dompurify';
+  import { MdPreview } from 'md-editor-v3';
+  import 'md-editor-v3/lib/preview.css';
   import { getTags, attachTag, detachTag, createTag } from '@/api/platform/index';
   import { getAttachments, uploadAttachment, downloadAttachment, deleteAttachment } from '@/api/attachment/index';
-  import { PaperClipOutlined } from '@vicons/antd';
+  import { getLinkedDocs } from '@/api/docs/index';
+  import type { DocsSearchItem } from '@/api/docs/index';
+  import { PaperClipOutlined, FileTextOutlined } from '@vicons/antd';
   import { ref, computed } from 'vue';
+  import { useRouter } from 'vue-router';
   import { useMessage } from 'naive-ui';
   import {
     getTask,
     getComments,
     createComment,
     reviewTask,
+    getAiLogs,
   } from '@/api/project/index';
-  import type { TaskItem, CommentItem } from '@/api/project/index';
+  import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
 
 
   // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
@@ -206,6 +273,68 @@
   }
   const newComment = ref('');
 
+  const router = useRouter();
+
+  // ==================== 关联文档 / AI 日志 / AI 产出 ====================
+  const linkedDocs = ref<DocsSearchItem[]>([]);
+  const aiLogs = ref<AiLogItem[]>([]);
+  const expandedLogs = ref(new Set<number>());
+  const mdPreviewId = 'task-artifacts-preview';
+
+  // md-editor-v3 默认 html:true 不消毒——artifacts 是 AI 产出文本，渲染前必须过 DOMPurify
+  const sanitizeHtml = (html: string) => DOMPurify.sanitize(html);
+
+  async function loadLinkedDocs(projectId: number, taskId: number) {
+    try {
+      const res = await getLinkedDocs(projectId, `task:${taskId}`);
+      linkedDocs.value = res?.items || [];
+    } catch {
+      linkedDocs.value = [];
+    }
+  }
+
+  async function loadAiLogs(taskId: number) {
+    try {
+      const res = await getAiLogs(taskId);
+      aiLogs.value = res?.list || [];
+    } catch {
+      aiLogs.value = [];
+    }
+  }
+
+  function gotoDoc(d: DocsSearchItem) {
+    if (!task.value) return;
+    // 知识库与工作区是两个视图；按文档所属空间跳对应页面，query.path 由 docs.vue 直达打开
+    const view = d.space === 'knowledge' ? 'knowledge' : 'docs';
+    visible.value = false;
+    router.push({ path: `/project/${task.value.projectId}/${view}`, query: { path: d.path } });
+  }
+
+  const actionLabels: Record<string, string> = {
+    claim: '认领任务',
+    complete: '完成任务',
+    error: '执行出错',
+    dead: '转入死信',
+  };
+
+  function logTitle(log: AiLogItem) {
+    return actionLabels[log.action] || log.action;
+  }
+
+  function logTimelineType(log: AiLogItem): 'default' | 'info' | 'success' | 'error' | 'warning' {
+    if (log.status === 'failed') return 'error';
+    switch (log.action) {
+      case 'claim': return 'info';
+      case 'complete': return 'success';
+      default: return 'default';
+    }
+  }
+
+  function shortDetail(log: AiLogItem) {
+    if (expandedLogs.value.has(log.id) || log.detail.length <= 200) return log.detail;
+    return log.detail.slice(0, 200) + '…';
+  }
+
   const priorityType = computed(() => {
     const p = task.value?.priority;
     if (p === undefined || p === null) return 'default';
@@ -218,6 +347,9 @@
   async function openModal(taskId: number) {
     visible.value = true;
     loading.value = true;
+    expandedLogs.value = new Set();
+    linkedDocs.value = [];
+    aiLogs.value = [];
     loadAllTags();
     loadAttachments(taskId);
     try {
@@ -227,6 +359,11 @@
       ]);
       task.value = taskRes || null;
       comments.value = commentRes?.list || [];
+      // 关联文档/AI 日志依赖任务归属项目，getTask 返回后再加载
+      if (task.value) {
+        loadLinkedDocs(task.value.projectId, taskId);
+        loadAiLogs(taskId);
+      }
     } catch (e) {
       message.error('加载任务详情失败');
     } finally {
@@ -324,3 +461,16 @@
 
   defineExpose({ openModal });
 </script>
+
+<style lang="less" scoped>
+  .linked-doc {
+    padding: 4px 8px;
+    margin: 0 -8px;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--hover-bg, #f5f5f5);
+    }
+  }
+</style>

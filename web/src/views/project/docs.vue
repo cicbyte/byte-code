@@ -653,8 +653,28 @@
   }
 
   // ==================== 生命周期与视图切换 ====================
-  onMounted(() => {
-    loadTree();
+  // 关联文档跳转支持：query.path 直达打开文件并展开父目录
+  async function tryOpenQueryPath() {
+    const qpath = route.query.path;
+    if (typeof qpath !== 'string' || !qpath) return;
+    await openFile(qpath);
+    selectedKeys.value = [qpath];
+    const parts = qpath.split('/');
+    const parents: string[] = [];
+    for (let i = 1; i < parts.length; i++) parents.push(parts.slice(0, i).join('/'));
+    expandedKeys.value = [...new Set([...expandedKeys.value, ...parents])];
+  }
+
+  onMounted(async () => {
+    await loadTree();
+    await tryOpenQueryPath();
+  });
+
+  // 同视图内的关联文档跳转只变 query 不换路由，onMounted 不重跑
+  watch(() => route.query.path, async (qpath, old) => {
+    if (qpath === old || typeof qpath !== 'string' || !qpath) return;
+    if (dirty.value && !(await confirmDiscard('打开链接文档'))) return;
+    await tryOpenQueryPath();
   });
 
   // 知识库/文档两路由共用本组件：页内切换时组件复用不重建，
