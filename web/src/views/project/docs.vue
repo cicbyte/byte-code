@@ -208,30 +208,33 @@
     />
   </div>
 </template>
-
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted, onUnmounted, nextTick, h, watch } from 'vue';
+  // 文档中枢页面：模板与编排层。实现按职责拆至 composables/：
+  // useInlineEdit（树内新建/重命名）/ useCtxMenu（右键菜单）/ useBinaryPreview（docx/图片预览）
+  // / useDirtyGuard（未保存守卫）
+  import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
   import { useRoute, onBeforeRouteLeave } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
-  import { useMessage, useDialog, NInput } from 'naive-ui';
+  import { useMessage, useDialog } from 'naive-ui';
   import { SearchOutlined, FileTextOutlined } from '@vicons/antd';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
-  import DOMPurify from 'dompurify';
   import {
     getDocsTree,
     getDocsFile,
     writeDocsFile,
-    createDocsFolder,
     uploadDocsFile,
     moveDocsPath,
     deleteDocsPath,
     updateDocsMeta,
     searchDocsApi,
     refreshDocs,
-    docsRawUrl,
   } from '@/api/docs/index';
   import type { DocsTreeNode, DocsFile } from '@/api/docs/index';
+  import { useInlineEdit } from './composables/useInlineEdit';
+  import { useCtxMenu } from './composables/useCtxMenu';
+  import { useBinaryPreview } from './composables/useBinaryPreview';
+  import { useDirtyGuard } from './composables/useDirtyGuard';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -240,9 +243,10 @@
   const isDark = computed(() => getDarkTheme.value === true);
 
   const projectId = computed(() => Number(route.params.projectId));
-  // 路由 meta.vaultSpace=knowledge：知识库模式（仅 知识库/ 目录 + 发布流）；否则文档模式（全空间）
+  // 路由 meta.vaultSpace=knowledge：知识库模式（仅 知识库/ 目录 + 发布流）；否则文档模式
   const isKnowledge = computed(() => route.meta.vaultSpace === 'knowledge');
 
+  // ==================== 树与文件状态 ====================
   const treeLoading = ref(false);
   const treeData = ref<any[]>([]);
   const expandedKeys = ref<string[]>([]);
@@ -252,7 +256,6 @@
   const saveLoading = ref(false);
   const refreshing = ref(false);
   const searchKeyword = ref('');
-
 
   const showMetaModal = ref(false);
   const metaForm = reactive({ title: '', tags: [] as string[], linked: [] as string[] });
@@ -264,10 +267,6 @@
   const moveFrom = ref('');
 
   const uploadInputRef = ref<HTMLInputElement | null>(null);
-
-  const rawHref = computed(() =>
-    currentFile.value ? docsRawUrl(projectId.value, currentFile.value.path) : '#'
-  );
 
   // 当前选中节点所在目录（新建/上传的落点）
   const selectedDir = computed(() => {
@@ -284,110 +283,8 @@
     return `${(n / 1024 / 1024).toFixed(1)} MB`;
   }
 
-  // 目录节点 path 集合：点击目录是展开/收起而非读文件
-  const dirPaths = new Set<string>();
-
-  // ==================== 内联编辑（新建/重命名） ====================
-  // 树内原位输入框：Enter/失焦提交，Esc 取消。所见即所得，替代原弹窗输全路径
-  const EDIT_KEY = '__inline-editing__';
-  const editing = reactive({
-    active: false,
-    mode: '' as '' | 'new-doc' | 'new-folder' | 'rename',
-    dir: '',   // 新建：目标父目录；重命名：节点所在目录
-    path: '',  // 重命名：原节点 path
-    value: '',
-  });
-
-  function renderNodeInput() {
-    return h(NInput, {
-      size: 'tiny',
-      value: editing.value,
-      autofocus: true,
-      placeholder: editing.mode === 'new-folder' ? '文件夹名' : '名称（.md 可省略）',
-      onFocus: () => {
-        // 重命名时全选原名便于整体替换
-        const el = document.querySelector('.n-tree .n-input input') as HTMLInputElement | null;
-        if (el && editing.mode === 'rename') el.select();
-      },
-      'onUpdate:value': (v: string) => (editing.value = v),
-      onKeydown: (e: KeyboardEvent) => {
-        if (e.key === 'Enter') commitInline();
-        else if (e.key === 'Escape') cancelInline();
-      },
-      onBlur: () => {
-        // Esc 取消后仍会触发一次 blur，此时不再提交
-        if (editing.active) commitInline();
-      },
-    });
-  }
-
-  function nodeLabel(node: DocsTreeNode) {
-    // 恒返回函数：编辑态判断必须在渲染时求值（而非 transformTree 构建时），
-    // 否则 startInlineRename 只改 editing 状态不会触发 label 重渲染。
-    // 节点只显示文件名：frontmatter title（常与正文 H1 相同）在树里冗余
-    return () => {
-      if (editing.active && editing.mode === 'rename' && node.path === editing.path) {
-        return renderNodeInput();
-      }
-      return node.name;
-    };
-  }
-
-  // 在树上插入待命名节点并进入编辑
-  function startInlineCreate(dir: string, type: 'new-doc' | 'new-folder') {
-    if (editing.active) cancelInline();
-    editing.active = true;
-    editing.mode = type;
-    editing.dir = dir;
-    editing.path = '';
-    editing.value = '';
-    const pending = {
-      key: EDIT_KEY,
-      label: () => renderNodeInput(),
-      isLeaf: true,
-      prefix: () => (type === 'new-folder' ? '📁' : '📄'),
-    };
-    if (!dir) {
-      treeData.value.unshift(pending);
-    } else {
-      const insertInto = (list: any[]): boolean =>
-        list.some((item, i) => {
-          if (item.key === dir) {
-            item.children = item.children || [];
-            item.children.unshift({ ...pending, key: EDIT_KEY });
-            expandedKeys.value = Array.from(new Set([...expandedKeys.value, dir]));
-            return true;
-          }
-          return item.children ? insertInto(item.children) : false;
-        });
-      if (!insertInto(treeData.value)) treeData.value.unshift(pending);
-    }
-  }
-
-  function startInlineRename(nodePath: string) {
-    if (editing.active) cancelInline();
-    editing.active = true;
-    editing.mode = 'rename';
-    editing.path = nodePath;
-    editing.dir = nodePath.slice(0, nodePath.lastIndexOf('/')) || '';
-    editing.value = nodePath.split('/').pop() || '';
-  }
-
-  function cancelInline() {
-    editing.active = false;
-    editing.mode = '';
-    // 移除 pending 节点（新建）
-    const removePending = (list: any[]): void => {
-      const i = list.findIndex((item) => item.key === EDIT_KEY);
-      if (i >= 0) list.splice(i, 1);
-      list.forEach((item) => item.children && removePending(item.children));
-    };
-    removePending(treeData.value);
-    // 重命名：label 恢复由响应式重渲染（editing.path 清空）
-    editing.path = '';
-  }
-
-  // 空间守卫：文档页（work）与知识库页（knowledge）共用同一 vault 与同一套 API，
+  // ==================== 空间守卫 ====================
+  // 文档页（work）与知识库页（knowledge）共用同一 vault 与同一套 API，
   // 视图互斥只做了读取过滤；写入操作必须约束路径前缀，防止跨空间移动/上传绕过发布流
   const KB_PREFIX = '知识库/';
   function isKnowledgePath(p: string): boolean {
@@ -407,43 +304,13 @@
     return true;
   }
 
-  async function commitInline() {
-    if (!editing.active) return;
-    const name = editing.value.trim();
-    const { mode, dir } = editing;
-    if (!name || name.includes('/') || name.includes('..')) {
-      cancelInline();
-      return;
-    }
-    // 空间守卫：目标路径必须落在当前视图空间内
-    const targetPath = dir ? `${dir}/${name}` : name;
-    if (!assertSpaceAllowed(targetPath)) {
-      cancelInline();
-      return;
-    }
-    editing.active = false; // 先关编辑态，防 blur 二次提交
-    try {
-      if (mode === 'new-doc') {
-        const file = name.toLowerCase().endsWith('.md') ? name : `${name}.md`;
-        const title = name.replace(/\.md$/i, '');
-        const frontmatter = isKnowledge.value
-          ? `---\ntitle: ${title}\nspace: knowledge\nstatus: draft\n---\n\n`
-          : '';
-        await writeDocsFile(projectId.value, dir ? `${dir}/${file}` : file, frontmatter);
-      } else if (mode === 'new-folder') {
-        await createDocsFolder(projectId.value, dir ? `${dir}/${name}` : name);
-      } else if (mode === 'rename') {
-        const old = editing.path;
-        const newName = name;
-        editing.path = '';
-        await moveDocsPath(projectId.value, old, dir ? `${dir}/${newName}` : newName);
-      }
-      await loadTree();
-    } catch {
-      message.error('操作失败');
-      await loadTree();
-    }
-  }
+  // ==================== 目录节点集合与树加载 ====================
+  // 目录节点 path 集合：点击目录是展开/收起而非读文件
+  const dirPaths = new Set<string>();
+
+  const { editing, nodeLabel, startInlineCreate, startInlineRename, cancelInline } = useInlineEdit({
+    treeData, expandedKeys, projectId, isKnowledge, assertSpaceAllowed, loadTree,
+  });
 
   function transformTree(nodes: DocsTreeNode[]): any[] {
     return nodes.map((node) => {
@@ -488,111 +355,14 @@
     }
   }
 
-  // ==================== 未保存守卫：dirty 检测与离开拦截 ====================
-  // 编辑内容与打开时快照不一致即脏；二进制/未打开视为干净
-  const dirty = computed(
-    () => !!currentFile.value && !currentFile.value.binary && editContent.value !== openedSnapshot.value
-  );
-  const openedSnapshot = ref('');
+  // ==================== 未保存守卫 + 文件打开 ====================
+  const { dirty, markOpened, confirmDiscard } = useDirtyGuard({ currentFile, editContent });
 
-  function markOpened(content: string) {
-    openedSnapshot.value = content;
-  }
-
-  // 三选项确认：返回 true=放弃更改继续
-  function confirmDiscard(action: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      dialog.warning({
-        title: '有未保存的更改',
-        content: `当前文档已修改未保存，${action}将丢弃更改。`,
-        positiveText: '放弃更改',
-        negativeText: '留在本页',
-        onPositiveClick: () => resolve(true),
-        onNegativeClick: () => resolve(false),
-        onClose: () => resolve(false),
-      });
-    });
-  }
-
-  async function onSelectNode(keys: string[]) {
-    if (keys.length === 0) return;
-    const key = String(keys[0]);
-    // 目录节点：点击即切换展开，不进入选中态也不读文件
-    if (dirPaths.has(key)) {
-      selectedKeys.value = currentFile.value ? [currentFile.value.path] : [];
-      expandedKeys.value = expandedKeys.value.includes(key)
-        ? expandedKeys.value.filter((k) => k !== key)
-        : [...expandedKeys.value, key];
-      return;
-    }
-    if (dirty.value && key !== currentFile.value?.path) {
-      if (!(await confirmDiscard('切换文件'))) {
-        // 恢复选中态到当前文件
-        selectedKeys.value = currentFile.value ? [currentFile.value.path] : [];
-        return;
-      }
-    }
-    selectedKeys.value = keys;
-    await openFile(key);
-  }
-
-  // ==================== 二进制预览：docx（mammoth）与图片直出 ====================
-  const docxHtml = ref('');
-  const docxLoading = ref(false);
-  // raw 直链接口是流式直出（不走统一 JSON 层），img/fetch/a 标签不会带 token 头——
-  // 统一改为带 token fetch → blob URL
-  const binObjectUrl = ref('');
-
-  async function loadBinObjectUrl() {
-    if (binObjectUrl.value) URL.revokeObjectURL(binObjectUrl.value);
-    binObjectUrl.value = '';
-    try {
-      const token = JSON.parse(localStorage.getItem('ACCESS-TOKEN') || '{"value":""}').value || '';
-      const resp = await fetch(docsRawUrl(projectId.value, currentFile.value!.path), { headers: { token } });
-      if (!resp.ok) throw new Error(String(resp.status));
-      const blob = await resp.blob();
-      binObjectUrl.value = URL.createObjectURL(blob);
-    } catch {
-      binObjectUrl.value = '';
-    }
-  }
-
-  function downloadBin() {
-    if (!binObjectUrl.value) return;
-    const a = document.createElement('a');
-    a.href = binObjectUrl.value;
-    a.download = (currentFile.value?.path || 'file').split('/').pop() || 'file';
-    a.click();
-  }
-
-  const fileExt = computed(() => {
-    const p = currentFile.value?.path || '';
-    const i = p.lastIndexOf('.');
-    return i >= 0 ? p.slice(i).toLowerCase() : '';
-  });
-  const isDocx = computed(() => fileExt.value === '.docx');
-  const isImage = computed(() => ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'].includes(fileExt.value));
-
-  async function loadDocxPreview() {
-    docxHtml.value = '';
-    docxLoading.value = true;
-    try {
-      const buf = await (await fetch(binObjectUrl.value)).arrayBuffer();
-      // mammoth 较大（~200KB），动态导入按需加载
-      const mammoth = await import('mammoth/mammoth.browser');
-      const result = await (mammoth as any).convertToHtml({ arrayBuffer: buf });
-      // mammoth 官方要求自行消毒：docx 超链接可携带 javascript: scheme 等注入面
-      docxHtml.value = DOMPurify.sanitize(result.value || '<p>（空文档）</p>', {
-        ALLOWED_TAGS: DOMPurify.allowedTags, // 默认白名单（禁 script/iframe 等）
-        ALLOWED_ATTR: ['href', 'src', 'alt', 'colspan', 'rowspan'], // 最小属性集
-        ALLOW_DATA_ATTR: false,
-      });
-    } catch {
-      docxHtml.value = '';
-    } finally {
-      docxLoading.value = false;
-    }
-  }
+  const {
+    docxHtml, docxLoading, binObjectUrl, isDocx, isImage,
+    loadBinObjectUrl, loadDocxPreview, downloadBin, onUnmountCleanup: cleanupPreview,
+  } = useBinaryPreview({ projectId, currentFile });
+  onUnmounted(cleanupPreview);
 
   async function openFile(path: string) {
     try {
@@ -609,10 +379,32 @@
     }
   }
 
+  async function onSelectNode(keys: string[]) {
+    if (keys.length === 0) return;
+    const key = String(keys[0]);
+    // 目录节点：点击即切换展开，不进入选中态也不读文件
+    if (dirPaths.has(key)) {
+      selectedKeys.value = currentFile.value ? [currentFile.value.path] : [];
+      expandedKeys.value = expandedKeys.value.includes(key)
+        ? expandedKeys.value.filter((k) => k !== key)
+        : [...expandedKeys.value, key];
+      return;
+    }
+    if (dirty.value && key !== currentFile.value?.path) {
+      if (!(await confirmDiscard('切换文件'))) {
+        selectedKeys.value = currentFile.value ? [currentFile.value.path] : [];
+        return;
+      }
+    }
+    selectedKeys.value = keys;
+    await openFile(key);
+  }
+
   function onExpandNode(keys: string[]) {
     expandedKeys.value = keys;
   }
 
+  // ==================== 弹窗与文件操作 ====================
   function openMetaModal() {
     metaForm.title = currentFile.value?.meta?.title || '';
     metaForm.tags = [...(currentFile.value?.meta?.tags || [])];
@@ -622,7 +414,7 @@
 
   function openMoveModal(targetPath?: string) {
     // 防御：模板 @click 无括号调用会把 Event 对象传进来（truthy 会绕过 ?? 兜底）
-    const from = typeof targetPath === "string" ? targetPath : currentFile.value?.path ?? '';
+    const from = typeof targetPath === 'string' ? targetPath : currentFile.value?.path ?? '';
     moveFrom.value = from;
     moveTarget.value = from;
     showMoveModal.value = true;
@@ -633,6 +425,11 @@
 
   // 上传队列状态：多文件逐个上传，列表展示进度与结果
   const uploading = reactive({ active: false, done: 0, total: 0, failed: 0 });
+
+  function triggerUpload(dir: string) {
+    ctxTargetDir = dir;
+    uploadInputRef.value?.click();
+  }
 
   async function handleUpload(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -699,120 +496,6 @@
     handleDeleteFor(currentFile.value.path, false);
   }
 
-  // ==================== 右键菜单（空白区 / 目录 / 文件 三场景） ====================
-
-  interface CtxTarget {
-    path: string;
-    isDir: boolean;
-    hasChildren: boolean;
-    name: string;
-  }
-
-  const ctxMenu = reactive({
-    show: false,
-    x: 0,
-    y: 0,
-    options: [] as Array<{ label: string; key: string; disabled?: boolean; divider?: boolean }>,
-  });
-  let ctxTarget: CtxTarget | null = null;
-
-  function treeNodeProps({ option }: { option: any }) {
-    return {
-      onContextmenu: (e: MouseEvent) => onNodeContextMenu(e, option),
-    };
-  }
-
-  function onNodeContextMenu(e: MouseEvent, option: any) {
-    e.preventDefault();
-    e.stopPropagation();
-    openCtxMenu(e, {
-      path: String(option.key),
-      isDir: !option.isLeaf,
-      hasChildren: Array.isArray(option.children) && option.children.length > 0,
-      name: String(option.key).split('/').pop() || '',
-    });
-    // 右键文件时同步视觉选中（不打开）
-    if (option.isLeaf) selectedKeys.value = [String(option.key)];
-  }
-
-  function onBlankContextMenu(e: MouseEvent) {
-    openCtxMenu(e, null);
-  }
-
-  function openCtxMenu(e: MouseEvent, target: CtxTarget | null) {
-    ctxTarget = target;
-    if (!target) {
-      // 空白区：新建/上传落在当前视图根（知识库页为 知识库/，文档页为根）
-      ctxMenu.options = [
-        { label: '新建文档', key: 'new-doc' },
-        { label: '新建文件夹', key: 'new-folder' },
-        { label: '上传文件', key: 'upload' },
-        { label: '重扫索引', key: 'refresh', divider: true },
-      ];
-    } else if (target.isDir) {
-      ctxMenu.options = [
-        { label: `在「${target.name}」中新建文档`, key: 'new-doc' },
-        { label: `在「${target.name}」中新建文件夹`, key: 'new-folder' },
-        { label: `上传到「${target.name}」`, key: 'upload' },
-        { label: '重命名', key: 'rename' },
-        { label: '移动到…', key: 'move' },
-        // 非空目录禁止删除（后端同样校验），防止误删整棵子树
-        { label: '删除（仅空目录）', key: 'delete', disabled: target.hasChildren },
-        { label: '重扫索引', key: 'refresh', divider: true },
-      ];
-    } else {
-      ctxMenu.options = [
-        { label: '打开', key: 'open' },
-        { label: '重命名', key: 'rename', divider: true },
-        { label: '移动到…', key: 'move' },
-        { label: '删除', key: 'delete' },
-      ];
-    }
-    ctxMenu.show = false;
-    nextTick(() => {
-      ctxMenu.x = e.clientX;
-      ctxMenu.y = e.clientY;
-      ctxMenu.show = true;
-    });
-  }
-
-  function onCtxSelect(key: string) {
-    ctxMenu.show = false;
-    const t = ctxTarget;
-    // 落点：目录右键 → 该目录；文件右键 → 其父目录；空白 → 视图默认根
-    // （知识库页默认根是 知识库/，否则新建路径缺前缀会被空间守卫拒绝——空知识库时
-    //   空白右键是唯一创建入口，必须可用）
-    const defaultDir = isKnowledge.value ? '知识库' : '';
-    const dir = t ? (t.isDir ? t.path : t.path.slice(0, t.path.lastIndexOf('/')) || '') : defaultDir;
-    switch (key) {
-      case 'new-doc':
-        startInlineCreate(dir, 'new-doc');
-        break;
-      case 'new-folder':
-        startInlineCreate(dir, 'new-folder');
-        break;
-      case 'upload':
-        ctxTargetDir = dir;
-        uploadInputRef.value?.click();
-        break;
-      case 'open':
-        if (t) openFile(t.path);
-        break;
-      case 'rename':
-        if (t) startInlineRename(t.path);
-        break;
-      case 'move':
-        if (t) openMoveModal(t.path);
-        break;
-      case 'refresh':
-        handleRefresh();
-        break;
-      case 'delete':
-        if (t) handleDeleteFor(t.path, t.isDir);
-        break;
-    }
-  }
-
   function handleDeleteFor(path: string, isDir: boolean) {
     dialog.warning({
       title: '确认删除',
@@ -877,9 +560,23 @@
     }
   }
 
+  // ==================== 右键菜单 ====================
+  const { ctxMenu, treeNodeProps, onBlankContextMenu, onCtxSelect } = useCtxMenu({
+    isKnowledge,
+    selectedKeys,
+    actions: {
+      startInlineCreate,
+      startInlineRename,
+      openFile,
+      openMoveModal,
+      handleDeleteFor,
+      handleRefresh,
+      triggerUpload,
+    },
+  });
+
   // ==================== 搜索结果态与目录树态 ====================
-  // 两态显式建模：进入/退出统一收口（清 dirPaths、取消内联编辑、恢复展开态），
-  // 否则残留的 dirPaths/编辑态会让搜索结果里的目录操作错乱
+  // 两态显式建模：进入/退出统一收口（清 dirPaths、取消内联编辑、恢复展开态）
   const searchMode = ref(false);
   const savedExpanded = ref<string[]>([]);
 
@@ -936,13 +633,13 @@
     }
   }
 
+  // ==================== 生命周期与视图切换 ====================
   onMounted(() => {
     loadTree();
   });
 
   // 知识库/文档两路由共用本组件：页内切换时组件复用不重建，
-  // onMounted 不会重跑——必须监听视图模式变化重载树并清理编辑状态，
-  // 否则文档页显示的还是知识库的树（刷新才正常）
+  // onMounted 不会重跑——必须监听视图模式变化重载树并清理编辑状态
   watch(isKnowledge, async () => {
     if (dirty.value && !(await confirmDiscard('切换视图'))) return;
     selectedKeys.value = [];
@@ -958,15 +655,6 @@
     if (dirty.value && !(await confirmDiscard('离开页面'))) return false;
     return true;
   });
-
-  // 浏览器关闭/刷新兜底（原生确认框，SPA 内无法用自定义弹窗）
-  const beforeUnloadGuard = (e: BeforeUnloadEvent) => {
-    if (!dirty.value) return;
-    e.preventDefault();
-    e.returnValue = '';
-  };
-  onMounted(() => window.addEventListener('beforeunload', beforeUnloadGuard));
-  onUnmounted(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
 </script>
 
 <style lang="less" scoped>
