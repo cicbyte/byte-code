@@ -25,6 +25,7 @@ type IProject interface {
 	DeleteTask(ctx context.Context, id int) (err error)
 	GetTask(ctx context.Context, id int) (res *api.TaskDetailRes, err error)
 	ListTasks(ctx context.Context, req *api.TaskListReq) (res *api.TaskListRes, err error)
+	MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res *api.MyTaskListRes, err error)
 
 	// 任务特殊操作
 	ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err error)

@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
@@ -10,6 +11,7 @@ import (
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/cicbyte/byte-code/utility/notify"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -269,6 +271,64 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 				list[i].Tags = tagsByTask[list[i].Id]
 			}
 		}
+	}
+	res.List = list
+	return res, nil
+}
+
+// ==================== 我的任务（跨项目聚合） ====================
+
+// myTaskStatuses 解析状态过滤口径：缺省=进行中三态；all=不过滤；其余按逗号列表
+func myTaskStatuses(s string) []string {
+	if s == "" {
+		return consts.TaskActiveStatuses
+	}
+	if s == "all" {
+		return nil
+	}
+	return strings.Split(s, ",")
+}
+
+// MyTaskList 当前用户被指派的任务跨项目聚合：管理员看全部项目，
+// 普通用户仅所在项目（与 CanAccessProject 同口径）
+func (s *sProject) MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res *api.MyTaskListRes, err error) {
+	res = &api.MyTaskListRes{}
+	uid := perm.UserId(ctx)
+
+	base := func() *gdb.Model {
+		m := g.DB().Model("tasks t").Ctx(ctx).
+			LeftJoin("projects p", "p.id = t.project_id").
+			LeftJoin("sys_users au", "t.assignee_id = au.id").
+			LeftJoin("sys_users cu", "t.creator_id = cu.id").
+			Where("t.assignee_id", uid)
+		if !perm.IsAdmin(ctx, uid) {
+			m = m.Where("EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = ?)", uid)
+		}
+		if statuses := myTaskStatuses(req.Status); len(statuses) > 0 {
+			m = m.Where("t.status IN (?)", statuses)
+		}
+		if req.ProjectId > 0 {
+			m = m.Where("t.project_id", req.ProjectId)
+		}
+		if req.Keyword != "" {
+			kw := "%" + escape.Like(req.Keyword) + "%"
+			m = m.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
+		}
+		return m
+	}
+
+	if res.Total, err = base().Count(); err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询任务数量失败")
+	}
+	var list []api.MyTaskItem
+	err = base().
+		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name, COALESCE(p.name, '') as project_name").
+		// 状态推进顺序排前，同态按优先级与更新时间倒序
+		Order("CASE t.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'review' THEN 2 ELSE 3 END, t.priority DESC, t.updated_at DESC").
+		Page(req.Page, req.Size).
+		Scan(&list)
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
 	}
 	res.List = list
 	return res, nil

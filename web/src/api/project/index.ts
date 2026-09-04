@@ -89,6 +89,30 @@ export interface TaskListResult {
   total: number;
 }
 
+// ==================== 我的任务（跨项目聚合） ====================
+
+export interface MyTaskItem extends TaskItem {
+  projectName: string;
+}
+
+export interface MyTaskListResult {
+  list: MyTaskItem[];
+  total: number;
+}
+
+export interface MyTaskListParams {
+  status?: string;
+  projectId?: number;
+  keyword?: string;
+  page?: number;
+  size?: number;
+}
+
+/** 我的任务（当前用户被指派的跨项目任务；status 缺省=进行中三态，all=全部） */
+export function getMyTasks(params?: MyTaskListParams) {
+  return Alova.Get<MyTaskListResult>('/v1/my-tasks', { params });
+}
+
 export interface TaskListParams {
   status?: string;
   type?: string;

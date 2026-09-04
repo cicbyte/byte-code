@@ -176,6 +176,27 @@ type TaskListRes struct {
 	Total int        `json:"total"`
 }
 
+// ==================== 我的任务（跨项目聚合） ====================
+
+type MyTaskListReq struct {
+	g.Meta    `path:"/my-tasks" method:"get" tags:"任务管理" summary:"我的任务（当前用户跨项目聚合）"`
+	Status    string `json:"status" in:"query" dc:"缺省=进行中三态(open,in_progress,review)；all=全部；或逗号分隔状态列表"`
+	ProjectId int    `json:"projectId" in:"query" dc:"按项目过滤"`
+	Keyword   string `json:"keyword" in:"query"`
+	Page      int    `json:"page" in:"query" d:"1"`
+	Size      int    `json:"size" in:"query" d:"50"`
+}
+
+type MyTaskItem struct {
+	TaskItem
+	ProjectName string `json:"projectName"`
+}
+
+type MyTaskListRes struct {
+	List  []MyTaskItem `json:"list"`
+	Total int          `json:"total"`
+}
+
 type TaskItem struct {
 	Id                  int    `json:"id"`
 	ProjectId           int    `json:"projectId"`
