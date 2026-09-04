@@ -63,7 +63,7 @@ func setupToolsTest(t *testing.T) context.Context {
 	}
 
 	// vault fixture：知识库已发布一篇、工作区一篇裸文件
-	vroot := filepath.Join(dir, "resource", "projects", "1", "vault")
+	vroot := filepath.Join(dir, "resource", "projects", "1", "docs")
 	kbDir := filepath.Join(vroot, docs.KnowledgeDir)
 	if err := os.MkdirAll(kbDir, 0o755); err != nil {
 		t.Fatal(err)

@@ -299,7 +299,7 @@ func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content st
 	if err != nil {
 		return nil, err
 	}
-	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
+	if err := docs.UpsertPath(ctx, projectId, rel); err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return &api.VaultFileWriteRes{Path: rel, Size: size}, nil
@@ -362,7 +362,7 @@ func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops
 	if _, err := writeWithSnapshot(projectId, rel, content); err != nil {
 		return nil, err
 	}
-	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
+	if err := docs.UpsertPath(ctx, projectId, rel); err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return res, nil
@@ -440,7 +440,7 @@ func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *
 		}
 	}
 	info, _ := os.Stat(abs)
-	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
+	if err := docs.UpsertPath(ctx, projectId, rel); err != nil {
 		return nil, liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	size := int64(0)
@@ -474,6 +474,12 @@ func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) err
 	if err := os.Rename(fromAbs, toAbs); err != nil {
 		return gerror.New("移动失败")
 	}
+	if err := docs.DeletePath(ctx, projectId, from); err != nil {
+		return liberr.WrapDb(ctx, err, "索引同步失败")
+	}
+	if err := docs.UpsertPath(ctx, projectId, to); err != nil {
+		return liberr.WrapDb(ctx, err, "索引同步失败")
+	}
 	// 知识库守卫：移入知识库的 md 无 draft 标记时补写（同 Upload 理由）
 	if strings.ToLower(filepath.Ext(to)) == ".md" && spaceOfTop(topSegment(to)) == "knowledge" {
 		if data, err := os.ReadFile(toAbs); err == nil {
@@ -488,7 +494,7 @@ func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) err
 			}
 		}
 	}
-	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
+	if err := docs.UpsertPath(ctx, projectId, to); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return nil
@@ -524,7 +530,7 @@ func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error 
 			return gerror.New("删除失败")
 		}
 	}
-	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
+	if err := docs.DeletePath(ctx, projectId, rel); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return nil
@@ -572,7 +578,7 @@ func (s *sVault) UpdateMeta(ctx context.Context, projectId int64, req *api.Vault
 	if _, err := writeWithSnapshot(projectId, req.Path, content); err != nil {
 		return err
 	}
-	if _, _, err := docs.ScanProject(ctx, projectId); err != nil {
+	if err := docs.UpsertPath(ctx, projectId, req.Path); err != nil {
 		return liberr.WrapDb(ctx, err, "索引同步失败")
 	}
 	return nil

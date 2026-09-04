@@ -1,10 +1,15 @@
 package docs
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
 )
 
 func TestParseFrontmatterFull(t *testing.T) {
@@ -169,5 +174,76 @@ func TestSafeJoinHistoryBypass(t *testing.T) {
 		if _, err := SafeJoin(1, p); err != nil {
 			t.Fatalf("SafeJoin(%q) 不应拒绝: %v", p, err)
 		}
+	}
+}
+
+func TestUpsertAndDeletePath(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := dir + "/none.yaml"
+	os.WriteFile(cfgPath, []byte{}, 0o644)
+	t.Setenv("GF_GCFG_FILE", cfgPath)
+	oldWd, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = g.DB().Close(context.Background())
+		_ = os.Chdir(oldWd)
+	})
+
+	dbPath := dir + "/t.db"
+	gdb.SetConfig(gdb.Config{"default": gdb.ConfigGroup{
+		gdb.ConfigNode{Type: "sqlite", Link: "sqlite::@file(" + dbPath + ")"},
+	}})
+	_, _ = g.DB().Exec(context.Background(), `CREATE TABLE project_document_index (
+		project_id INTEGER NOT NULL, path TEXT NOT NULL, space TEXT DEFAULT '', title TEXT DEFAULT '',
+		type TEXT DEFAULT '', status TEXT DEFAULT 'published', tags TEXT DEFAULT '', linked TEXT DEFAULT '',
+		ext TEXT DEFAULT '', size INTEGER DEFAULT 0, checksum TEXT DEFAULT '',
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(project_id, path))`)
+
+	rel := "知识库/upsert.md"
+	abs, _ := SafeJoin(1, rel)
+	os.MkdirAll(filepath.Dir(abs), 0o755)
+	os.WriteFile(abs, []byte("---\ntitle: 增量测试\nspace: knowledge\n---\n正文"), 0o644)
+
+	// UpsertPath：新建行
+	if err := UpsertPath(context.Background(), 1, rel); err != nil {
+		t.Fatalf("UpsertPath: %v", err)
+	}
+	v, _ := g.DB().Model("project_document_index").Ctx(context.Background()).
+		Where("project_id", 1).Where("path", rel).Value("title")
+	if v.String() != "增量测试" {
+		t.Fatalf("title = %q", v.String())
+	}
+
+	// 内容变更后再 Upsert：checksum 更新（非重复插入）
+	os.WriteFile(abs, []byte("---\ntitle: 增量测试2\nspace: knowledge\n---\n正文v2"), 0o644)
+	if err := UpsertPath(context.Background(), 1, rel); err != nil {
+		t.Fatal(err)
+	}
+	cnt, _ := g.DB().Model("project_document_index").Ctx(context.Background()).
+		Where("project_id", 1).Where("path", rel).Count()
+	if cnt != 1 {
+		t.Fatalf("重复 upsert 应保持单行，实际 %d", cnt)
+	}
+
+	// 子路径批量删除
+	for _, p := range []string{"设计/sub/x.md", "设计/sub/y.md", "设计/other.md"} {
+		a, _ := SafeJoin(1, p)
+		os.MkdirAll(filepath.Dir(a), 0o755)
+		os.WriteFile(a, []byte("x"), 0o644)
+		UpsertPath(context.Background(), 1, p)
+	}
+	if err := DeletePath(context.Background(), 1, "设计/sub"); err != nil {
+		t.Fatal(err)
+	}
+	rows, _ := g.DB().Model("project_document_index").Ctx(context.Background()).
+		Where("project_id", 1).Where("path LIKE ?", "设计/%").All()
+	paths := []string{}
+	for _, r := range rows {
+		paths = append(paths, r["path"].String())
+	}
+	if len(paths) != 1 || paths[0] != "设计/other.md" {
+		t.Fatalf("子树删除应只留 other.md，实际 %v", paths)
 	}
 }

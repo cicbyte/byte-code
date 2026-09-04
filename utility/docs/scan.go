@@ -205,3 +205,58 @@ func gfileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
+
+// UpsertPath 单路径索引更新：写操作（Write/Patch/Upload/Move/Meta）后同步调用，
+// 避免一次小保存触发全项目 WalkDir + 全文件 sha256（全量扫描留给定时任务与手动刷新）。
+// 删除路径请用 DeletePath
+func UpsertPath(ctx context.Context, projectId int64, rel string) error {
+	abs, err := SafeJoin(projectId, rel)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return nil // 目录本身不入索引
+	}
+	sum, err := Checksum(abs)
+	if err != nil {
+		return err
+	}
+	relSlash := filepath.ToSlash(rel)
+	idx := buildIndex(projectId, relSlash, abs, info.Size(), sum)
+	row := g.Map{
+		"space": idx.Space, "title": idx.Title, "type": idx.Type,
+		"status": idx.Status, "tags": idx.Tags, "linked": idx.Linked,
+		"ext": idx.Ext, "size": idx.Size, "checksum": idx.Checksum,
+		"updated_at": gtime.Now(),
+	}
+	existing, err := g.DB().Model("project_document_index").Ctx(ctx).
+		Where("project_id", projectId).Where("path", relSlash).Count()
+	if err != nil {
+		return err
+	}
+	if existing > 0 {
+		_, err = g.DB().Model("project_document_index").Ctx(ctx).
+			Where("project_id", projectId).Where("path", relSlash).Data(row).Update()
+	} else {
+		insert := g.Map{"project_id": projectId, "path": relSlash}
+		for k, v := range row {
+			insert[k] = v
+		}
+		_, err = g.DB().Model("project_document_index").Ctx(ctx).Data(insert).Insert()
+	}
+	return err
+}
+
+// DeletePath 删除单路径（及以之为前缀的子路径）的索引行
+func DeletePath(ctx context.Context, projectId int64, rel string) error {
+	relSlash := filepath.ToSlash(rel)
+	m := g.DB().Model("project_document_index").Ctx(ctx).
+		Where("project_id", projectId).
+		Where("path = ? OR path LIKE ?", relSlash, relSlash+"/%")
+	_, err := m.Delete()
+	return err
+}
