@@ -131,3 +131,13 @@ type StorageTestRes struct {
 	Ok     bool   `json:"ok"`
 	Msg    string `json:"msg,omitempty"`
 }
+
+// AttachmentFileReq 附件文件流（本地存储后端：鉴权后直出文件）
+type AttachmentFileReq struct {
+	g.Meta `path:"/attachments/{id}/file" method:"get" tags:"附件" summary:"附件文件流（本地存储）"`
+	Id     int `json:"-" in:"path" v:"required#附件ID不能为空"`
+}
+
+type AttachmentFileRes struct {
+	g.Meta `mime:"application/octet-stream"`
+}

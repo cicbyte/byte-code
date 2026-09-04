@@ -59,9 +59,8 @@ export function uploadAttachment(data: AttachmentUploadData) {
   formData.append('entityType', data.entityType);
   formData.append('entityId', String(data.entityId));
   formData.append('file', data.file);
-  return Alova.Post<{ id: number }>('/v1/attachments/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  // 不显式设 Content-Type：浏览器需自动补 boundary，显式设置会导致后端解析失败
+  return Alova.Post<{ id: number }>('/v1/attachments/upload', formData);
 }
 
 /** 获取附件信息 */

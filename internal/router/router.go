@@ -69,6 +69,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AttachmentCtrl.AttachmentUpload,
 				controller.AttachmentCtrl.AttachmentGet,
 				controller.AttachmentCtrl.AttachmentDownload,
+				controller.AttachmentCtrl.AttachmentFile,
 				controller.AttachmentCtrl.AttachmentPreview,
 				controller.AttachmentCtrl.AttachmentDelete,
 				controller.AttachmentCtrl.AttachmentList,

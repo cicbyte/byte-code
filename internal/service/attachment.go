@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/gogf/gf/v2/net/ghttp"
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/attachment"
@@ -10,6 +11,7 @@ type IAttachment interface {
 	Upload(ctx context.Context, req *api.AttachmentUploadReq) (id int, err error)
 	Get(ctx context.Context, id int) (res *api.AttachmentGetRes, err error)
 	DownloadURL(ctx context.Context, id int) (url string, err error)
+	ServeFile(ctx context.Context, r *ghttp.Request, id int) error
 	PreviewURL(ctx context.Context, id int) (url string, err error)
 	Delete(ctx context.Context, id int) (err error)
 	List(ctx context.Context, req *api.AttachmentListReq) (list []api.AttachmentItem, err error)

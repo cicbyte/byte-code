@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/gogf/gf/v2/frame/g"
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/attachment"
@@ -74,5 +75,14 @@ func (c *attachmentController) StorageTest(ctx context.Context, req *api.Storage
 	ok, msg, err := service.Attachment().TestStorage(ctx)
 	res.Ok = ok
 	res.Msg = msg
+	return
+}
+
+
+// AttachmentFile 本地存储附件直出（S3 后端走预签名 URL 不经此端点）
+func (c *attachmentController) AttachmentFile(ctx context.Context, req *api.AttachmentFileReq) (res *api.AttachmentFileRes, err error) {
+	if serr := service.Attachment().ServeFile(ctx, g.RequestFromCtx(ctx), req.Id); serr != nil {
+		g.RequestFromCtx(ctx).Response.WriteStatus(404, serr.Error())
+	}
 	return
 }

@@ -58,6 +58,28 @@
           </n-space>
         </n-card>
 
+        <!-- 附件 -->
+        <n-card title="附件" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+          <n-space vertical :size="6">
+            <n-empty v-if="attachments.length === 0" description="暂无附件" size="small" />
+            <n-space v-for="a in attachments" :key="a.id" justify="space-between" align="center" class="w-full">
+              <n-space :size="8" align="center">
+                <n-icon size="14"><PaperClipOutlined /></n-icon>
+                <span class="text-sm">{{ a.originalName }}</span>
+                <span class="text-xs text-gray-400">{{ fmtSize(a.fileSize) }}</span>
+                <span class="text-xs text-gray-400">{{ a.uploaderName || '' }}</span>
+              </n-space>
+              <n-space :size="2">
+                <n-button text type="info" size="tiny" @click="downloadAtt(a)">下载</n-button>
+                <n-button text type="error" size="tiny" @click="removeAtt(a)">删除</n-button>
+              </n-space>
+            </n-space>
+            <n-space>
+              <n-button size="tiny" :loading="uploadingAtt" @click="attInputRef?.click()">上传附件</n-button>
+            </n-space>
+          </n-space>
+        </n-card>
+
         <!-- 审核操作 -->
         <n-card
           v-if="task.requiresHumanReview && task.humanReviewStatus === 'pending'"
@@ -103,6 +125,7 @@
         </n-card>
       </template>
     </n-spin>
+    <input ref="attInputRef" type="file" multiple style="display: none" @change="onAttFiles" />
 
     <template #footer>
       <n-space justify="end">
@@ -115,6 +138,8 @@
 <script lang="ts" setup>
   import DOMPurify from 'dompurify';
   import { getTags, attachTag, detachTag, createTag } from '@/api/platform/index';
+  import { getAttachments, uploadAttachment, downloadAttachment, deleteAttachment } from '@/api/attachment/index';
+  import { PaperClipOutlined } from '@vicons/antd';
   import { ref, computed } from 'vue';
   import { useMessage } from 'naive-ui';
   import {
@@ -194,6 +219,7 @@
     visible.value = true;
     loading.value = true;
     loadAllTags();
+    loadAttachments(taskId);
     try {
       const [taskRes, commentRes] = await Promise.all([
         getTask(taskId),
@@ -205,6 +231,62 @@
       message.error('加载任务详情失败');
     } finally {
       loading.value = false;
+    }
+  }
+
+  // ==================== 附件 ====================
+  const attachments = ref<any[]>([]);
+  const uploadingAtt = ref(false);
+  const attInputRef = ref<HTMLInputElement | null>(null);
+
+  function fmtSize(n: number) {
+    if (!n) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  async function loadAttachments(taskId: number) {
+    try {
+      const res = await getAttachments('task', taskId);
+      attachments.value = res?.list || [];
+    } catch {
+      attachments.value = [];
+    }
+  }
+
+  async function onAttFiles(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    if (!files.length || !task.value) return;
+    uploadingAtt.value = true;
+    for (const f of files) {
+      try {
+        await uploadAttachment({ entityType: 'task', entityId: task.value.id, file: f });
+      } catch {
+        message.error(`上传失败：${f.name}`);
+      }
+    }
+    uploadingAtt.value = false;
+    input.value = '';
+    loadAttachments(task.value.id);
+  }
+
+  async function downloadAtt(a: any) {
+    try {
+      const res = await downloadAttachment(a.id);
+      if (res?.url) window.open(res.url, '_blank');
+    } catch {
+      message.error('获取下载链接失败');
+    }
+  }
+
+  async function removeAtt(a: any) {
+    try {
+      await deleteAttachment(a.id);
+      attachments.value = attachments.value.filter((x) => x.id !== a.id);
+    } catch {
+      message.error('删除附件失败');
     }
   }
 

@@ -1,6 +1,8 @@
 package attachment
 
 import (
+	"github.com/gogf/gf/v2/net/ghttp"
+	"os"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -97,7 +99,7 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		s3Key := fmt.Sprintf("%s/%d/%s/%s%s", req.EntityType, req.EntityId, monthStr, uuid.New().String(), fileExt)
 
 		// 获取 S3 存储实例
-		s3Storage, err := storage.NewS3StorageFromCtx(ctx)
+		st, err := storage.NewStorageFromCtx(ctx)
 		if err != nil {
 			// S3 错误可能含 endpoint/凭据校验细节，只进服务端日志
 			g.Log().Errorf(ctx, "获取存储实例失败: %v", err)
@@ -106,7 +108,7 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 
 		// 上传到 S3
 		// S3 上传用扩展名推导的安全 MIME（不信任客户端声明，防伪造 Content-Type 直开 XSS）
-		err = s3Storage.Upload(ctx, s3Key, f, file.Size, mime)
+		err = st.Upload(ctx, s3Key, f, file.Size, mime)
 		if err != nil {
 			g.Log().Errorf(ctx, "上传文件到S3失败: %v", err)
 			panic("上传文件失败")
@@ -175,11 +177,12 @@ func (s *sAttachment) DownloadURL(ctx context.Context, id int) (url string, err 
 			panic("附件不存在")
 		}
 
-		s3Storage, err := storage.NewS3StorageFromCtx(ctx)
+		st, err := storage.NewStorageFromCtx(ctx)
 		liberr.ErrIsNil(ctx, err, "获取存储实例失败")
 
-		url, err = s3Storage.DownloadURL(ctx, item.S3Key, 1*time.Hour)
+		url, err = st.DownloadURL(ctx, item.S3Key, 1*time.Hour)
 		liberr.ErrIsNil(ctx, err, "生成下载URL失败")
+		url = resolveLocalURL(url, id)
 
 		// 增加下载计数
 		_, _ = g.DB().Model("attachments").Ctx(ctx).WherePri(id).Increment("download_count", 1)
@@ -201,11 +204,12 @@ func (s *sAttachment) PreviewURL(ctx context.Context, id int) (url string, err e
 			panic("附件不存在")
 		}
 
-		s3Storage, err := storage.NewS3StorageFromCtx(ctx)
+		st, err := storage.NewStorageFromCtx(ctx)
 		liberr.ErrIsNil(ctx, err, "获取存储实例失败")
 
-		url, err = s3Storage.DownloadURL(ctx, item.S3Key, 30*time.Minute)
+		url, err = st.DownloadURL(ctx, item.S3Key, 30*time.Minute)
 		liberr.ErrIsNil(ctx, err, "生成预览URL失败")
+		url = resolveLocalURL(url, id)
 	})
 	return
 }
@@ -229,9 +233,9 @@ func (s *sAttachment) Delete(ctx context.Context, id int) (err error) {
 		}
 
 		// 从 S3 删除文件
-		s3Storage, err := storage.NewS3StorageFromCtx(ctx)
+		st, err := storage.NewStorageFromCtx(ctx)
 		if err == nil {
-			_ = s3Storage.Delete(ctx, item.S3Key)
+			_ = st.Delete(ctx, item.S3Key)
 		}
 
 		// 删除数据库记录
@@ -400,4 +404,41 @@ func attachmentByIdAccessible(ctx context.Context, userId, attachmentId int) boo
 		return false
 	}
 	return attachmentEntityAccessible(ctx, userId, rec["entity_type"].String(), rec["entity_id"].Int())
+}
+
+
+// resolveLocalURL 本地存储后端无预签名：DownloadURL 返回 local:key 约定，
+// 翻译为走鉴权的文件端点（浏览器带 token 拿流）
+func resolveLocalURL(url string, attachmentId int) string {
+	if strings.HasPrefix(url, "local:") {
+		return fmt.Sprintf("/api/v1/attachments/%d/file", attachmentId)
+	}
+	return url
+}
+
+
+// ServeFile 本地存储附件的鉴权直出：S3 后端不会走到这里（其下载走预签名 URL）
+func (s *sAttachment) ServeFile(ctx context.Context, r *ghttp.Request, id int) error {
+	if !attachmentByIdAccessible(ctx, perm.UserId(ctx), id) {
+		return fmt.Errorf("无权访问该附件")
+	}
+	var item struct {
+		S3Key         string
+		OriginalName  string
+	}
+	if err := g.DB().Model("attachments").Ctx(ctx).WherePri(id).Scan(&item); err != nil || item.S3Key == "" {
+		return fmt.Errorf("附件不存在")
+	}
+	local := storage.NewLocalStorage()
+	abs, err := local.OpenPath(item.S3Key)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(abs); err != nil {
+		return fmt.Errorf("附件文件缺失")
+	}
+	r.Response.Header().Set("Content-Disposition",
+		`attachment; filename="`+strings.ReplaceAll(item.OriginalName, `"`, `_`)+`"`)
+	r.Response.ServeFileDownload(abs, item.OriginalName)
+	return nil
 }
