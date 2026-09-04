@@ -7,6 +7,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/notify"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -33,6 +34,33 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 		"content":   req.Content,
 		"user_type": userType,
 	})
+	// 评论通知（评论本身不阻塞）：通知任务负责人与创建者（排除自己）；
+	// 回复时额外通知被回复评论的作者
+	if err == nil {
+		taskRow, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.TaskId).
+			Fields("title, assignee_id, creator_id").One()
+		if !taskRow.IsEmpty() {
+			title := taskRow["title"].String()
+			notified := map[int]bool{userId: true}
+			for _, target := range []int{taskRow["assignee_id"].Int(), taskRow["creator_id"].Int()} {
+				if target > 0 && !notified[target] {
+					notified[target] = true
+					notify.Send(ctx, target, "任务新评论",
+						fmt.Sprintf("任务「%s」有新评论", title), "info", "task", req.TaskId)
+				}
+			}
+			if req.ParentId > 0 {
+				if parentAuthor, _ := g.DB().Model("comments").Ctx(ctx).Where("id", req.ParentId).
+					Fields("user_id").Value(); parentAuthor != nil {
+					t := parentAuthor.Int()
+					if t > 0 && !notified[t] {
+						notify.Send(ctx, t, "评论被回复",
+							fmt.Sprintf("你在任务「%s」的评论被回复", title), "info", "task", req.TaskId)
+					}
+				}
+			}
+		}
+	}
 	if err != nil {
 		return 0, liberr.WrapDb(ctx, err, "创建评论失败")
 	}

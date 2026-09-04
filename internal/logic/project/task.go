@@ -55,6 +55,7 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 }
 
 func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err error) {
+	notifyAssigneeChange := 0
 	data := g.Map{}
 	// 指针语义：nil=不更新，非nil=更新（含零值/空串）
 	if req.Title != nil {
@@ -86,6 +87,9 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	}
 	if req.AssigneeId != nil {
 		data["assignee_id"] = *req.AssigneeId
+		// 指派变更通知新负责人（改派不通知等于改派无效传播）；
+		// 需旧值对比：与自己相同/清空（0）不发
+		notifyAssigneeChange = *req.AssigneeId
 	}
 	if req.SprintId != nil {
 		data["sprint_id"] = *req.SprintId
@@ -101,9 +105,19 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	}
 	data["updated_at"] = time.Now().Format("2006-01-02 15:04:05")
 
+	// 旧指派用于对比（改派才通知，原值相同/清空不发）
+	oldAssignee := 0
+	if v, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("assignee_id").Value(); v != nil {
+		oldAssignee = v.Int()
+	}
 	_, err = g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "更新任务失败")
+	}
+	if notifyAssigneeChange > 0 && notifyAssigneeChange != oldAssignee {
+		title, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("title").Value()
+		notify.Send(ctx, notifyAssigneeChange, "任务转派给你",
+			fmt.Sprintf("任务「%s」已指派给你", title.String()), "info", "task", req.Id)
 	}
 	return nil
 }
