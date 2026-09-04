@@ -49,13 +49,57 @@
     readNotification,
   } from '@/api/platform';
 
-  const POLL_INTERVAL = 60 * 1000;
+  // 轮询降级兜底：SSE 断开时仍能拉到通知（间隔放长到 5 分钟）
+  const POLL_INTERVAL = 5 * 60 * 1000;
 
   const unreadCount = ref(0);
+  const popoverShow = ref(false);
   const list = ref<NotificationItem[]>([]);
   const total = ref(0);
   const loading = ref(false);
   let timer: ReturnType<typeof setInterval> | null = null;
+
+  // ==================== SSE 实时通知（fetch 流解析；EventSource 不支持自定义 header） ====================
+  let sseAbort: AbortController | null = null;
+
+  function startSSE() {
+    sseAbort = new AbortController();
+    const token = JSON.parse(localStorage.getItem('ACCESS-TOKEN') || '{"value":""}').value || '';
+    fetch('/api/v1/notifications/stream', {
+      headers: { token },
+      signal: sseAbort.signal,
+    })
+      .then(async (resp) => {
+        if (!resp.ok || !resp.body) throw new Error('sse unavailable');
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          // SSE 事件以空行分隔；注释行（: ping）跳过
+          let idx;
+          while ((idx = buf.indexOf('\n\n')) >= 0) {
+            const frame = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+            const dataLine = frame.split('\n').find((l) => l.startsWith('data: '));
+            if (!dataLine) continue;
+            // 收到实时通知：刷未读数；面板打开时同步列表
+            fetchUnread();
+            if (popoverShow.value) loadList();
+          }
+        }
+      })
+      .catch(() => {
+        // 连接断开/失败：什么都不做，轮询兜底仍在
+      });
+  }
+
+  function stopSSE() {
+    sseAbort?.abort();
+    sseAbort = null;
+  }
 
   async function fetchUnread() {
     try {
@@ -80,6 +124,7 @@
   }
 
   function onShowChange(show: boolean) {
+    popoverShow.value = show;
     if (show) {
       loadList();
       fetchUnread();
@@ -126,11 +171,13 @@
 
   onMounted(() => {
     fetchUnread();
+    startSSE();
     timer = setInterval(fetchUnread, POLL_INTERVAL);
   });
 
   onUnmounted(() => {
     if (timer) clearInterval(timer);
+    stopSSE();
   });
 </script>
 

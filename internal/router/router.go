@@ -89,6 +89,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.PlatformCtrl.ReadNotification,
 				controller.PlatformCtrl.ReadAllNotifications,
 				controller.PlatformCtrl.UnreadCount,
+				controller.PlatformCtrl.NotificationStream,
 				controller.PlatformCtrl.Search,
 				controller.PlatformCtrl.DashboardStats,
 			)

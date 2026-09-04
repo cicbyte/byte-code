@@ -238,3 +238,12 @@ type AuditLogItem struct {
 	ProjectId  int    `json:"projectId"`
 	CreatedAt  string `json:"createdAt"`
 }
+
+// NotificationStreamReq SSE 实时通知流（长连接；事件 data 为通知 JSON，30s 心跳注释行）
+type NotificationStreamReq struct {
+	g.Meta `path:"/notifications/stream" method:"get" tags:"通知" summary:"实时通知流（SSE）"`
+}
+
+type NotificationStreamRes struct {
+	g.Meta `mime:"text/event-stream"`
+}

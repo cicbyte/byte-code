@@ -2,9 +2,13 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/platform"
 	"github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/notify"
+	"github.com/cicbyte/byte-code/utility/perm"
+	"github.com/gogf/gf/v2/frame/g"
 )
 
 var PlatformCtrl = platformController{}
@@ -71,6 +75,38 @@ func (c *platformController) ReadNotification(ctx context.Context, req *api.Noti
 func (c *platformController) ReadAllNotifications(ctx context.Context, req *api.NotificationReadAllReq) (res *api.NotificationReadAllRes, err error) {
 	err = service.Platform().ReadAllNotifications(ctx)
 	return &api.NotificationReadAllRes{}, err
+}
+
+func (c *platformController) NotificationStream(ctx context.Context, req *api.NotificationStreamReq) (res *api.NotificationStreamRes, err error) {
+	// SSE 长连接：handler 阻塞至客户端断开，统一响应包装不会介入
+	// （连接存续期间请求永不返回）。事件与心跳直接写原始字节。
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/event-stream")
+	r.Response.Header().Set("Cache-Control", "no-cache")
+	r.Response.Header().Set("X-Accel-Buffering", "no") // 反代（nginx）禁用缓冲
+
+	uid := perm.UserId(ctx)
+	events, cleanup := notify.Subscribe(uid)
+	defer cleanup()
+
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+
+	r.Response.Write([]byte(": connected\n\n"))
+	r.Response.Flush()
+
+	for {
+		select {
+		case <-ctx.Done(): // 客户端断开
+			return nil, nil
+		case data := <-events:
+			r.Response.Write([]byte("data: " + string(data) + "\n\n"))
+			r.Response.Flush()
+		case <-heartbeat.C:
+			r.Response.Write([]byte(": ping\n\n"))
+			r.Response.Flush()
+		}
+	}
 }
 
 func (c *platformController) UnreadCount(ctx context.Context, req *api.NotificationUnreadCountReq) (res *api.NotificationUnreadCountRes, err error) {
