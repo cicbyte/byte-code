@@ -95,6 +95,10 @@ func ExecuteTask(ctx context.Context, cfg *ExecuteConfig) (string, error) {
 
 	// ReAct 循环
 	const maxIterations = 10
+	// 上下文治理：超过 keepRecentToolResults 轮之前的工具结果替换为占位符。
+	// read_doc/kb 工具单次可达 8KB，10 轮迭代累积轻松几十 K token（成本翻倍且
+	// 逼近上下文窗口），而 ReAct 决策只依赖近期结果
+	const keepRecentToolResults = 2
 	tools := GetTools()
 
 	for i := 0; i < maxIterations; i++ {
@@ -118,9 +122,37 @@ func ExecuteTask(ctx context.Context, cfg *ExecuteConfig) (string, error) {
 				ToolCallID: tc.ID,
 			})
 		}
+
+		// 本轮结束后，把 keepRecentToolResults 轮之前的工具结果替换为截断占位
+		evictOldToolResults(messages, keepRecentToolResults)
 	}
 
 	return "", fmt.Errorf("AI 执行超过最大迭代次数 %d", maxIterations)
+}
+
+// evictOldToolResults 就地截断旧工具结果：从后往前保留最近 keepN 轮，
+// 更早的 Tool 消息内容替换为占位（保留 ToolCallID 关联，不破坏消息结构）
+func evictOldToolResults(messages []*schema.Message, keepN int) {
+	// 从尾部数 Tool 消息所在的“轮”——同一轮多个工具结果视为一批
+	cutoff := len(messages) // 此下标之后的 Tool 消息保留
+	seenRounds := 0
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i] != nil && messages[i].Role == schema.Tool {
+			seenRounds++
+			if seenRounds > keepN {
+				cutoff = i + 1 // 含首个超限轮自身
+				break
+			}
+		}
+	}
+	if cutoff == len(messages) {
+		return
+	}
+	for i := 0; i < cutoff; i++ {
+		if messages[i] != nil && messages[i].Role == schema.Tool {
+			messages[i].Content = "[older tool result truncated for context budget]"
+		}
+	}
 }
 
 // executeToolCall 执行工具调用并返回结果字符串
