@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/agent"
@@ -49,8 +50,49 @@ func generateSalt() string {
 
 // ==================== 注册（公开：纯身份，无权限） ====================
 
+// regLimit 注册端点 IP 限流：公开无认证端点必须防刷（每 IP 每小时 5 次）。
+// 单机内存实现与部署形态匹配；多实例部署时需换共享存储
+var regLimit = struct {
+	mu   sync.Mutex
+	seen map[string][]time.Time
+}{seen: map[string][]time.Time{}}
+
+func registerRateLimited(ip string) bool {
+	regLimit.mu.Lock()
+	defer regLimit.mu.Unlock()
+	now := time.Now()
+	cutoff := now.Add(-time.Hour)
+	kept := regLimit.seen[ip][:0]
+	for _, t := range regLimit.seen[ip] {
+		if t.After(cutoff) {
+			kept = append(kept, t)
+		}
+	}
+	if len(kept) >= 5 {
+		regLimit.seen[ip] = kept
+		return false
+	}
+	kept = append(kept, now)
+	regLimit.seen[ip] = kept
+	return true
+}
+
 func Register(ctx context.Context, req *api.RegisterReq) (*api.RegisterRes, error) {
-	name := strings.TrimSpace(req.Name)
+	// trim 前置：v 校验发生在原始串上，"  a  " 会被放行后 trim 成 1 字符
+	req.Name = strings.TrimSpace(req.Name)
+	if len(req.Name) < 2 || len(req.Name) > 64 {
+		return nil, fmt.Errorf("名称长度须为 2-64")
+	}
+	ip := "unknown"
+	if r := g.RequestFromCtx(ctx); r != nil {
+		ip = r.GetClientIp()
+	}
+	if !registerRateLimited(ip) {
+		return nil, fmt.Errorf("注册过于频繁，请稍后再试")
+	}
+	// 匿名审计：公开端点 uid=0 会被审计中间件跳过，这里显式留痕
+	g.Log().Infof(ctx, "agent register: name=%s ip=%s", req.Name, ip)
+	name := req.Name
 	apiKey := generateApiKey()
 	salt := generateSalt()
 
@@ -124,10 +166,14 @@ func Join(ctx context.Context, code string) (*api.JoinRes, error) {
 
 	// 码一次性消费 + 准入落库同事务
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if _, e := tx.Ctx(ctx).Model("agent_join_codes").Where("id", row["id"].Int()).
-		 Where("used_at IS NULL"). // 并发双兑同码：仅一个成功
-		 Data(g.Map{"used_at": gtime.Now(), "used_by": agentId}).Update(); e != nil {
+		res, e := tx.Ctx(ctx).Model("agent_join_codes").Where("id", row["id"].Int()).
+			Where("used_at IS NULL"). // 并发双兑同码：仅一个成功
+			Data(g.Map{"used_at": gtime.Now(), "used_by": agentId}).Update()
+		if e != nil {
 			return e
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("接入码已被使用")
 		}
 		if _, e := tx.Ctx(ctx).Exec(
 			`INSERT INTO agent_project_bindings (agent_id, project_id, role) VALUES (?,?,?)
@@ -176,10 +222,10 @@ func SessionCreate(ctx context.Context, req *api.SessionCreateReq) (*api.Session
 	} else {
 		sid = "bcsh_" + generateSalt()
 		_, err = g.DB().Model("agent_sessions").Ctx(ctx).Insert(g.Map{
-			"session_id":  sid,
-			"agent_id":    agentId,
-			"project_id":  req.ProjectId,
-			"expires_at":  expires,
+			"session_id": sid,
+			"agent_id":   agentId,
+			"project_id": req.ProjectId,
+			"expires_at": expires,
 		})
 	}
 	if err != nil {
@@ -265,6 +311,23 @@ func rowToTaskBrief(r gdb.Record) api.TaskBrief {
 	}
 }
 
+// RemoveAgentProject owner 移除 agent 的项目准入：binding 与该项目的会话一并清除
+// （会话只做路由不做权限，但清除可让免参端点立即 403 而非等到过期）
+func RemoveAgentProject(ctx context.Context, projectId, agentId, operator int) error {
+	if !perm.IsProjectOwner(ctx, operator, projectId) {
+		return fmt.Errorf("仅项目管理员可移除 Agent 准入")
+	}
+	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Exec(
+			"DELETE FROM agent_project_bindings WHERE agent_id = ? AND project_id = ?", agentId, projectId); err != nil {
+			return err
+		}
+		_, err := tx.Exec(
+			"DELETE FROM agent_sessions WHERE agent_id = ? AND project_id = ?", agentId, projectId)
+		return err
+	})
+}
+
 // ==================== 会话解析（免参端点用） ====================
 
 // ResolveSession 由 X-Session 解析 (agentId, projectId)；会话属于谁就只认谁
@@ -286,7 +349,14 @@ func ResolveSession(ctx context.Context, sessionId string, claimedAgent int) (in
 	if gtime.Now().After(row["expires_at"].GTime()) {
 		return 0, fmt.Errorf("会话已过期，请重建")
 	}
-	return row["project_id"].Int(), nil
+	// 复验项目准入：会话只做路由不做权限，但 binding 被移除后免参端点
+	// 应立即失效（不等 24h 过期）——权限主体端点由 CanAccessProject 实时挡
+	projectId := row["project_id"].Int()
+	if cnt, _ := g.DB().Model("agent_project_bindings").Ctx(ctx).
+		Where("agent_id", claimedAgent).Where("project_id", projectId).Count(); cnt == 0 {
+		return 0, fmt.Errorf("项目准入已被移除")
+	}
+	return projectId, nil
 }
 
 // ==================== 免参任务列表 ====================

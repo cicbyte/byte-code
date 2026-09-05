@@ -38,6 +38,13 @@ func (c *agentController) SessionCreate(ctx context.Context, req *api.SessionCre
 	return agent.SessionCreate(ctx, req)
 }
 
+func (c *agentController) AgentRemoveProject(ctx context.Context, req *api.AgentRemoveReq) (*api.AgentRemoveRes, error) {
+	if err := agent.RemoveAgentProject(ctx, req.ProjectId, req.AgentId, ctxUserId(ctx)); err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.AgentRemoveRes{}, nil
+}
+
 func (c *agentController) AgentTasks(ctx context.Context, req *api.AgentTasksReq) (*api.AgentTasksRes, error) {
 	if !isAgentCtx(ctx) {
 		return nil, gerror.New("仅 Agent（bc key）可调用")

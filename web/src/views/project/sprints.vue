@@ -1,12 +1,12 @@
 <template>
   <div>
-    <n-card :bordered="false" title="迭代管理（Sprint）" class="proCard">
+    <n-card :bordered="false" title="迭代管理" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="openCreate">新建迭代</n-button>
       </template>
 
       <n-spin :show="loading">
-        <EmptyState type="task" title="暂无迭代" v-if="!loading && sprints.length === 0" description="创建第一个迭代（Sprint）组织一个开发周期" />
+        <EmptyState type="task" title="暂无迭代" v-if="!loading && sprints.length === 0" description="创建第一个迭代组织一个开发周期" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
             <thead>
             <tr>

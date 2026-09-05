@@ -28,6 +28,7 @@ func Run(ctx context.Context) {
 	notifyBefore := time.Now().AddDate(0, 0, -retainReadNotifyDays).Format("2006-01-02 15:04:05")
 	memBefore := time.Now().AddDate(0, 0, -retainExpiredMemDays).Format("2006-01-02 15:04:05")
 	aiLogBefore := time.Now().AddDate(0, 0, -retainAiLogDays).Format("2006-01-02 15:04:05")
+	agentBefore := time.Now().AddDate(0, 0, -7).Format("2006-01-02 15:04:05")
 
 	jobs := []struct {
 		name string
@@ -42,6 +43,11 @@ func Run(ctx context.Context) {
 		{"expired_memories", "DELETE FROM project_memories WHERE status = 'expired' AND updated_at < ?", []interface{}{memBefore}},
 		// AI 执行日志每任务至少 3 条、complete 存完整 LLM 输出，开启引擎后增长最快
 		{"stale_ai_logs", "DELETE FROM ai_execution_logs WHERE created_at < ?", []interface{}{aiLogBefore}},
+		// agent 通知无人回写 is_read（消费方是轮询/SSE），强制 7 天过期防膨胀
+		{"stale_agent_notifications", "DELETE FROM notifications WHERE user_id IN (SELECT id FROM sys_users WHERE type = 'ai') AND created_at < ?", []interface{}{agentBefore}},
+		// 已用/过期接入码保留 7 天排障后清理；过期会话即刻清理
+		{"stale_join_codes", "DELETE FROM agent_join_codes WHERE expires_at < ?", []interface{}{agentBefore}},
+		{"stale_agent_sessions", "DELETE FROM agent_sessions WHERE expires_at < ?", []interface{}{now}},
 	}
 	for _, j := range jobs {
 		res, err := g.DB().Exec(ctx, j.sql, j.args...)

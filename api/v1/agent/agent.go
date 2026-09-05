@@ -16,7 +16,7 @@ type RegisterReq struct {
 }
 
 type RegisterRes struct {
-	g.Meta `mime:"application/json"`
+	g.Meta  `mime:"application/json"`
 	AgentId int    `json:"agentId"`
 	ApiKey  string `json:"apiKey" dc:"bc_ 前缀，只此一次返回，客户端自行保存"`
 }
@@ -24,13 +24,13 @@ type RegisterRes struct {
 // ==================== 项目接入 ====================
 
 type JoinCodeCreateReq struct {
-	g.Meta `path:"/projects/{projectId}/agent-codes" method:"post" tags:"Agent接入" summary:"生成项目接入码（owner/超管；一次性/24h）"`
+	g.Meta    `path:"/projects/{projectId}/agent-codes" method:"post" tags:"Agent接入" summary:"生成项目接入码（owner/超管；一次性/24h）"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`
 }
 
 type JoinCodeCreateRes struct {
-	g.Meta `mime:"application/json"`
-	Code string `json:"code" dc:"bcg_ 前缀，展示一次即焚"`
+	g.Meta    `mime:"application/json"`
+	Code      string `json:"code" dc:"bcg_ 前缀，展示一次即焚"`
 	ExpiresAt string `json:"expiresAt"`
 }
 
@@ -40,21 +40,31 @@ type JoinReq struct {
 }
 
 type JoinRes struct {
-	g.Meta `mime:"application/json"`
-	ProjectId int    `json:"projectId"`
+	g.Meta      `mime:"application/json"`
+	ProjectId   int    `json:"projectId"`
 	ProjectName string `json:"projectName"`
+}
+
+type AgentRemoveReq struct {
+	g.Meta    `path:"/projects/{projectId}/agents/{agentId}" method:"delete" tags:"Agent接入" summary:"移除 Agent 项目准入（owner；会话一并失效）"`
+	ProjectId int `json:"projectId" v:"required" in:"path"`
+	AgentId   int `json:"agentId" v:"required" in:"path"`
+}
+
+type AgentRemoveRes struct {
+	g.Meta `mime:"application/json"`
 }
 
 // ==================== 工作会话 ====================
 
 type SessionCreateReq struct {
-	g.Meta `path:"/agent/sessions" method:"post" tags:"Agent接入" summary:"建立工作会话（开工包；键=agent+project，复用续期）"`
+	g.Meta    `path:"/agent/sessions" method:"post" tags:"Agent接入" summary:"建立工作会话（开工包；键=agent+project，复用续期）"`
 	ProjectId int `json:"projectId" v:"required#项目ID不能为空" dc:"来自 join 返回或 .bc/project 指向"`
 }
 
 type SessionCreateRes struct {
-	g.Meta `mime:"application/json"`
-	SessionId string `json:"sessionId"`
+	g.Meta    `mime:"application/json"`
+	SessionId string       `json:"sessionId"`
 	Project   ProjectBrief `json:"project"`
 	// 开工包：全局+项目记忆（conventions.* 优先），与 kb_get_conventions 同口径
 	Conventions    []ConventionItem `json:"conventions"`
@@ -84,13 +94,13 @@ type TaskBrief struct {
 // ==================== 免参别名（X-Session 推导 agent+project） ====================
 
 type AgentTasksReq struct {
-	g.Meta `path:"/agent/tasks" method:"get" tags:"Agent接入" summary:"项目任务列表（会话推导，免 projectId）"`
-	Status string `json:"status" in:"query" dc:"缺省=未完成三态；all=全部"`
+	g.Meta  `path:"/agent/tasks" method:"get" tags:"Agent接入" summary:"项目任务列表（会话推导，免 projectId）"`
+	Status  string `json:"status" in:"query" dc:"缺省=未完成三态；all=全部"`
 	Keyword string `json:"keyword" in:"query"`
 }
 
 type AgentTasksRes struct {
 	g.Meta `mime:"application/json"`
-	List  []TaskBrief `json:"list"`
-	Total int         `json:"total"`
+	List   []TaskBrief `json:"list"`
+	Total  int         `json:"total"`
 }

@@ -222,5 +222,10 @@ func (s *sAuth) ValidateToken(ctx context.Context, tokenStr string) (userId int,
 	if err != nil || count == 0 {
 		return 0, fmt.Errorf("token已失效")
 	}
+	// 账号级兜底：被删除/禁用的账号，残留 token 一律失效
+	uv, uerr := g.DB().Model("sys_users").Where("id", claims.UserId).Fields("status").Value()
+	if uerr != nil || uv == nil || uv.Int() != 1 {
+		return 0, fmt.Errorf("账号不可用")
+	}
 	return claims.UserId, nil
 }

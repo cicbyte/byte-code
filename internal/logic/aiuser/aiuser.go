@@ -14,6 +14,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/aiuser"
 	"github.com/cicbyte/byte-code/internal/logic/auth"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -33,15 +34,15 @@ func (s *sAiUser) Create(ctx context.Context, req *api.AiUserCreateReq) (id int,
 	hashedKey := hashApiKey(apiKey, salt)
 
 	result, err := g.DB().Model("sys_users").Ctx(ctx).Insert(g.Map{
-		"username":      req.Username,
-		"password":      "",
-		"real_name":     req.RealName,
-		"type":          "ai",
-		"capabilities":  req.Capabilities,
-		"api_key":       hashedKey,
-		"api_key_salt":  salt,
+		"username":       req.Username,
+		"password":       "",
+		"real_name":      req.RealName,
+		"type":           "ai",
+		"capabilities":   req.Capabilities,
+		"api_key":        hashedKey,
+		"api_key_salt":   salt,
 		"owner_human_id": ctx.Value("userId").(int),
-		"status":        1,
+		"status":         1,
 	})
 	if err != nil {
 		return 0, "", err
@@ -52,23 +53,51 @@ func (s *sAiUser) Create(ctx context.Context, req *api.AiUserCreateReq) (id int,
 }
 
 func (s *sAiUser) Update(ctx context.Context, req *api.AiUserUpdateReq) (err error) {
-	_, err = g.DB().Model("sys_users").Ctx(ctx).
-		Where("id", req.Id).
-		Where("type", "ai").
-		Data(g.Map{
-			"real_name":     req.RealName,
-			"capabilities":  req.Capabilities,
-			"status":        req.Status,
-		}).Update()
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, e := tx.Ctx(ctx).Model("sys_users").
+			Where("id", req.Id).
+			Where("type", "ai").
+			Data(g.Map{
+				"real_name":    req.RealName,
+				"capabilities": req.Capabilities,
+				"status":       req.Status,
+			}).Update(); e != nil {
+			return e
+		}
+		// 禁用即时生效：清准入/会话并踢掉已签发 token——否则旧 JWT 在
+		// 有效期内仍可通过校验（ValidateToken 只查 token 表不查账号状态）
+		if req.Status == 0 {
+			return PurgeAgentAccess(tx, req.Id)
+		}
+		return nil
+	})
 	return
 }
 
+// PurgeAgentAccess 撤销 agent 的全部访问通道：项目准入、工作会话、已签发 token
+func PurgeAgentAccess(tx gdb.TX, agentId int) error {
+	if _, err := tx.Exec("DELETE FROM agent_project_bindings WHERE agent_id = ?", agentId); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM agent_sessions WHERE agent_id = ?", agentId); err != nil {
+		return err
+	}
+	_, err := tx.Exec("DELETE FROM sys_tokens WHERE user_id = ?", agentId)
+	return err
+}
+
 func (s *sAiUser) Delete(ctx context.Context, id int) (err error) {
-	_, err = g.DB().Model("sys_users").Ctx(ctx).
-		Where("id", id).
-		Where("type", "ai").
-		Delete()
-	return
+	// 删号同事务清准入/会话/token：binding 残留会让 IsAgentBound 持续为真
+	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if err := PurgeAgentAccess(tx, id); err != nil {
+			return err
+		}
+		_, err := tx.Ctx(ctx).Model("sys_users").
+			Where("id", id).
+			Where("type", "ai").
+			Delete()
+		return err
+	})
 }
 
 func (s *sAiUser) List(ctx context.Context, req *api.AiUserListReq) (res *api.AiUserListRes, err error) {

@@ -127,6 +127,16 @@ func (s *sProject) DeleteProject(ctx context.Context, id int) (err error) {
 				return err
 			}
 		}
+		// agent 协议三表级联：binding 残留会让 IsAgentBound 持续为真
+		if _, err := tx.Exec("DELETE FROM agent_project_bindings WHERE project_id = ?", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM agent_sessions WHERE project_id = ?", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("DELETE FROM agent_join_codes WHERE project_id = ?", id); err != nil {
+			return err
+		}
 		// 项目本身
 		if _, err := tx.Delete("projects", "id", id); err != nil {
 			return err

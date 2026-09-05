@@ -9,6 +9,7 @@ import (
 	"github.com/cicbyte/byte-code/internal/consts"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/notify"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -54,6 +55,13 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 		return err
 	}
 
+	// 完成限任务的 assignee 本人或项目管理员：任意项目成员/绑定 agent
+	// 可完成任意任务会破坏执行归属（claim 的意义）
+	uid := perm.UserId(ctx)
+	if task.AssigneeId != uid && !perm.IsProjectOwner(ctx, uid, task.ProjectId) {
+		return fmt.Errorf("仅任务负责人或项目管理员可完成任务")
+	}
+
 	userId := 0
 	if uid := ctx.Value("userId"); uid != nil {
 		userId = uid.(int)
@@ -84,6 +92,11 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 }
 
 func (s *sProject) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err error) {
+	// 人审门禁：agent 不能自审通过自己提交的任务（CanAccessProject 对绑定
+	// agent 放行，此处是审核语义的最后防线）
+	if t, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", perm.UserId(ctx)).Fields("type").Value(); t != nil && t.String() == "ai" {
+		return fmt.Errorf("任务审核仅限人类用户")
+	}
 	task, err := s.GetTask(ctx, req.Id)
 	if err != nil {
 		return err
