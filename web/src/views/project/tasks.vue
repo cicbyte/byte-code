@@ -216,10 +216,14 @@
   });
   const formRules = { title: { required: true, message: '请输入任务标题', trigger: 'blur' } };
 
-  function openCreate() {
+  function resetForm() {
     editingId.value = null;
     formData.title = ''; formData.type = 'feature'; formData.priority = 2;
     formData.description = ''; formData.assigneeId = null; formData.dueDate = null;
+  }
+
+  function openCreate() {
+    resetForm();
     showCreateModal.value = true;
   }
 
@@ -284,7 +288,8 @@
         message.success('任务创建成功');
       }
       showCreateModal.value = false;
-      openCreate();
+      // 纯重置（不碰 showCreateModal）：openCreate 的二次翻转依赖 naive 补发 update:show，脆弱
+      resetForm();
       loadTasks();
     } catch { message.error(editingId.value ? '更新失败' : '创建失败'); return false; }
   }

@@ -318,6 +318,9 @@
     try {
       const res = await getTasks(projectId.value, { size: 200 });
       allTasks.value = res?.list || [];
+      if (res?.total > 200) {
+        message.warning(`任务较多，仅显示前 200 条（共 ${res.total} 条）`);
+      }
     } catch {
       allTasks.value = [];
     } finally {

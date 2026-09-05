@@ -301,6 +301,8 @@
     currentPlan.value = plan;
     showDetailModal.value = true;
     detailLoading.value = true;
+    // 先清旧计划数据：加载失败时标题下不会挂着上一计划的统计与结果表
+    planResults.value = null;
     try {
       const res = await getTestPlanResults(plan.id);
       planResults.value = res || null;
