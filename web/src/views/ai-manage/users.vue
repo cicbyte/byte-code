@@ -1,23 +1,24 @@
 <template>
   <div>
-    <n-card :bordered="false" title="AI 用户管理" class="proCard">
+    <n-card :bordered="false" title="Agent 账号管理" class="proCard">
       <template #header-extra>
         <n-button type="primary" @click="handleCreate">
           <template #icon>
             <n-icon><PlusOutlined /></n-icon>
           </template>
-          创建 AI 用户
+          创建 Agent
         </n-button>
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && userList.length === 0" description="暂无 AI 用户" />
+        <n-empty v-if="!loading && userList.length === 0" description="暂无 Agent" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
               <th>用户名</th>
               <th>姓名</th>
               <th>能力</th>
+              <th>接入项目</th>
               <th>状态</th>
               <th>创建时间</th>
               <th>操作</th>
@@ -28,6 +29,12 @@
               <td>{{ item.username }}</td>
               <td>{{ item.realName || '-' }}</td>
               <td>{{ item.capabilities || '-' }}</td>
+              <td>
+                <n-space :size="4">
+                  <n-tag v-for="pn in item.projects || []" :key="pn" size="small" :bordered="false">{{ pn }}</n-tag>
+                  <span v-if="!(item.projects || []).length" class="text-gray-400">-</span>
+                </n-space>
+              </td>
               <td>
                 <n-tag :type="item.status === 1 ? 'success' : 'default'" size="small">
                   {{ item.status === 1 ? '启用' : '禁用' }}
@@ -51,7 +58,7 @@
     <n-modal
       v-model:show="showModal"
       preset="dialog"
-      :title="isEdit ? '编辑 AI 用户' : '创建 AI 用户'"
+      :title="isEdit ? '编辑 AI 用户' : '创建 Agent'"
       positive-text="确定"
       negative-text="取消"
       @positive-click="handleSubmit"

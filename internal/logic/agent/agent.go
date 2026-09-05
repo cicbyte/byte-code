@@ -1,0 +1,331 @@
+// Package agent 外部 Agent 接入协议实现（dev-docs/agent-protocol.md）。
+// Agent 仅作身份标识（sys_users type=ai + bc_ key），与项目多对多解耦：
+// 注册（公开纯身份）→ 项目接入码 join → 工作会话（agent+project 键）
+package agent
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"time"
+
+	api "github.com/cicbyte/byte-code/api/v1/agent"
+	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/gtime"
+)
+
+// ---- key 工具（与 aiuser 包同实现；两侧独立演进故不共享） ----
+
+func generateApiKey() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return "bc_" + hex.EncodeToString(b)
+}
+
+func generateJoinCode() string {
+	b := make([]byte, 24)
+	rand.Read(b)
+	return "bcg_" + hex.EncodeToString(b)
+}
+
+func hashApiKey(apiKey, salt string) string {
+	mac := hmac.New(sha256.New, []byte(salt))
+	mac.Write([]byte(apiKey))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func generateSalt() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// ==================== 注册（公开：纯身份，无权限） ====================
+
+func Register(ctx context.Context, req *api.RegisterReq) (*api.RegisterRes, error) {
+	name := strings.TrimSpace(req.Name)
+	apiKey := generateApiKey()
+	salt := generateSalt()
+
+	// username 全局唯一（sys_users UNIQUE 兜底 + 友好提示）
+	cnt, err := g.DB().Model("sys_users").Ctx(ctx).Where("username", name).Count()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "注册失败")
+	}
+	if cnt > 0 {
+		return nil, fmt.Errorf("名称已存在：%s", name)
+	}
+	result, err := g.DB().Model("sys_users").Ctx(ctx).Insert(g.Map{
+		"username":       name,
+		"password":       "",
+		"real_name":      name,
+		"type":           "ai",
+		"capabilities":   req.Capabilities,
+		"api_key":        hashApiKey(apiKey, salt),
+		"api_key_salt":   salt,
+		"owner_human_id": 0, // 自助注册无属主
+		"status":         1,
+	})
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "注册失败")
+	}
+	lastId, _ := result.LastInsertId()
+	return &api.RegisterRes{AgentId: int(lastId), ApiKey: apiKey}, nil
+}
+
+// ==================== 项目接入码 ====================
+
+// JoinCodeCreate 项目 owner/超管生成一次性接入码（24h）
+func JoinCodeCreate(ctx context.Context, projectId int) (*api.JoinCodeCreateRes, error) {
+	uid := perm.UserId(ctx)
+	if !perm.IsProjectOwner(ctx, uid, projectId) {
+		return nil, fmt.Errorf("仅项目管理员可生成接入码")
+	}
+	code := generateJoinCode()
+	expires := gtime.Now().Add(24 * time.Hour)
+	if _, err := g.DB().Model("agent_join_codes").Ctx(ctx).Insert(g.Map{
+		"code":       code,
+		"project_id": projectId,
+		"role":       "member",
+		"created_by": uid,
+		"expires_at": expires,
+	}); err != nil {
+		return nil, liberr.WrapDb(ctx, err, "生成接入码失败")
+	}
+	return &api.JoinCodeCreateRes{Code: code, ExpiresAt: expires.Format("Y-m-d H:i:s")}, nil
+}
+
+// Join Agent（bc key 已认证）凭接入码加入项目；幂等（重复 join 同项目无害）
+func Join(ctx context.Context, code string) (*api.JoinRes, error) {
+	agentId := perm.UserId(ctx) // TokenAuth 的 bc_ 分支注入的是 sys_users.id
+
+	row, err := g.DB().Model("agent_join_codes").Ctx(ctx).
+		Where("code", strings.TrimSpace(code)).One()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "验证接入码失败")
+	}
+	if row.IsEmpty() {
+		return nil, fmt.Errorf("接入码不存在")
+	}
+	if !row["used_at"].GTime().IsZero() {
+		return nil, fmt.Errorf("接入码已被使用")
+	}
+	if gtime.Now().After(row["expires_at"].GTime()) {
+		return nil, fmt.Errorf("接入码已过期")
+	}
+	projectId := row["project_id"].Int()
+
+	// 码一次性消费 + 准入落库同事务
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, e := tx.Ctx(ctx).Model("agent_join_codes").Where("id", row["id"].Int()).
+		 Where("used_at IS NULL"). // 并发双兑同码：仅一个成功
+		 Data(g.Map{"used_at": gtime.Now(), "used_by": agentId}).Update(); e != nil {
+			return e
+		}
+		if _, e := tx.Ctx(ctx).Exec(
+			`INSERT INTO agent_project_bindings (agent_id, project_id, role) VALUES (?,?,?)
+			 ON CONFLICT(agent_id, project_id) DO NOTHING`,
+			agentId, projectId, row["role"].String()); e != nil {
+			return e
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "加入项目失败")
+	}
+	pname, _ := g.DB().Model("projects").Ctx(ctx).Where("id", projectId).Value("name")
+	return &api.JoinRes{ProjectId: projectId, ProjectName: pname.String()}, nil
+}
+
+// ==================== 工作会话 ====================
+
+// SessionCreate 建立/复用会话（键=agent+project）并返回开工包
+func SessionCreate(ctx context.Context, req *api.SessionCreateReq) (*api.SessionCreateRes, error) {
+	agentId := perm.UserId(ctx)
+
+	// 准入校验（不经会话实时判定）
+	bound, err := g.DB().Model("agent_project_bindings").Ctx(ctx).
+		Where("agent_id", agentId).Where("project_id", req.ProjectId).Count()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询项目准入失败")
+	}
+	if bound == 0 {
+		return nil, fmt.Errorf("未加入该项目，请先凭接入码加入")
+	}
+
+	// 会话键=(agent,project)：存在则续期复用，否则签发
+	sid := ""
+	existing, err := g.DB().Model("agent_sessions").Ctx(ctx).
+		Where("agent_id", agentId).Where("project_id", req.ProjectId).One()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询会话失败")
+	}
+	expires := gtime.Now().Add(24 * time.Hour)
+	if !existing.IsEmpty() {
+		sid = existing["session_id"].String()
+		_, err = g.DB().Model("agent_sessions").Ctx(ctx).
+			Where("agent_id", agentId).Where("project_id", req.ProjectId).
+			Data("expires_at", expires).Update()
+	} else {
+		sid = "bcsh_" + generateSalt()
+		_, err = g.DB().Model("agent_sessions").Ctx(ctx).Insert(g.Map{
+			"session_id":  sid,
+			"agent_id":    agentId,
+			"project_id":  req.ProjectId,
+			"expires_at":  expires,
+		})
+	}
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "建立会话失败")
+	}
+
+	res, err := buildContextPack(ctx, agentId, req.ProjectId)
+	if err != nil {
+		return nil, err
+	}
+	res.SessionId = sid
+	return res, nil
+}
+
+// buildContextPack 开工包：项目 + 全局/项目约定 + 我的任务 + 我提交的待审
+func buildContextPack(ctx context.Context, agentId, projectId int) (*api.SessionCreateRes, error) {
+	pname, err := g.DB().Model("projects").Ctx(ctx).Where("id", projectId).Value("name")
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询项目失败")
+	}
+	res := &api.SessionCreateRes{
+		Project: api.ProjectBrief{Id: projectId, Name: pname.String()},
+	}
+
+	// 约定：全局 conventions.* + 项目全部记忆（与 kb_get_conventions 同口径，
+	// 值截断 600 字；过期/腐化跳过）
+	rows, err := g.DB().Model("project_memories").Ctx(ctx).
+		Fields("project_id, key, value, status, expires_at, last_verified_at").
+		Where("(project_id = 0 AND `key` LIKE 'conventions.%') OR project_id = ?", projectId).
+		Where("status IN (?)", g.Slice{"pending", "active"}).
+		Order("project_id ASC, `key` ASC").Limit(100).All()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询记忆失败")
+	}
+	for _, r := range rows {
+		v := r["value"].String()
+		if len(v) > 600 {
+			v = v[:600] + "…"
+		}
+		scope := "project"
+		if r["project_id"].Int64() == 0 {
+			scope = "global"
+		}
+		res.Conventions = append(res.Conventions, api.ConventionItem{
+			Key: r["key"].String(), Value: v, Scope: scope,
+		})
+	}
+
+	// 我的任务（assignee=agent，未完成三态）
+	myRows, err := g.DB().Model("tasks").Ctx(ctx).
+		Fields("id, title, status, priority, due_date").
+		Where("assignee_id", agentId).
+		Where("project_id", projectId).
+		Where("status IN (?)", g.Slice{"open", "in_progress", "review"}).
+		Order("priority DESC, updated_at DESC").Limit(50).All()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
+	}
+	for _, r := range myRows {
+		res.MyTasks = append(res.MyTasks, rowToTaskBrief(r))
+	}
+
+	// 我提交的待审（claim 的任务完成进入 review）
+	rvRows, err := g.DB().Model("tasks").Ctx(ctx).
+		Fields("id, title, status, priority, due_date").
+		Where("project_id", projectId).
+		Where("assignee_id", agentId).
+		Where("status", "review").
+		Limit(50).All()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询待审失败")
+	}
+	for _, r := range rvRows {
+		res.PendingReviews = append(res.PendingReviews, rowToTaskBrief(r))
+	}
+	return res, nil
+}
+
+func rowToTaskBrief(r gdb.Record) api.TaskBrief {
+	return api.TaskBrief{
+		Id: r["id"].Int(), Title: r["title"].String(), Status: r["status"].String(),
+		Priority: r["priority"].Int(), DueDate: r["due_date"].String(),
+	}
+}
+
+// ==================== 会话解析（免参端点用） ====================
+
+// ResolveSession 由 X-Session 解析 (agentId, projectId)；会话属于谁就只认谁
+func ResolveSession(ctx context.Context, sessionId string, claimedAgent int) (int, error) {
+	if sessionId == "" {
+		return 0, fmt.Errorf("缺少 X-Session 会话头")
+	}
+	row, err := g.DB().Model("agent_sessions").Ctx(ctx).
+		Where("session_id", sessionId).One()
+	if err != nil {
+		return 0, liberr.WrapDb(ctx, err, "查询会话失败")
+	}
+	if row.IsEmpty() {
+		return 0, fmt.Errorf("会话不存在")
+	}
+	if row["agent_id"].Int() != claimedAgent {
+		return 0, fmt.Errorf("会话不属于当前 Agent")
+	}
+	if gtime.Now().After(row["expires_at"].GTime()) {
+		return 0, fmt.Errorf("会话已过期，请重建")
+	}
+	return row["project_id"].Int(), nil
+}
+
+// ==================== 免参任务列表 ====================
+
+func AgentTasks(ctx context.Context, agentId int, session, status, keyword string) (*api.AgentTasksRes, error) {
+	projectId, err := ResolveSession(ctx, session, agentId)
+	if err != nil {
+		return nil, err
+	}
+	res := &api.AgentTasksRes{}
+	statuses := g.Slice{"open", "in_progress", "review"}
+	if status == "all" {
+		statuses = nil
+	} else if status != "" {
+		statuses = g.Slice{status}
+	}
+	// Count 与数据查询分开构建：带 Fields 的 model 直接 Count 会生成
+	// COUNT(多列) 非法 SQL
+	base := func() *gdb.Model {
+		m := g.DB().Model("tasks").Ctx(ctx).Where("project_id", projectId)
+		if statuses != nil {
+			m = m.Where("status IN (?)", statuses)
+		}
+		if keyword != "" {
+			m = m.WhereLike("title", "%"+keyword+"%")
+		}
+		return m
+	}
+	if res.Total, err = base().Count(); err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
+	}
+	rows, err := base().
+		Fields("id, title, status, priority, due_date").
+		Order("priority DESC, updated_at DESC").Limit(200).All()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
+	}
+	for _, r := range rows {
+		res.List = append(res.List, rowToTaskBrief(r))
+	}
+	return res, nil
+}

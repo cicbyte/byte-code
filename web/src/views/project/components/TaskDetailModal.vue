@@ -1,11 +1,13 @@
 <template>
-  <n-modal
+  <n-drawer
     v-model:show="visible"
-    preset="card"
-    title="任务详情"
-    style="width: 720px; max-height: 80vh"
-    :mask-closable="true"
+    class="task-detail-drawer"
+    placement="right"
+    :width="drawerWidth"
+    :mask="false"
+    :close-on-esc="true"
   >
+    <n-drawer-content title="任务详情" closable>
     <n-spin :show="loading">
       <template v-if="task">
         <!-- 基本信息 -->
@@ -123,7 +125,7 @@
         </n-card>
 
         <!-- AI 执行日志时间线 -->
-        <n-card title="AI 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+        <n-card title="Agent 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
           <n-empty v-if="aiLogs.length === 0" description="暂无 AI 执行记录" size="small" />
           <n-timeline v-else>
             <n-timeline-item
@@ -152,7 +154,7 @@
         <!-- AI 产出（artifacts，markdown 渲染） -->
         <n-card
           v-if="task.artifacts"
-          title="AI 产出"
+          title="Agent 产出"
           size="small"
           class="mb-4"
           :bordered="true"
@@ -183,7 +185,7 @@
               <n-space justify="space-between" align="center">
                 <n-space size="small" align="center">
                   <n-tag size="tiny" :type="comment.userType === 'ai' ? 'warning' : 'info'">
-                    {{ comment.userType === 'ai' ? 'AI' : '用户' }}
+                    {{ comment.userType === 'ai' ? 'Agent' : '用户' }}
                   </n-tag>
                   <span class="text-sm font-medium">{{ comment.realName || comment.username }}</span>
                 </n-space>
@@ -225,12 +227,8 @@
     </n-spin>
     <input ref="attInputRef" type="file" multiple style="display: none" @change="onAttFiles" />
 
-    <template #footer>
-      <n-space justify="end">
-        <n-button @click="visible = false">关闭</n-button>
-      </n-space>
-    </template>
-  </n-modal>
+    </n-drawer-content>
+  </n-drawer>
 </template>
 
 <script lang="ts" setup>
@@ -370,6 +368,9 @@
   }
 
   const router = useRouter();
+
+  // 宽屏大面板（AI 产出 markdown/长评论阅读），窄屏留 8% 呼吸
+  const drawerWidth = typeof window !== 'undefined' ? Math.min(880, window.innerWidth * 0.92) : 720;
 
   // ==================== 关联文档 / AI 日志 / AI 产出 ====================
   const linkedDocs = ref<DocsSearchItem[]>([]);
@@ -656,10 +657,15 @@
 
 <style lang="less">
 // 非 scoped：modal teleport 到 body 后脱离组件 DOM 树，scoped/:deep 选不中根卡。
-// 所有 card 型弹窗在 style max-height 约束下内容区内部滚动——默认 overflow
+// card 型弹窗在 style max-height 约束下内容区内部滚动——默认 overflow
 // visible 会让长内容穿透弹窗边界显示在下方（无 max-height 的弹窗不受影响）
 .n-modal.n-card > .n-card__content {
   overflow-y: auto;
   min-height: 0;
+}
+
+// 抽屉 body 滚动（n-drawer-content 自带，这里只确保评论区输入区不随内容滚动走丢）
+:global(.task-detail-drawer .n-drawer-body-content-wrapper) {
+  padding-bottom: 8px;
 }
 </style>

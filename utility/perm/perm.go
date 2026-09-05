@@ -40,9 +40,23 @@ func IsProjectMember(ctx context.Context, userId, projectId int) bool {
 	return err == nil && count > 0
 }
 
-// CanAccessProject 资源访问判定：超级管理员或项目成员放行
+// CanAccessProject 资源访问判定：超级管理员、项目成员或已准入的外部 Agent 放行
 func CanAccessProject(ctx context.Context, userId, projectId int) bool {
-	return IsAdmin(ctx, userId) || IsProjectMember(ctx, userId, projectId)
+	return IsAdmin(ctx, userId) || IsProjectMember(ctx, userId, projectId) ||
+		IsAgentBound(ctx, userId, projectId)
+}
+
+// IsAgentBound 外部 Agent 的项目准入（agent_project_bindings）。
+// agent_id 全局唯一且仅指向 type=ai 账号，人类用户 id 不会命中
+func IsAgentBound(ctx context.Context, userId, projectId int) bool {
+	if userId <= 0 || projectId <= 0 {
+		return false
+	}
+	count, err := g.DB().Model("agent_project_bindings").
+		Where("agent_id", userId).
+		Where("project_id", projectId).
+		Count()
+	return err == nil && count > 0
 }
 
 // IsProjectOwner 判断用户是否为项目 owner（或超管）——

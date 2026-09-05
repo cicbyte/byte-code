@@ -97,7 +97,7 @@
           <n-space v-else vertical :size="10">
             <n-space v-for="a in activities" :key="a.id" align="center" :size="8">
               <n-tag size="tiny" :type="a.actorType === 'ai' ? 'warning' : 'info'" :bordered="false">
-                {{ a.actorType === 'ai' ? 'AI' : '用户' }}
+                {{ a.actorType === 'ai' ? 'Agent' : '用户' }}
               </n-tag>
               <span class="text-sm">
                 <span class="font-medium">{{ a.actorName || '系统' }}</span>

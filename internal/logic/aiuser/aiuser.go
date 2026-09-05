@@ -86,6 +86,26 @@ func (s *sAiUser) List(ctx context.Context, req *api.AiUserListReq) (res *api.Ai
 	if err != nil {
 		return
 	}
+	// 已接入项目名回填（一次聚合查询，避免 N+1）
+	if len(list) > 0 {
+		ids := make([]int, 0, len(list))
+		for _, u := range list {
+			ids = append(ids, u.Id)
+		}
+		rows, berr := g.DB().Model("agent_project_bindings b").Ctx(ctx).
+			Fields("b.agent_id, p.name").
+			LeftJoin("projects p", "p.id = b.project_id").
+			WhereIn("b.agent_id", ids).All()
+		if berr == nil {
+			pm := map[int][]string{}
+			for _, r := range rows {
+				pm[r["agent_id"].Int()] = append(pm[r["agent_id"].Int()], r["name"].String())
+			}
+			for i := range list {
+				list[i].Projects = pm[list[i].Id]
+			}
+		}
+	}
 	res.List = list
 	return
 }

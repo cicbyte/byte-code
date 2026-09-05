@@ -2,7 +2,10 @@
   <div>
     <n-card :bordered="false" title="项目成员" class="proCard">
       <template #header-extra>
-        <n-button type="primary" @click="showAddModal = true">添加成员</n-button>
+        <n-space>
+          <n-button @click="handleGenAgentCode">Agent 接入码</n-button>
+          <n-button type="primary" @click="showAddModal = true">添加成员</n-button>
+        </n-space>
       </template>
 
       <n-spin :show="loading">
@@ -32,6 +35,18 @@
       </n-spin>
     </n-card>
 
+    <!-- Agent 接入码（一次性展示） -->
+    <n-modal v-model:show="showAgentCode" preset="dialog" title="Agent 项目接入码" :show-icon="false">
+      <n-space vertical :size="8" class="py-2">
+        <n-alert type="info" :show-icon="false">
+          外部 Agent 用此码调用 <code>POST /v1/agent/projects/join</code> 加入本项目。
+          码为一次性、24 小时有效，关闭本弹窗后不再展示。
+        </n-alert>
+        <n-code :code="agentCode" language="text" />
+        <n-text depth="3" style="font-size: 12px">有效期至：{{ agentCodeExpires }}</n-text>
+      </n-space>
+    </n-modal>
+
     <!-- 添加成员弹窗 -->
     <n-modal
       v-model:show="showAddModal"
@@ -59,6 +74,7 @@
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { getMembers, addMember, removeMember } from '@/api/project/index';
+  import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
   const route = useRoute();
@@ -109,5 +125,21 @@
     });
   }
 
-  onMounted(loadMembers);
+  // Agent 接入码：owner 生成，一次性展示
+  const showAgentCode = ref(false);
+  const agentCode = ref('');
+  const agentCodeExpires = ref('');
+  async function handleGenAgentCode() {
+    try {
+      const res = await createAgentJoinCode(projectId.value);
+      agentCode.value = res.code;
+      agentCodeExpires.value = res.expiresAt;
+      showAgentCode.value = true;
+      loadMembers();
+    } catch {
+      // http 层统一提示（无权限等）
+    }
+  }
+
+onMounted(loadMembers);
 </script>

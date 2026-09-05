@@ -68,7 +68,7 @@
     { label: '任务', value: 'task' },
     { label: '测试', value: 'test' },
     { label: '知识库', value: 'knowledge' },
-    { label: 'AI', value: 'ai' },
+    { label: 'Agent', value: 'ai' },
   ];
 
   function timelineType(action: string): 'default' | 'info' | 'success' | 'warning' | 'error' {

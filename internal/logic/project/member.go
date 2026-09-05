@@ -29,7 +29,7 @@ func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err er
 		return fmt.Errorf("用户不存在")
 	}
 	if uType.String() == "ai" {
-		return fmt.Errorf("AI 账号不能添加为项目成员")
+		return fmt.Errorf("Agent 账号不能添加为项目成员")
 	}
 	// 重复添加转友好提示（UNIQUE(project_id,user_id) 裸错误对用户无意义）
 	if cnt, _ := g.DB().Model("project_members").Ctx(ctx).

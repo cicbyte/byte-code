@@ -92,7 +92,7 @@
     { label: '任务', value: 'task' },
     { label: '测试用例', value: 'test_case' },
     { label: '文档', value: 'doc' },
-    { label: 'AI 用户', value: 'ai_user' },
+    { label: 'Agent', value: 'ai_user' },
   ];
 
   async function loadData() {

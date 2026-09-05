@@ -13,7 +13,7 @@ const routes: Array<RouteRecordRaw> = [
     component: Layout,
     meta: {
       menuKey: "ai_users",
-      title: 'AI 管理',
+      title: 'Agent 管理',
       icon: renderIcon(RobotOutlined),
       sort: 6,
     },
@@ -22,7 +22,7 @@ const routes: Array<RouteRecordRaw> = [
         path: 'users',
         name: `${routeName}_users`,
         meta: {
-          title: 'AI 用户',
+          title: 'Agent 账号',
         },
         component: () => import('@/views/ai-manage/users.vue'),
       },

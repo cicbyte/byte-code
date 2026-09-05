@@ -13,13 +13,19 @@ type Router struct{}
 
 func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGroup) {
 	// 公开 API（无需认证）
-	group.Group("/api", func(group *ghttp.RouterGroup) {
-		group.Middleware(service.Middleware().MiddlewareCORS)
-		group.Bind(
-			controller.Auth.Login,
-			controller.AiUserCtrl.AiLogin,
-		)
-	})
+		group.Group("/api", func(group *ghttp.RouterGroup) {
+			group.Middleware(service.Middleware().MiddlewareCORS)
+			group.Bind(
+				controller.Auth.Login,
+				controller.AiUserCtrl.AiLogin,
+			)
+			// Agent 自助注册（纯身份零权限；公开是有意的——权限由项目接入码把关）
+			group.Group("/v1", func(group *ghttp.RouterGroup) {
+				group.Bind(
+					controller.AgentCtl.Register,
+				)
+			})
+		})
 
 	// 需要 Token 认证的 API（所有登录用户）
 	group.Group("/api", func(group *ghttp.RouterGroup) {
@@ -69,6 +75,15 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			group.Bind(
 				controller.GlobalMemories.List,
 				controller.GlobalMemories.Get,
+			)
+
+			// Agent 接入协议（认证组：bc key 或人类 token；
+			// Join/Session/Tasks 业务层限定 agent 身份，接入码生成限项目 owner）
+			group.Bind(
+				controller.AgentCtl.Join,
+				controller.AgentCtl.SessionCreate,
+				controller.AgentCtl.AgentTasks,
+				controller.AgentCtl.JoinCodeCreate,
 			)
 
 			// 附件：上传/下载/列表对所有登录用户开放（存储配置在管理组）

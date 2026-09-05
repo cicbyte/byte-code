@@ -53,8 +53,9 @@ type AiUserItem struct {
 	Avatar       string `json:"avatar"`
 	Capabilities string `json:"capabilities"`
 	Status       int    `json:"status"`
-	OwnerHumanId int    `json:"ownerHumanId"`
-	CreatedAt    string `json:"createdAt"`
+	OwnerHumanId int      `json:"ownerHumanId"`
+	CreatedAt    string   `json:"createdAt"`
+	Projects     []string `json:"projects" dc:"已接入项目名列表（回填）"`
 }
 
 type AiUserResetKeyReq struct {
