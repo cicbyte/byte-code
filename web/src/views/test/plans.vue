@@ -192,12 +192,26 @@
             placeholder="实际观察到的结果（可选）"
           />
         </n-form-item>
+        <n-form-item v-if="executeForm.status === 'fail'" label="关联缺陷">
+          <n-space :size="8" align="center" style="width: 100%">
+            <n-select
+              v-model:value="executeForm.bugTaskId"
+              :options="bugTaskOptions"
+              clearable
+              filterable
+              placeholder="选择缺陷任务（可选）"
+              style="flex: 1"
+            />
+            <n-button size="tiny" @click="createBugTask">一键建缺陷</n-button>
+          </n-space>
+        </n-form-item>
       </n-form>
     </n-modal>
   </div>
 </template>
 
 <script lang="ts" setup>
+  import { getTasks, createTask } from '@/api/project/index';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { SPRINT_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted, computed } from 'vue';
@@ -388,12 +402,51 @@
 
   const showExecute = ref(false);
   const executingCase = ref<TestPlanCaseResult | null>(null);
-  const executeForm = reactive({ status: 'pass' as 'pass' | 'fail' | 'blocked' | 'skip', actualResult: '' });
+  const executeForm = reactive({
+    status: 'pass' as 'pass' | 'fail' | 'blocked' | 'skip',
+    actualResult: '',
+    bugTaskId: null as number | null,
+  });
+
+  // 缺陷任务候选：项目内 bug 类型任务（未关闭）
+  const bugTaskOptions = ref<Array<{ label: string; value: number }>>([]);
+  async function loadBugTaskOptions() {
+    try {
+      const res = await getTasks(projectId.value, { type: 'bug', size: 100 });
+      bugTaskOptions.value = (res?.list || [])
+        .filter((t: any) => t.status !== 'closed')
+        .map((t: any) => ({ label: `#${t.id} ${t.title}`, value: t.id }));
+    } catch {
+      bugTaskOptions.value = [];
+    }
+  }
+
+  async function createBugTask() {
+    if (!executingCase.value) return;
+    try {
+      const res = await createTask(projectId.value, {
+        title: `[缺陷] ${executingCase.value.testCaseTitle}`,
+        description: executeForm.actualResult || '测试执行失败，详见计划执行记录',
+        type: 'bug',
+        priority: 3,
+      });
+      const tid = (res as any)?.id;
+      if (tid) {
+        executeForm.bugTaskId = tid;
+        bugTaskOptions.value.unshift({ label: `#${tid} [缺陷] ${executingCase.value.testCaseTitle}`, value: tid });
+      }
+      message.success('缺陷任务已创建');
+    } catch {
+      message.error('创建缺陷任务失败');
+    }
+  }
 
   function openExecute(r: TestPlanCaseResult) {
     executingCase.value = r;
     executeForm.status = 'pass';
     executeForm.actualResult = '';
+    executeForm.bugTaskId = null;
+    loadBugTaskOptions();
     showExecute.value = true;
   }
 
@@ -403,6 +456,7 @@
       await executeTestCase(executingCase.value.id, {
         status: executeForm.status,
         actualResult: executeForm.actualResult || undefined,
+        ...(executeForm.bugTaskId ? { bugTaskId: executeForm.bugTaskId } : {}),
       });
       message.success('执行结果已记录');
       showExecute.value = false;

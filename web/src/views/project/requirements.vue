@@ -68,6 +68,30 @@
         </n-form-item>
       </n-form>
     </n-modal>
+
+    <!-- 转任务弹窗：需求（含子需求）批量生成任务，可选挂迭代 -->
+    <n-modal
+      v-model:show="showImport"
+      preset="dialog"
+      :title="`转为任务：${importing?.title || ''}`"
+      positive-text="生成"
+      negative-text="取消"
+      @positive-click="handleImport"
+      style="width: 480px"
+    >
+      <n-space vertical :size="8" class="py-4">
+        <n-select
+          v-model:value="importSprintId"
+          :options="sprintOptions"
+          clearable
+          placeholder="挂到迭代（可选）"
+        />
+        <span class="text-xs text-gray-400">
+          将按需求的类型映射生成任务（epic→feature / story→feature / task→task），
+          含全部子需求，生成后任务进入未指派状态（可被 Agent 认领）。
+        </span>
+      </n-space>
+    </n-modal>
   </div>
 </template>
 
@@ -83,6 +107,8 @@
     createRequirement,
     updateRequirement,
     deleteRequirement,
+    getSprints,
+    importTasks,
   } from '@/api/project/index';
   import type { RequirementItem } from '@/api/project/index';
 
@@ -168,6 +194,7 @@
         const actions = [
           h(NButton, { text: true, type: 'info', onClick: () => handleEdit(row) }, () => '编辑'),
           h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row) }, () => '删除'),
+          h(NButton, { text: true, type: 'primary', onClick: () => openImport(row) }, () => '转任务'),
         ];
         const transitions = statusTransitions[row.status] || [];
         transitions.forEach((t) => {
@@ -276,6 +303,43 @@
       loadRequirements();
     } catch (e) {
       message.error('操作失败');
+      return false;
+    }
+  }
+
+// ==================== 需求转任务 ====================
+  const showImport = ref(false);
+  const importing = ref<RequirementItem | null>(null);
+  const importSprintId = ref<number | null>(null);
+  const sprintOptions = ref<Array<{ label: string; value: number }>>([]);
+
+  async function loadSprintOptions() {
+    try {
+      const res = await getSprints(projectId.value);
+      sprintOptions.value = (res?.list || []).map((x: any) => ({ label: x.name, value: x.id }));
+    } catch {
+      sprintOptions.value = [];
+    }
+  }
+  loadSprintOptions();
+
+  function openImport(row: RequirementItem) {
+    importing.value = row;
+    importSprintId.value = null;
+    showImport.value = true;
+  }
+
+  async function handleImport() {
+    if (!importing.value) return false;
+    try {
+      const res = await importTasks(projectId.value, {
+        requirementId: importing.value.id,
+        ...(importSprintId.value ? { sprintId: importSprintId.value } : {}),
+      });
+      message.success(`已生成 ${res.taskIds.length} 个任务`);
+      showImport.value = false;
+    } catch (e: any) {
+      message.error(e.message || '生成失败');
       return false;
     }
   }

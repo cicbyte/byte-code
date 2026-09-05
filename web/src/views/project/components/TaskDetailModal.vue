@@ -163,7 +163,22 @@
           <MdPreview :id="mdPreviewId" :model-value="task.artifacts" :sanitize="sanitizeHtml" />
         </n-card>
 
-        <!-- 审核操作 -->
+        <!-- 终态操作：done 后可关闭清账 -->
+        <n-card
+          v-if="task.status === 'done'"
+          title="收尾" size="small" class="mb-4" :bordered="true"
+        >
+          <n-space>
+            <n-popconfirm @positive-click="handleClose">
+              <template #trigger>
+                <n-button size="small" type="warning" ghost>关闭任务</n-button>
+              </template>
+              关闭后任务转入终态（closed），不再出现在活跃列表；需要时可由项目管理员重新打开。
+            </n-popconfirm>
+          </n-space>
+        </n-card>
+
+    <!-- 审核操作 -->
         <n-card
           v-if="task.requiresHumanReview && task.humanReviewStatus === 'pending'"
           title="审核操作"
@@ -676,6 +691,18 @@
     } catch {
       task.value.dueDate = old;
       message.error('更新截止日期失败');
+    }
+  }
+
+  // 关闭任务（done→closed 清账；重开=updateTask status open）
+  async function handleClose() {
+    if (!task.value) return;
+    try {
+      await updateTask(task.value.id, { status: 'closed' });
+      message.success('任务已关闭');
+      visible.value = false;
+    } catch {
+      message.error('关闭失败');
     }
   }
 

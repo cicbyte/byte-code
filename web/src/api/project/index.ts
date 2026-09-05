@@ -422,6 +422,11 @@ export function createSprint(projectId: number, data: SprintCreateData) {
   return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/sprints`, data);
 }
 
+/** 从需求导入生成任务（含子需求，事务） */
+export function importTasks(projectId: number, data: { requirementId: number; sprintId?: number }) {
+  return Alova.Post<{ taskIds: number[] }>(`/v1/projects/${projectId}/tasks/import`, data);
+}
+
 /** 更新 Sprint */
 export function updateSprint(id: number, data: SprintUpdateData) {
   return Alova.Put(`/v1/sprints/${id}`, data);

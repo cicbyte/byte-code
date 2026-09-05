@@ -80,6 +80,7 @@
               <n-space size="small">
                 <n-button text type="info" @click="openTaskDetail(task)">详情</n-button>
                 <n-button text type="primary" @click="openEdit(task)">编辑</n-button>
+                <n-button v-if="task.status === 'done'" text type="warning" @click="handleCloseTask(task)">关闭</n-button>
                 <n-button text type="error" @click="handleDelete(task)">删除</n-button>
               </n-space>
             </td>
@@ -292,6 +293,25 @@
       resetForm();
       loadTasks();
     } catch { message.error(editingId.value ? '更新失败' : '创建失败'); return false; }
+  }
+
+  // done→closed 清账（终态入口；列表场景快捷操作）
+  function handleCloseTask(task: TaskItem) {
+    dialog.warning({
+      title: '确认关闭任务',
+      content: `「${task.title}」将转入终态（closed），不再出现在活跃列表。`,
+      positiveText: '关闭',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await updateTask(task.id, { status: 'closed' });
+          message.success('已关闭');
+          loadTasks();
+        } catch {
+          message.error('关闭失败');
+        }
+      },
+    });
   }
 
   function handleDelete(task: TaskItem) {
