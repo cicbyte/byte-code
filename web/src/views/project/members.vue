@@ -24,7 +24,7 @@
             <tr v-for="member in memberList" :key="member.id">
               <td>{{ member.username }}</td>
               <td>{{ member.realName }}</td>
-              <td>{{ member.role }}</td>
+              <td>{{ MEMBER_ROLE_LABELS[member.role] || member.role }}</td>
               <td>{{ member.joinedAt }}</td>
               <td>
                 <n-button text type="error" @click="handleRemove(member)">移除</n-button>
@@ -88,6 +88,9 @@
 
   const showAddModal = ref(false);
   const formRef = ref<any>(null);
+  // 角色显示映射：表单历史数据可能是自由文本，回落原值
+  const MEMBER_ROLE_LABELS: Record<string, string> = { owner: '负责人', member: '成员' };
+
   const formData = reactive({ userId: null as number | null, role: '' });
   const formRules = {
     userId: { required: true, type: 'number', message: '请输入用户ID', trigger: 'blur' },

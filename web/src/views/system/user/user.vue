@@ -19,7 +19,7 @@
       </n-space>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && users.length === 0" description="暂无用户" />
+        <EmptyState v-if="!loading && users.length === 0" type="member" title="暂无用户" description="邀请新用户后将在这里展示" compact />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -138,6 +138,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage, useDialog } from 'naive-ui';
   import {

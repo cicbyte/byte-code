@@ -17,7 +17,7 @@
         </n-button>
       </div>
       <n-spin :show="loading" size="small">
-        <div v-if="list.length === 0" class="notif-empty">暂无通知</div>
+        <EmptyState v-if="list.length === 0" type="notify" title="暂无通知" description="任务指派与评论提醒会送达这里" compact />
         <div
           v-for="item in list"
           :key="item.id"
@@ -40,6 +40,7 @@
 
 <script lang="ts" setup>
   import { onMounted, onUnmounted, ref } from 'vue';
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { noticeTypeLabel, noticeTypeTagType } from '@/enums/notification';
   import { BellOutlined } from '@vicons/antd';
   import {

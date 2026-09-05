@@ -11,7 +11,7 @@
       </template>
     </n-input>
     <n-spin :show="loading" size="small">
-      <div v-if="searched && results.length === 0" class="search-empty">没有找到相关内容</div>
+      <EmptyState v-if="searched && results.length === 0" type="search" title="没有找到相关内容" description="换个关键词试试" compact />
       <div v-for="group in grouped" :key="group.module" class="search-group">
         <div class="search-group-title">
           <n-tag size="small" :type="moduleTag(group.module)">{{ moduleLabel(group.module) }}</n-tag>
@@ -29,6 +29,7 @@
 <script lang="ts" setup>
   import { computed, nextTick, ref } from 'vue';
   import { useRouter } from 'vue-router';
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { SearchOutlined } from '@vicons/antd';
   import { search } from '@/api/platform';
   import type { SearchResult } from '@/api/platform';

@@ -146,7 +146,7 @@
               :bordered="false"
               :type="m.role === 'owner' ? 'success' : 'default'"
             >
-              {{ m.realName || m.username }}{{ m.role === 'owner' ? ' · owner' : '' }}
+              {{ m.realName || m.username }}{{ m.role === 'owner' ? ' · 负责人' : '' }}
             </n-tag>
           </n-space>
         </n-card>
@@ -211,7 +211,7 @@
     create: '创建了', update: '更新了', delete: '删除了',
     'project.created': '创建了项目',
     'task.created': '创建了任务', 'task.claimed': '认领了任务', 'task.completed': '完成了任务',
-    'sprint.created': '创建了 Sprint', 'sprint.deleted': '删除了 Sprint',
+    'sprint.created': '创建了迭代', 'sprint.deleted': '删除了迭代',
     'test_plan.created': '创建了测试计划', 'test_plan.updated': '更新了测试计划',
     'test_plan.deleted': '删除了测试计划', 'test_plan.added_cases': '向计划添加了用例',
     'test_case.created': '创建了测试用例', 'test_case.deleted': '删除了测试用例',

@@ -37,11 +37,12 @@
           </n-input>
 
           <n-spin :show="treeLoading" class="dir-spin" @contextmenu.prevent="onBlankContextMenu">
-            <n-empty
+            <EmptyState
               v-if="!treeLoading && treeData.length === 0"
-              :description="isKnowledge ? '知识库为空' : '文档目录为空'"
-              size="small"
-              class="fill-center"
+              type="doc"
+              :title="isKnowledge ? '知识库为空' : '文档目录为空'"
+              description="上传或新建文档后展示在这里"
+              compact
             />
             <n-tree
               v-else
@@ -131,7 +132,7 @@
               </n-space>
             </template>
           </template>
-          <n-empty v-else description="请从左侧选择一个文件" class="fill-center" />
+          <EmptyState v-else type="doc" title="未选择文档" description="从左侧目录选择一个文件开始阅读" compact />
         </n-card>
       </n-gi>
     </n-grid>
@@ -221,6 +222,7 @@
   // 文档中枢页面：模板与编排层。实现按职责拆至 composables/：
   // useInlineEdit（树内新建/重命名）/ useCtxMenu（右键菜单）/ useBinaryPreview（docx/图片预览）
   // / useDirtyGuard（未保存守卫）
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
   import { useRoute, onBeforeRouteLeave } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
@@ -744,16 +746,6 @@
       min-height: 100%;
       display: flex;
       flex-direction: column;
-    }
-
-    // 空状态垂直居中（铺满型卡片内）：fill-center 撑满后 n-empty 内部结构
-    // （icon+描述）默认顶对齐，需把其内部也排成居中列
-    :deep(.fill-center) {
-      flex: 1;
-      margin: auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
     }
 
     // 编辑器铺满剩余高度
