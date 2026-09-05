@@ -212,6 +212,15 @@ func (s *sPlatform) UnreadCount(ctx context.Context) (count int, err error) {
 
 func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.SearchRes, err error) {
 	res = &api.SearchRes{}
+	// 作用域与 DashboardStats 同口径：非管理员只能命中自己有访问权的项目
+	// （human=成员项目，agent=绑定项目；sys_users 的 id 全局唯一，两种
+	// EXISTS 不会跨类型误配）。无过滤时任意已认证账号——含零权限的自助
+	// 注册 agent——可全库检索所有项目的任务/需求/记忆，属跨项目泄露
+	uid := perm.UserId(ctx)
+	memberOnly := uid > 0 && !perm.IsAdmin(ctx, uid)
+	if uid <= 0 {
+		return res, nil
+	}
 	keyword := "%" + escape.Like(req.Q) + "%"
 
 	// 各模块统一 LIKE 检索，返回所属项目便于前端跳转；
@@ -237,8 +246,24 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		if !ok {
 			continue
 		}
+		// 原条件含 OR（title OR description），拼 AND 前必须整体加括号：
+		// AND 优先级高于 OR，裸拼会让 title 命中的行绕过访问范围
+		where, args := "("+ms.where+")", []interface{}{keyword, keyword}
+		if memberOnly {
+			// 全局记忆（project_id=0）按既有语义全员可读（GET /global-memories
+			// 同口径），仅项目级数据收进访问范围
+			globalOk := ""
+			if ms.table == "project_memories" {
+				globalOk = ms.table + ".project_id = 0 OR "
+			}
+			where += fmt.Sprintf(
+				" AND ("+globalOk+"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = %s.project_id AND pm.user_id = ?)"+
+					" OR EXISTS (SELECT 1 FROM agent_project_bindings ab WHERE ab.project_id = %s.project_id AND ab.agent_id = ?))",
+				ms.table, ms.table)
+			args = append(args, uid, uid)
+		}
 		// Total 汇总各模块的总命中数（此前误把当页条数当总数）
-		total, err := g.DB().Model(ms.table).Ctx(ctx).Where(ms.where, keyword, keyword).Count()
+		total, err := g.DB().Model(ms.table).Ctx(ctx).Where(where, args...).Count()
 		if err != nil {
 			return nil, liberr.WrapDb(ctx, err, "搜索失败")
 		}
@@ -261,7 +286,7 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		}
 		err = g.DB().Model(ms.table).Ctx(ctx).
 			Fields(fields).
-			Where(ms.where, keyword, keyword).
+			Where(where, args...).
 			Page(req.Page, req.Size).
 			Order(order).
 			Scan(&items)
