@@ -74,6 +74,7 @@
   import { useMessage } from 'naive-ui';
   import { getNotifications, readNotification, readAllNotifications, getUnreadCount } from '@/api/platform/index';
   import type { NotificationItem } from '@/api/platform/index';
+  import { NOTICE_TYPE_LABELS, NOTICE_TYPE_TAG, NOTICE_SOURCE_LABELS, noticeTypeOptions } from '@/enums/notification';
 
   const message = useMessage();
   const loading = ref(false);
@@ -84,22 +85,11 @@
   const readFilter = ref('0');
   const typeFilter = ref<string | null>(null);
 
-  const typeOptions = [
-    { label: '信息', value: 'info' },
-    { label: '警告', value: 'warning' },
-    { label: '成功', value: 'success' },
-    { label: '错误', value: 'error' },
-  ];
-
-  const typeTagType: Record<string, string> = {
-    info: 'info', warning: 'warning', success: 'success', error: 'error',
-  };
-  const typeLabelMap: Record<string, string> = {
-    info: '信息', warning: '警告', success: '成功', error: '错误',
-  };
-  const sourceLabels: Record<string, string> = {
-    task: '任务', project: '项目',
-  };
+  // 字典统一出口：enums/notification.ts（与 Header 铃铛共用）
+  const typeOptions = noticeTypeOptions;
+  const typeTagType = NOTICE_TYPE_TAG;
+  const typeLabelMap = NOTICE_TYPE_LABELS;
+  const sourceLabels = NOTICE_SOURCE_LABELS;
 
   function fmtTime(ts: string): string {
     if (!ts) return '';

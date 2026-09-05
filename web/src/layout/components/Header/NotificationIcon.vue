@@ -26,7 +26,7 @@
           @click="markRead(item)"
         >
           <div class="notif-item-title">
-            <n-tag size="tiny" :type="tagType(item.type)">{{ typeLabel(item.type) }}</n-tag>
+            <n-tag size="tiny" :type="noticeTypeTagType(item.type)">{{ noticeTypeLabel(item.type) }}</n-tag>
             <span class="notif-item-name">{{ item.title }}</span>
             <span v-if="item.isRead === 0" class="notif-dot"></span>
           </div>
@@ -40,6 +40,7 @@
 
 <script lang="ts" setup>
   import { onMounted, onUnmounted, ref } from 'vue';
+  import { noticeTypeLabel, noticeTypeTagType } from '@/enums/notification';
   import { BellOutlined } from '@vicons/antd';
   import {
     getNotifications,
@@ -159,23 +160,6 @@
     }
   }
 
-  function tagType(t: string): 'default' | 'error' | 'info' | 'success' | 'warning' {
-    switch (t) {
-      case 'warning':
-        return 'warning';
-      case 'success':
-        return 'success';
-      case 'error':
-        return 'error';
-      default:
-        return 'info';
-    }
-  }
-
-  function typeLabel(t: string): string {
-    const m: Record<string, string> = { info: '通知', warning: '警告', success: '成功', error: '错误' };
-    return m[t] || '通知';
-  }
 
   onMounted(() => {
     fetchUnread();
