@@ -62,7 +62,7 @@
     <!-- 中部：当前 Sprint + 最近动态 -->
     <n-grid :x-gap="12" :y-gap="12" :cols="3" class="mt-3" responsive="screen" item-responsive>
       <n-grid-item span="3 m:1">
-        <n-card :bordered="false" size="small" title="当前 Sprint" class="h-full">
+        <n-card :bordered="false" size="small" title="当前迭代" class="h-full">
           <template v-if="activeSprint">
             <n-space vertical :size="8">
               <n-space align="center" :size="8">
@@ -87,7 +87,7 @@
               <div class="text-xs text-gray-400">目标：{{ activeSprint.goal || '未设定' }}</div>
             </n-space>
           </template>
-          <EmptyState type="task" title="没有进行中的 Sprint" v-else compact />
+          <EmptyState type="task" title="没有进行中的迭代" v-else compact />
         </n-card>
       </n-grid-item>
 

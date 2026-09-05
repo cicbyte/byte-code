@@ -83,7 +83,7 @@ const routes: Array<RouteRecordRaw> = [
             path: 'sprints',
             name: `${routeName}_sprints`,
             meta: {
-              title: 'Sprint 管理',
+              title: '迭代管理',
               hideInMenu: true,
             },
             component: () => import('@/views/project/sprints.vue'),

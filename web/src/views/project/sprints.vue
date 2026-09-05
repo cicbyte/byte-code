@@ -1,12 +1,12 @@
 <template>
   <div>
-    <n-card :bordered="false" title="Sprint 管理" class="proCard">
+    <n-card :bordered="false" title="迭代管理（Sprint）" class="proCard">
       <template #header-extra>
-        <n-button type="primary" @click="openCreate">新建 Sprint</n-button>
+        <n-button type="primary" @click="openCreate">新建迭代</n-button>
       </template>
 
       <n-spin :show="loading">
-        <EmptyState type="task" title="暂无 Sprint" v-if="!loading && sprints.length === 0" description="创建第一个 Sprint 组织迭代" />
+        <EmptyState type="task" title="暂无迭代" v-if="!loading && sprints.length === 0" description="创建第一个迭代（Sprint）组织一个开发周期" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
             <thead>
             <tr>
@@ -43,13 +43,13 @@
       </n-spin>
     </n-card>
 
-    <n-modal v-model:show="showCreate" :title="editingId ? '编辑 Sprint' : '新建 Sprint'" preset="card" style="width: 500px">
+    <n-modal v-model:show="showCreate" :title="editingId ? '编辑迭代' : '新建迭代'" preset="card" style="width: 500px">
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
         <n-form-item label="名称" path="name">
-          <n-input v-model:value="form.name" placeholder="Sprint 1" />
+          <n-input v-model:value="form.name" placeholder="迭代 1（如 2026-W36）" />
         </n-form-item>
         <n-form-item label="目标" path="goal">
-          <n-input v-model:value="form.goal" type="textarea" placeholder="Sprint 目标" />
+          <n-input v-model:value="form.goal" type="textarea" placeholder="本迭代要达成什么" />
         </n-form-item>
         <n-form-item label="开始日期" path="startDate">
           <n-date-picker v-model:formatted-value="form.startDate" type="date" value-format="yyyy-MM-dd" placeholder="选择开始日期" style="width: 100%" />
@@ -104,7 +104,7 @@
     <n-drawer v-model:show="showBurndown" :width="640" placement="right">
       <n-drawer-content :title="`燃尽图 - ${currentSprint?.name || ''}`" closable>
         <n-spin :show="burndownLoading">
-          <EmptyState type="data" title="暂无燃尽图数据" v-if="!burndownLoading && burndownItems.length === 0" description="Sprint 内绑定任务并设置有效起止日期后生成" />
+          <EmptyState type="data" title="暂无燃尽图数据" v-if="!burndownLoading && burndownItems.length === 0" description="迭代内绑定任务并设置有效起止日期后生成" />
           <div v-show="!burndownLoading && burndownItems.length > 0" ref="chartRef" style="width: 100%; height: 420px"></div>
         </n-spin>
       </n-drawer-content>
@@ -283,7 +283,7 @@
 
   function handleDelete(s: SprintItem) {
     dialog.warning({
-      title: '确认删除 Sprint',
+      title: '确认删除迭代',
       content: `删除「${s.name}」后其下绑定的任务会被解绑（任务本身保留），该操作不可恢复。`,
       positiveText: '删除',
       negativeText: '取消',
