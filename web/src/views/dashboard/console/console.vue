@@ -104,7 +104,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { ref, reactive, onMounted, nextTick } from 'vue';
+  import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
   import echarts from '@/utils/lib/echarts';
   import { getDashboardStats } from '@/api/platform/index';
   import type { DashboardStatsResult, RecentTaskItem, AiStatItem } from '@/api/platform/index';
@@ -138,9 +138,24 @@
   const statusLabel = enumsStatusLabel;
   const statusTagType = enumsStatusTagType;
 
+  // 图表实例提级持有：匿名 resize 监听与 echarts 实例不清理，
+  // 反复进出仪表盘会持续叠加（内存泄漏；清理模式对齐 sprints.vue）
+  let chart: echarts.ECharts | null = null;
+
+  function handleChartResize() {
+    chart?.resize();
+  }
+
+  function disposeChart() {
+    window.removeEventListener('resize', handleChartResize);
+    chart?.dispose();
+    chart = null;
+  }
+
   function initChart(data: AiStatItem[]) {
     if (!chartRef.value) return;
-    const chart = echarts.init(chartRef.value);
+    disposeChart();
+    chart = echarts.init(chartRef.value);
     chart.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -162,7 +177,7 @@
         },
       ],
     });
-    window.addEventListener('resize', () => chart.resize());
+    window.addEventListener('resize', handleChartResize);
   }
 
   onMounted(async () => {
@@ -181,4 +196,6 @@
       loading.value = false;
     }
   });
+
+  onUnmounted(disposeChart);
 </script>
