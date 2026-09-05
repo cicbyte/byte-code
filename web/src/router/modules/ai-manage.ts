@@ -1,6 +1,6 @@
 import { RouteRecordRaw } from 'vue-router';
 import { Layout } from '@/router/constant';
-import { RobotOutlined } from '@vicons/antd';
+import { AgentSparkleIcon } from '@/components/Icons/AgentSparkle';
 import { renderIcon } from '@/utils/index';
 
 const routeName = 'ai-manage';
@@ -14,7 +14,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       menuKey: "ai_users",
       title: 'Agent 管理',
-      icon: renderIcon(RobotOutlined),
+      icon: renderIcon(AgentSparkleIcon),
       sort: 6,
     },
     children: [
