@@ -15,11 +15,14 @@ type AiUserCreateRes struct {
 }
 
 type AiUserUpdateReq struct {
-	g.Meta       `path:"/ai-users/{id}" method:"put" tags:"AI用户" summary:"更新AI用户"`
-	Id           int    `json:"id" v:"required" in:"path"`
-	RealName     string `json:"realName"`
-	Capabilities string `json:"capabilities"`
-	Status       int    `json:"status"`
+	g.Meta `path:"/ai-users/{id}" method:"put" tags:"AI用户" summary:"更新AI用户"`
+	Id     int `json:"id" v:"required" in:"path"`
+	// 指针语义：nil=不更新，非nil=更新（含零值/空串）。
+	// Status 若为非指针 int，编辑弹窗只传 realName 时零值 0 会被
+	// 误判为"禁用"并清空该 agent 全部访问（准入/会话/token）
+	RealName     *string `json:"realName"`
+	Capabilities *string `json:"capabilities"`
+	Status       *int    `json:"status"`
 }
 
 type AiUserUpdateRes struct {

@@ -54,19 +54,28 @@ func (s *sAiUser) Create(ctx context.Context, req *api.AiUserCreateReq) (id int,
 
 func (s *sAiUser) Update(ctx context.Context, req *api.AiUserUpdateReq) (err error) {
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if _, e := tx.Ctx(ctx).Model("sys_users").
-			Where("id", req.Id).
-			Where("type", "ai").
-			Data(g.Map{
-				"real_name":    req.RealName,
-				"capabilities": req.Capabilities,
-				"status":       req.Status,
-			}).Update(); e != nil {
-			return e
+		// 指针语义按字段组装：nil=不更新。Status 显式传 0 才是禁用意图
+		data := g.Map{}
+		if req.RealName != nil {
+			data["real_name"] = *req.RealName
+		}
+		if req.Capabilities != nil {
+			data["capabilities"] = *req.Capabilities
+		}
+		if req.Status != nil {
+			data["status"] = *req.Status
+		}
+		if len(data) > 0 {
+			if _, e := tx.Ctx(ctx).Model("sys_users").
+				Where("id", req.Id).
+				Where("type", "ai").
+				Data(data).Update(); e != nil {
+				return e
+			}
 		}
 		// 禁用即时生效：清准入/会话并踢掉已签发 token——否则旧 JWT 在
 		// 有效期内仍可通过校验（ValidateToken 只查 token 表不查账号状态）
-		if req.Status == 0 {
+		if req.Status != nil && *req.Status == 0 {
 			return PurgeAgentAccess(tx, req.Id)
 		}
 		return nil
