@@ -362,6 +362,11 @@ export function removeMember(projectId: number, userId: number) {
   return Alova.Delete(`/v1/projects/${projectId}/members/${userId}`);
 }
 
+/** 移除 Agent 项目准入（协议接入的 agent 行用；会话一并失效） */
+export function removeAgentProject(projectId: number, agentId: number) {
+  return Alova.Delete(`/v1/projects/${projectId}/agents/${agentId}`);
+}
+
 // ==================== 任务 API ====================
 
 /** 任务列表 */

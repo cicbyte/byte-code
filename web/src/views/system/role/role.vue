@@ -151,7 +151,6 @@
   }
 
   function onCheckedRow(rowKeys: any[]) {
-    console.log(rowKeys);
   }
 
   function reloadTable() {

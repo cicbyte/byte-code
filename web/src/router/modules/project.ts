@@ -62,6 +62,15 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/tasks.vue'),
           },
           {
+            // 审核工作台：集中验收（完成即待人审，CompleteTask 统一置位）
+            path: 'reviews',
+            name: `${routeName}_reviews`,
+            meta: {
+              title: '待审核',
+            },
+            component: () => import('@/views/project/reviews.vue'),
+          },
+          {
             path: 'requirements',
             name: `${routeName}_requirements`,
             meta: {

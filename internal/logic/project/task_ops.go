@@ -83,6 +83,10 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 		"status": consts.TaskStatusReview,
 		// 完成时间独立记录：燃尽图按此统计，任务后续编辑不会重写历史
 		"completed_at": time.Now().Format("2006-01-02 15:04:05"),
+		// 进 review 即待人审：此前无人设置 rh=1，审核按钮（前端要求
+		// rh=1）与审核接口（后端同样校验）对完成态任务全部失效
+		"requires_human_review": 1,
+		"human_review_status":   "pending",
 	}
 	if req.Artifacts != "" {
 		data["artifacts"] = req.Artifacts

@@ -379,9 +379,9 @@
   }
   const newComment = ref('');
 
-  // @提及候选：项目成员中的 human（AI 成员由引擎自调度，@提及不产生通知，
-  // 列出只会造成"提及了却没通知"的困惑）；插入值为 username（与后端
-  // notifyMentions 的 @用户名 精确匹配口径一致——显示名仅在候选列表里辅助识别）
+  // @提及候选：项目成员（human 与 Agent 都可被 @，Agent 头像标识区分）；
+  // 插入值为 username（与后端 notifyMentions 的 @用户名 精确匹配口径
+  // 一致——显示名仅在候选列表里辅助识别）
   const mentionOptions = ref<Array<{ label: string; value: string }>>([]);
   async function loadMentionOptions(projectId: number) {
     try {

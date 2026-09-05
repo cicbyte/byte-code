@@ -21,8 +21,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="member in memberList" :key="member.id">
-              <td>{{ member.username }}</td>
+            <tr v-for="member in memberList" :key="`${member.userType}-${member.id}`">
+              <td>
+                <n-space :size="4" align="center">
+                  <span>{{ member.username }}</span>
+                  <n-tag v-if="member.userType === 'ai'" size="tiny" :bordered="false" type="info">Agent</n-tag>
+                </n-space>
+              </td>
               <td>{{ member.realName }}</td>
               <td>{{ MEMBER_ROLE_LABELS[member.role] || member.role }}</td>
               <td>{{ member.joinedAt }}</td>
@@ -74,7 +79,7 @@
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
-  import { getMembers, addMember, removeMember } from '@/api/project/index';
+  import { getMembers, addMember, removeMember, removeAgentProject } from '@/api/project/index';
   import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
@@ -119,12 +124,22 @@
   function handleRemove(member: MemberItem) {
     dialog.warning({
       title: '确认移除',
-      content: `确定要移除成员「${member.username}」吗？`,
+      // 协议接入的 agent（viaBinding=1）走移除准入（清 binding+会话）；
+      // members 表里的行（含早期手动加的 agent）走移除成员
+      content: member.viaBinding === 1
+        ? `确定要移除 Agent 准入「${member.username}」吗？其已签发会话将一并失效`
+        : `确定要移除成员「${member.username}」吗？`,
       positiveText: '确定',
       negativeText: '取消',
       onPositiveClick: async () => {
-        try { await removeMember(projectId.value, member.userId); message.success('移除成功'); loadMembers(); }
-        catch { message.error('移除失败'); }
+        try {
+          if (member.viaBinding === 1) {
+            await removeAgentProject(projectId.value, member.userId);
+          } else {
+            await removeMember(projectId.value, member.userId);
+          }
+          message.success('移除成功'); loadMembers();
+        } catch { message.error('移除失败'); }
       },
     });
   }

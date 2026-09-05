@@ -155,7 +155,6 @@
   const editId = ref<number | null>(null);
   const formRef = ref<any>(null);
 
-  // 硬编码项目ID（后续可从路由或全局状态获取）
   const route = useRoute();
   const projectId = computed(() => Number(route.params.projectId));
   const pagination = reactive({ page: 1, pageSize: 10 });

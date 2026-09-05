@@ -75,12 +75,25 @@ func (s *sProject) RemoveMember(ctx context.Context, projectId, userId int) (err
 
 func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.MemberListRes, err error) {
 	res = &api.MemberListRes{}
+	// 成员两来源合并：project_members（人/早期手动加的 agent）+
+	// agent_project_bindings（协议接入的 agent）。重叠去重以 members 行
+	// 为准（老数据兼容）；agent 行的移除走 DeleteAgentProject 而非
+	// removeMember——前端按 user_type 分流
 	var list []api.MemberItem
-	err = g.DB().Model("project_members pm").Ctx(ctx).
-		LeftJoin("sys_users u", "pm.user_id = u.id").
-		Fields("pm.id, pm.user_id, u.username, COALESCE(u.real_name, '') as real_name, pm.role, pm.created_at as joined_at, COALESCE(u.type, 'human') as user_type").
-		Where("pm.project_id", projectId).
-		Order("pm.id ASC").
+	err = g.DB().Ctx(ctx).Raw(`
+		SELECT * FROM (
+			SELECT pm.id, pm.user_id, u.username, COALESCE(u.real_name, '') AS real_name,
+			       pm.role, pm.created_at AS joined_at,
+			       COALESCE(u.type, 'human') AS user_type, 0 AS via_binding
+			FROM project_members pm LEFT JOIN sys_users u ON pm.user_id = u.id
+			WHERE pm.project_id = ?
+			UNION ALL
+			SELECT b.id, b.agent_id, u.username, COALESCE(u.real_name, '') AS real_name,
+			       b.role, b.joined_at, 'ai' AS user_type, 1 AS via_binding
+			FROM agent_project_bindings b LEFT JOIN sys_users u ON b.agent_id = u.id
+			WHERE b.project_id = ?
+			  AND b.agent_id NOT IN (SELECT user_id FROM project_members WHERE project_id = ?)
+		) ORDER BY user_type ASC, id ASC`, projectId, projectId, projectId).
 		Scan(&list)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询成员列表失败")

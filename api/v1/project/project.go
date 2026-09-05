@@ -105,7 +105,8 @@ type MemberItem struct {
 	RealName string `json:"realName"`
 	Role     string `json:"role"`
 	JoinedAt string `json:"joinedAt"`
-	UserType string `json:"userType" dc:"human/ai（回填，@提及候选只列 human）"`
+	UserType   string `json:"userType" dc:"human/ai"`
+	ViaBinding int    `json:"viaBinding" dc:"1=来自 agent 项目准入（移除走 DeleteAgentProject）；0=project_members"`
 }
 
 type MemberListRes struct {

@@ -64,7 +64,6 @@
     const formRes = await submit();
     if (formRes) {
       closeModal();
-      console.log('formRes', formRes);
     } else {
       setSubLoading(false);
     }
