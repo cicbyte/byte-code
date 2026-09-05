@@ -56,11 +56,11 @@
               <td>{{ categoryLabel(item.category) }}</td>
               <td>{{ item.module }}</td>
               <td>
-                <n-tag :type="priorityType(item.priority)" size="small">{{ item.priority }}</n-tag>
+                <n-tag :type="casePriorityTagType(item.priority)" size="small">{{ item.priority }}</n-tag>
               </td>
               <td>
-                <n-tag :type="caseStatusType(item.status)" size="small">
-                  {{ caseStatusLabel(item.status) }}
+                <n-tag :type="CASE_STATUS.tagType(item.status)" size="small">
+                  {{ CASE_STATUS.label(item.status) }}
                 </n-tag>
               </td>
               <td>{{ item.creatorName || '-' }}</td>
@@ -132,6 +132,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import { CASE_STATUS, CASE_CATEGORY_OPTIONS, casePriorityTagType } from '@/enums/test';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
@@ -164,18 +165,9 @@
     return categoryOptions.find((o) => o.value === c)?.label || c;
   }
 
-  const categoryOptions = [
-    { label: '功能测试', value: 'functional' },
-    { label: '性能测试', value: 'performance' },
-    { label: '安全测试', value: 'security' },
-    { label: '兼容性测试', value: 'compatibility' },
-  ];
-
-  const statusOptions = [
-    { label: '草稿', value: 'draft' },
-    { label: '启用', value: 'active' },
-    { label: '废弃', value: 'deprecated' },
-  ];
+  // 字典统一出口：enums/test.ts（用例状态/分类；优先级 P0-P3 字符串域）
+  const categoryOptions = CASE_CATEGORY_OPTIONS;
+  const statusOptions = CASE_STATUS.options;
 
   const priorityOptions = [
     { label: 'P0 - 阻塞', value: 'P0' },
@@ -199,23 +191,7 @@
     priority: { required: true, message: '请选择优先级', trigger: 'change' },
   };
 
-  function priorityType(p: string): 'error' | 'warning' | 'info' | 'default' {
-    if (p === 'P0') return 'error';
-    if (p === 'P1') return 'warning';
-    if (p === 'P2') return 'info';
-    return 'default';
-  }
 
-  function caseStatusType(s: string): 'default' | 'success' | 'error' {
-    if (s === 'active') return 'success';
-    if (s === 'deprecated') return 'error';
-    return 'default';
-  }
-
-  function caseStatusLabel(s: string) {
-    const m: Record<string, string> = { draft: '草稿', active: '启用', deprecated: '废弃' };
-    return m[s] || s;
-  }
 
   function resetForm() {
     formData.title = '';

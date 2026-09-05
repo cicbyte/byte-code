@@ -36,8 +36,8 @@
                 </n-space>
               </td>
               <td>
-                <n-tag :type="item.status === 1 ? 'success' : 'default'" size="small">
-                  {{ item.status === 1 ? '启用' : '禁用' }}
+                <n-tag :type="USER_STATUS.tagType(item.status)" size="small">
+                  {{ USER_STATUS.label(item.status) }}
                 </n-tag>
               </td>
               <td>{{ item.createdAt }}</td>
@@ -96,6 +96,7 @@
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
+  import { USER_STATUS } from '@/enums/entities';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {

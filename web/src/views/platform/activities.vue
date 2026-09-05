@@ -27,11 +27,11 @@
             <template #header>
               <n-space size="small" align="center">
                 <span class="font-medium">{{ item.actorName }}</span>
-                <n-tag size="tiny" v-if="item.targetType">{{ item.targetType }}</n-tag>
+                <n-tag size="tiny" v-if="item.targetType">{{ TARGET_TYPE_LABELS[item.targetType] || item.targetType }}</n-tag>
               </n-space>
             </template>
             <div class="text-sm text-gray-600">
-              {{ item.action }}
+              {{ actionText(item.action) }}
               <span v-if="item.targetName" class="text-blue-500">「{{ item.targetName }}」</span>
             </div>
             <div v-if="item.detail" class="text-xs text-gray-400 mt-1">{{ item.detail }}</div>
@@ -53,6 +53,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import { ACTION_LABELS, actionText, TARGET_TYPE_LABELS } from '@/enums/activity';
   import { ref, reactive, onMounted } from 'vue';
   import { getActivities } from '@/api/platform/index';
   import type { ActivityItem } from '@/api/platform/index';

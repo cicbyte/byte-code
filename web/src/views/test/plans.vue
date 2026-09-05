@@ -30,7 +30,7 @@
               </td>
               <td>{{ item.description }}</td>
               <td>
-                <n-tag :type="planStatusType(item.status)" size="small">
+                <n-tag :type="PLAN_STATUS.tagType(item.status)" size="small">
                   {{ planStatusLabel(item.status) }}
                 </n-tag>
               </td>
@@ -213,7 +213,7 @@
 <script lang="ts" setup>
   import { getTasks, createTask } from '@/api/project/index';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { SPRINT_STATUS } from '@/enums/entities';
+  import { PLAN_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
@@ -251,15 +251,9 @@
     name: { required: true, message: '请输入计划名称', trigger: 'blur' },
   };
 
-  function planStatusType(s: string): 'default' | 'info' | 'success' {
-    if (s === 'active') return 'info';
-    if (s === 'completed') return 'success';
-    return 'default';
-  }
+  const planStatusLabel = PLAN_STATUS.label;
 
-  const planStatusLabel = SPRINT_STATUS.label;
-
-  const resultLabels: Record<string, string> = { pass: '通过', fail: '失败', blocked: '阻塞', pending: '未执行' };
+  const resultLabels: Record<string, string> = { pass: '通过', fail: '失败', blocked: '阻塞', pending: '未执行', skip: '跳过' };
   function resultLabel(s: string) {
     return resultLabels[s] || s;
   }
@@ -347,14 +341,14 @@
   }
 
   // ==================== 计划状态 / 添加用例 / 执行用例 ====================
-  const planStatusOptions = SPRINT_STATUS.options;
+  const planStatusOptions = PLAN_STATUS.options;
 
   async function onPlanStatusChange(status: string) {
     if (!currentPlan.value) return;
     try {
       await updateTestPlan(currentPlan.value.id, { name: currentPlan.value.name, status });
       currentPlan.value.status = status;
-      message.success(`计划状态已改为：${SPRINT_STATUS.label(status)}`);
+      message.success(`计划状态已改为：${PLAN_STATUS.label(status)}`);
       loadData();
     } catch {
       message.error('更新状态失败');

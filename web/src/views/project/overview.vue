@@ -158,6 +158,7 @@
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { PROJECT_STATUS, SPRINT_STATUS, REQ_STATUS } from '@/enums/entities';
+  import { actionText } from '@/enums/activity';
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { getProject, getTasks, getSprints, getMembers, getRequirements } from '@/api/project/index';
@@ -207,20 +208,7 @@
     return (v || '').slice(0, 10);
   }
 
-  const actionLabels: Record<string, string> = {
-    create: '创建了', update: '更新了', delete: '删除了',
-    'project.created': '创建了项目',
-    'task.created': '创建了任务', 'task.claimed': '认领了任务', 'task.completed': '完成了任务',
-    'sprint.created': '创建了迭代', 'sprint.deleted': '删除了迭代',
-    'test_plan.created': '创建了测试计划', 'test_plan.updated': '更新了测试计划',
-    'test_plan.deleted': '删除了测试计划', 'test_plan.added_cases': '向计划添加了用例',
-    'test_case.created': '创建了测试用例', 'test_case.deleted': '删除了测试用例',
-    'test_case.executed': '执行了测试用例',
-    'attachment.uploaded': '上传了附件', 'attachment.deleted': '删除了附件',
-  };
-  function actionText(a: string): string {
-    return actionLabels[a] || `执行了 ${a}`;
-  }
+  // 动作文案统一出口：enums/activity.ts（与平台活动流共用）
 
   onMounted(async () => {
     loading.value = true;

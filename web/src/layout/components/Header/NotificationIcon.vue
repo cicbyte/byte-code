@@ -42,6 +42,8 @@
   import { onMounted, onUnmounted, ref } from 'vue';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { noticeTypeLabel, noticeTypeTagType } from '@/enums/notification';
+  import { storage } from '@/utils/Storage';
+  import { ACCESS_TOKEN } from '@/store/mutation-types';
   import { BellOutlined } from '@vicons/antd';
   import {
     getNotifications,
@@ -66,7 +68,10 @@
 
   function startSSE() {
     sseAbort = new AbortController();
-    const token = JSON.parse(localStorage.getItem('ACCESS-TOKEN') || '{"value":""}').value || '';
+    // 走 Storage 封装读 token（带 expire 校验，key 不再侥幸匹配裸 localStorage）。
+    // 勿 import user store 取 token：NotificationIcon→store/user→api→alova→store/user
+    // 成环，这条边会改变模块初始化顺序导致页面数据加载静默失效（实测踩坑）
+    const token = (storage.get(ACCESS_TOKEN, '') as string) || '';
     fetch('/api/v1/notifications/stream', {
       headers: { token },
       signal: sseAbort.signal,

@@ -50,6 +50,25 @@ export const SPRINT_STATUS = buildDict([
   { value: 'completed', label: '已完成', tagType: 'success' },
 ]);
 
+/** 测试计划状态（test_plans CHECK: draft/running/completed；
+ * 此前误用 SPRINT_STATUS（planning/active），draft/running 的 label 永远 miss） */
+export const PLAN_STATUS = buildDict([
+  { value: 'draft', label: '草稿', tagType: 'default' },
+  { value: 'running', label: '进行中', tagType: 'info' },
+  { value: 'completed', label: '已完成', tagType: 'success' },
+]);
+
+/** 账号启用状态（sys_users.status：AI 用户管理与系统用户管理共用）。
+ * 数值型不走 buildDict（其 label/tagType 为 string 签名） */
+export const USER_STATUS = {
+  label(v: number): string {
+    return v === 1 ? '启用' : '禁用';
+  },
+  tagType(v: number): 'success' | 'error' {
+    return v === 1 ? 'success' : 'error';
+  },
+};
+
 /** 项目 KV 记忆状态（memories / global-memory 共用） */
 export const MEMORY_STATUS = buildDict([
   { value: 'active', label: '有效', tagType: 'success' },

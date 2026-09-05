@@ -37,8 +37,8 @@
               <td>{{ item.realName || '-' }}</td>
               <td>{{ item.email || '-' }}</td>
               <td>
-                <n-tag :type="item.status === 1 ? 'success' : 'error'" size="small">
-                  {{ item.status === 1 ? '正常' : '禁用' }}
+                <n-tag :type="USER_STATUS.tagType(item.status)" size="small">
+                  {{ USER_STATUS.label(item.status) }}
                 </n-tag>
               </td>
               <td class="text-xs text-gray-400">{{ (item.createdAt || '').slice(0, 10) }}</td>
@@ -139,6 +139,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import { USER_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage, useDialog } from 'naive-ui';
   import {

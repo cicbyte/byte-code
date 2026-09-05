@@ -34,6 +34,8 @@ export interface TestCaseListParams {
   module?: string;
   status?: string;
   keyword?: string;
+  // test 域走后端公共 common.PageReq（pageNum/pageSize），
+  // 与 project 等域的 page/size 是两套并存的后端约定，勿"顺手统一"
   pageNum?: number;
   pageSize?: number;
 }
