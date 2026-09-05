@@ -63,7 +63,7 @@
         <n-pagination
           v-model:page="pagination.page"
           v-model:page-size="pagination.size"
-          @update:page-size="loadProjects"
+          @update:page-size="onPageSizeChange"
           :item-count="total"
           @update:page="loadData"
         />
@@ -135,6 +135,13 @@
     formData.description = '';
     isEdit.value = false;
     editId.value = null;
+  }
+
+  // 每页条数变化回到第 1 页（改大 size 后当前页可能越界；
+  // 此前绑定的 loadProjects 未定义属潜伏运行时错误）
+  function onPageSizeChange() {
+    pagination.page = 1;
+    loadData();
   }
 
   async function loadData() {

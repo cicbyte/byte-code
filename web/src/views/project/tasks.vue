@@ -39,6 +39,7 @@
         <n-button type="primary" @click="openCreate">新建任务</n-button>
       </n-space>
 
+      <n-spin :show="loading">
       <n-table :bordered="false" :single-line="false" size="small">
         <thead>
           <tr>
@@ -87,6 +88,7 @@
           </tr>
         </tbody>
       </n-table>
+      </n-spin>
 
       <div class="mt-4 flex justify-end" v-if="total > pagination.size">
         <n-pagination
@@ -239,7 +241,10 @@
     showCreateModal.value = true;
   }
 
+  const loading = ref(false);
+
   async function loadTasks() {
+    loading.value = true;
     try {
       const res = await getTasks(projectId.value, {
         page: pagination.page, size: pagination.size,
@@ -250,6 +255,7 @@
       });
       if (res) { taskList.value = res.list || []; total.value = res.total || 0; }
     } catch { /* ignore */ }
+    finally { loading.value = false; }
   }
 
   function handleSearch() {
