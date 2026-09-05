@@ -457,7 +457,7 @@ func (s *sTest) ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (e
 			planStatus, perr := g.DB().Model("test_plans").Ctx(ctx).
 				WherePri(planId.Int()).Value("status")
 			liberr.ErrIsNil(ctx, perr, "查询计划失败")
-			if st := planStatus.String(); st == "closed" || st == "completed" {
+			if st := planStatus.String(); st == "completed" {
 				liberr.ErrIsNil(ctx, fmt.Errorf("计划已%s，不可再执行用例", st), "计划已关闭")
 			}
 		}

@@ -122,7 +122,7 @@ type TestPlanUpdateReq struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	MilestoneId int    `json:"milestoneId"`
-	Status      string `json:"status" v:"in:draft,active,completed#状态必须是draft/active/completed"`
+	Status      string `json:"status" v:"in:draft,running,completed#状态必须是draft/running/completed"`
 }
 
 type TestPlanUpdateRes struct {

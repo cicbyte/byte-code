@@ -54,9 +54,11 @@ func ScanDueTasks(ctx context.Context) error {
 			Where("t.assignee_id > 0").
 			Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'human' AND u.status = 1)")
 	}
+	// 逾期段取【最近逾期】的 200 条（DESC）：ASC 会天天重发最老的一批，
+	// 把较新（往往更相关）的逾期任务永久挤出结果集
 	overdueRows, err := baseQuery().
 		Where("t.due_date < ?", today).
-		Order("t.due_date ASC").
+		Order("t.due_date DESC").
 		Limit(overdueCap).
 		All()
 	if err != nil {

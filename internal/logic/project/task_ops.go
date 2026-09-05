@@ -162,6 +162,11 @@ func (s *sProject) ImportTasks(ctx context.Context, req *api.TaskImportReq) (tas
 	reqToTask := make(map[int]int)
 
 	// 整批导入包事务：中途失败整体回滚，不留半截导入（父子映射也会断）
+	if req.SprintId > 0 {
+		if sp, _ := g.DB().Model("sprints").Ctx(ctx).Where("id", req.SprintId).Value("project_id"); sp == nil || sp.Int() != req.ProjectId {
+			return nil, fmt.Errorf("Sprint 不属于当前项目")
+		}
+	}
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		for _, r := range requirements {
 			parentTaskId := 0

@@ -6,6 +6,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -111,18 +112,51 @@ func (s *sProject) ListSprints(ctx context.Context, req *api.SprintListReq) (res
 
 // ==================== Sprint 任务管理 ====================
 
+// assertSprintTaskSameProject 校验任务与 Sprint 属同一项目：跨项目绑定会把
+// 别项目的任务拉进本冲刺（越权写 + 燃尽图按 sprint_id 全表计数被污染）。
+// CreateTask/UpdateTask/Import 的 SprintId 写入同口径走此校验
+func assertSprintTaskSameProject(ctx context.Context, sprintId, taskId int) error {
+	if sprintId <= 0 || taskId <= 0 {
+		return nil
+	}
+	taskProject := perm.EntityProjectId(ctx, "tasks", taskId)
+	if taskProject == 0 {
+		return fmt.Errorf("任务不存在")
+	}
+	sp, err := g.DB().Model("sprints").Ctx(ctx).Where("id", sprintId).Value("project_id")
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "查询Sprint失败")
+	}
+	if sp == nil || sp.Int() == 0 {
+		return fmt.Errorf("Sprint 不存在")
+	}
+	if taskProject != sp.Int() {
+		return fmt.Errorf("任务与 Sprint 不属于同一项目，禁止跨项目绑定")
+	}
+	return nil
+}
+
 func (s *sProject) AddTaskToSprint(ctx context.Context, sprintId, taskId int) (err error) {
-	_, err = g.DB().Model("tasks").Ctx(ctx).
+	if err := assertSprintTaskSameProject(ctx, sprintId, taskId); err != nil {
+		return err
+	}
+	result, err := g.DB().Model("tasks").Ctx(ctx).
 		Where("id", taskId).
 		Data(g.Map{"sprint_id": sprintId}).
 		Update()
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "添加任务到Sprint失败")
 	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return fmt.Errorf("任务不存在")
+	}
 	return nil
 }
 
 func (s *sProject) RemoveTaskFromSprint(ctx context.Context, sprintId, taskId int) (err error) {
+	if err := assertSprintTaskSameProject(ctx, sprintId, taskId); err != nil {
+		return err
+	}
 	_, err = g.DB().Model("tasks").Ctx(ctx).
 		Where("id", taskId).
 		Where("sprint_id", sprintId).

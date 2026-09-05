@@ -143,13 +143,15 @@ func mentionHit(content, username string) bool {
 func (s *sProject) ListComments(ctx context.Context, taskId int) (res *api.CommentListRes, err error) {
 	res = &api.CommentListRes{}
 	var list []api.CommentItem
+	// 详情弹窗一次性渲染：封顶防长任务评论无界。内层 DESC 取【最新】500 条，
+	// 外层回 ASC 保持时间正序展示——直接 ASC+Limit 取到的是最旧的 500 条
 	err = g.DB().Model("comments c").Ctx(ctx).
 		LeftJoin("sys_users u", "c.user_id = u.id").
 		Fields("c.id, c.task_id, c.user_id, u.username, COALESCE(u.real_name, '') as real_name, c.content, c.user_type, c.created_at").
 		Where("c.task_id", taskId).
+		Where("c.id IN (?)", g.DB().Model("comments").Ctx(ctx).
+			Fields("id").Where("task_id", taskId).Order("id DESC").Limit(500)).
 		Order("c.id ASC").
-		// 详情弹窗一次性渲染：封顶防长任务评论无界（取最新的 500 条）
-		Limit(500).
 		Scan(&list)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询评论失败")

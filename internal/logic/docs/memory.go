@@ -173,8 +173,8 @@ func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *a
 	if ttl > 0 {
 		expiresAt = now.Add(ttl)
 	}
-	// pending 语义是"未确认推测"：写 NULL 验证时间，避免与 active 同天起算
-	// 腐化阈值（否则 pending 永不比 active 更快变 stale，状态失去区分度）
+	// pending 语义是"未确认推测"：写 NULL 验证时间，由物化任务按 created_at
+	// 半阈值判腐化（MemMaterialize）——推测值比确认值更快变 stale
 	var lastVerified interface{}
 	if status == "active" {
 		lastVerified = now
@@ -272,6 +272,17 @@ func (s *sVault) MemMaterialize(ctx context.Context) error {
 		Where("status IN (?)", g.Slice{"pending", "active"}).
 		Where("last_verified_at IS NOT NULL").
 		Where("last_verified_at < ?", threshold).
+		Data("status", "stale").Update(); err != nil {
+		return liberr.WrapDb(ctx, err, "记忆状态物化失败")
+	}
+	// pending（未确认推测，last_verified_at 为 NULL）半阈值未确认 → stale：
+	// 推测值比确认值更快腐化——半阈值内无人 MemSet/MemVerify 确认即降级。
+	// 读路径的惰性判定不覆盖此分支（evalMemoryStatus 对 NULL 跳过），
+	// 最长有到次日物化的窗口，可接受
+	pendingThreshold := now.Add(-time.Duration(staleDays/2) * 24 * time.Hour)
+	if _, err := g.DB().Model("project_memories").Ctx(ctx).
+		Where("status", "pending").
+		Where("created_at < ?", pendingThreshold).
 		Data("status", "stale").Update(); err != nil {
 		return liberr.WrapDb(ctx, err, "记忆状态物化失败")
 	}

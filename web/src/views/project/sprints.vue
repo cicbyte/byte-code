@@ -25,8 +25,8 @@
               <td>{{ sprint.startDate }}</td>
               <td>{{ sprint.endDate }}</td>
               <td>
-                <n-tag :type="statusMap[sprint.status]?.type || 'default'" size="small">
-                  {{ statusMap[sprint.status]?.label || sprint.status }}
+                <n-tag :type="statusMap.tagType(sprint.status)" size="small">
+                  {{ statusMap.label(sprint.status) }}
                 </n-tag>
               </td>
               <td>
@@ -86,7 +86,13 @@
           <n-empty v-if="unboundTasks.length === 0" description="没有可绑定的任务" size="small" />
           <n-space v-else vertical :size="4">
             <n-space v-for="t in unboundTasks" :key="t.id" justify="space-between" align="center" class="w-full">
-              <span class="text-sm">{{ t.title }}</span>
+              <n-space :size="6" align="center">
+                <span class="text-sm">{{ t.title }}</span>
+                <!-- 属其它 Sprint 的任务绑定即改派，显式标识防误操作 -->
+                <n-tag v-if="t.sprintId" size="tiny" :bordered="false" type="warning">
+                  来自：{{ sprintName(t.sprintId) }}
+                </n-tag>
+              </n-space>
               <n-button text type="primary" size="tiny" @click="handleBind(t)">绑定</n-button>
             </n-space>
           </n-space>
@@ -319,15 +325,33 @@
     }
   }
 
+  function sprintName(id: number): string {
+    return sprints.value.find((x) => x.id === id)?.name || `#${id}`;
+  }
+
   async function handleBind(t: TaskItem) {
     if (!currentSprint.value) return;
-    try {
-      await addTaskToSprint(currentSprint.value.id, t.id);
-      t.sprintId = currentSprint.value.id;
-      message.success(`已绑定：${t.title}`);
-    } catch (e: any) {
-      message.error(e.message || '绑定失败');
+    const fromSprint = t.sprintId && t.sprintId !== currentSprint.value.id ? sprintName(t.sprintId) : '';
+    const doBind = async () => {
+      try {
+        await addTaskToSprint(currentSprint.value!.id, t.id);
+        t.sprintId = currentSprint.value!.id;
+        message.success(`已绑定：${t.title}`);
+      } catch (e: any) {
+        message.error(e.message || '绑定失败');
+      }
+    };
+    if (fromSprint) {
+      dialog.warning({
+        title: '确认转移任务',
+        content: `「${t.title}」当前属于「${fromSprint}」，绑定到本 Sprint 会把它从原 Sprint 移出。`,
+        positiveText: '转移',
+        negativeText: '取消',
+        onPositiveClick: doBind,
+      });
+      return;
     }
+    await doBind();
   }
 
   async function handleUnbind(t: TaskItem) {

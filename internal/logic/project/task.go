@@ -33,6 +33,12 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 			return 0, err
 		}
 	}
+	// Sprint 必须属于当前项目：跨项目 sprint_id 会污染他项目燃尽统计
+	if req.SprintId > 0 {
+		if sp, _ := g.DB().Model("sprints").Ctx(ctx).Where("id", req.SprintId).Value("project_id"); sp == nil || sp.Int() != req.ProjectId {
+			return 0, fmt.Errorf("Sprint 不属于当前项目")
+		}
+	}
 	insert := g.Map{
 		"project_id":     req.ProjectId,
 		"requirement_id": req.RequirementId,
@@ -106,6 +112,12 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 		notifyAssigneeChange = *req.AssigneeId
 	}
 	if req.SprintId != nil {
+		if *req.SprintId > 0 {
+			taskProject := perm.EntityProjectId(ctx, "tasks", req.Id)
+			if sp, _ := g.DB().Model("sprints").Ctx(ctx).Where("id", *req.SprintId).Value("project_id"); sp == nil || sp.Int() != taskProject {
+				return fmt.Errorf("Sprint 与任务不属于同一项目")
+			}
+		}
 		data["sprint_id"] = *req.SprintId
 	}
 	if req.ParentTaskId != nil {

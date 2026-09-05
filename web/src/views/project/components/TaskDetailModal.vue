@@ -73,6 +73,7 @@
               style="width: 200px"
               :show-arrow="false"
               @update:value="onAttachSelect"
+              @create="onTagCreate"
             />
           </n-space>
         </n-card>
@@ -307,6 +308,23 @@
     }
   }
 
+  // tag 模式回车新建：naive 以字符串 label 触发 create——先建标签拿到 id，
+  // 再挂到任务并返回选项供 select 立即选中（直接把字符串当 id 传 attachTag 必失败）
+  async function onTagCreate(label: string) {
+    if (!task.value) return { label, value: label };
+    try {
+      const res = await createTag({ name: label });
+      const t = { id: res.id, name: label };
+      allTags.value.push(t);
+      await attachTag(t.id, { entityType: 'task', entityId: task.value.id });
+      task.value.tags = [...(task.value.tags || []), label];
+      return { label, value: t.id };
+    } catch {
+      message.error('新建标签失败');
+      return { label, value: label };
+    }
+  }
+
   async function onAttachSelect(val: number | null) {
     if (!task.value || !val) return;
     try {
@@ -418,6 +436,13 @@
   async function openModal(taskId: number) {
     visible.value = true;
     loading.value = true;
+    // 全量重置：切任务时旧任务内容会在 spinner 下闪现，
+    // getTask 失败时更会被永久当作当前任务展示
+    task.value = null;
+    comments.value = [];
+    attachments.value = [];
+    cancelEditComment();
+    newComment.value = '';
     expandedLogs.value = new Set();
     linkedDocs.value = [];
     aiLogs.value = [];

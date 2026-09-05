@@ -40,12 +40,8 @@ var (
 				if err := docs.ExportLegacyDocs(bgCtx); err != nil {
 					g.Log().Warningf(bgCtx, "legacy docs export failed: %v", err)
 				}
-				if err := docs.ScanAll(bgCtx); err != nil {
-					g.Log().Warningf(bgCtx, "docs initial scan failed: %v", err)
-				}
-				if err := service.Docs().MemMaterialize(bgCtx); err != nil {
-					g.Log().Warningf(bgCtx, "memory materialize failed: %v", err)
-				}
+				// 文档扫描/记忆物化/清理/备份统一走下方 runMaintenance（含启动补跑），
+				// 此处再跑一遍会与维护 goroutine 并发叠跑
 				if err := project.ScanDueTasks(bgCtx); err != nil {
 					g.Log().Warningf(bgCtx, "task due scan failed: %v", err)
 				}

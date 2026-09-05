@@ -495,31 +495,21 @@ func (t *MemSetTool) InvokableRun(ctx context.Context, argsInJSON string, opts .
 	if p.Status == "active" {
 		lastVerified = now
 	}
-	data := g.Map{
-		"value": p.Value, "status": p.Status,
-		"expires_at": nil, "last_verified_at": lastVerified,
-		"verified_by": uid, "updated_by": uid, "updated_at": now,
-	}
+	// 单语句原子 upsert（与 docs 包 MemSet 同口径）：count-then-insert 并发撞 UNIQUE
+	var expiresAt interface{}
 	if ttl > 0 {
-		data["expires_at"] = now.Add(ttl)
+		expiresAt = now.Add(ttl)
 	}
-	cnt, err := g.DB().Model("project_memories").Ctx(ctx).
-		Where("project_id", p.ProjectId).Where("key", p.Key).Count()
-	if err != nil {
-		return "", fmt.Errorf("查询失败")
-	}
-	if cnt > 0 {
-		if _, err := g.DB().Model("project_memories").Ctx(ctx).
-			Where("project_id", p.ProjectId).Where("key", p.Key).Data(data).Update(); err != nil {
-			return "", fmt.Errorf("更新失败")
-		}
-	} else {
-		data["project_id"] = p.ProjectId
-		data["key"] = p.Key
-		data["created_at"] = now
-		if _, err := g.DB().Model("project_memories").Ctx(ctx).Data(data).Insert(); err != nil {
-			return "", fmt.Errorf("写入失败")
-		}
+	if _, err := g.DB().Exec(ctx,
+		`INSERT INTO project_memories
+			(project_id, key, value, status, expires_at, last_verified_at, verified_by, updated_by, created_at, updated_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?)
+		ON CONFLICT(project_id, key) DO UPDATE SET
+			value = excluded.value, status = excluded.status, expires_at = excluded.expires_at,
+			last_verified_at = excluded.last_verified_at, verified_by = excluded.verified_by,
+			updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+		p.ProjectId, p.Key, p.Value, p.Status, expiresAt, lastVerified, uid, uid, now, now); err != nil {
+		return "", fmt.Errorf("写入失败")
 	}
 	return marshalString(g.Map{"key": p.Key, "status": "saved"}), nil
 }
@@ -550,15 +540,24 @@ func (t *MemVerifyTool) InvokableRun(ctx context.Context, argsInJSON string, opt
 	} else {
 		p.ProjectId = pid
 	}
+	// 与 docs 包 memVerifyDo 同口径：置 active + 刷新验证时间后，
+	// 同步清除已过期的 TTL——否则次日物化会把 status 翻回 expired，验证被静默撤销
+	now := gtime.Now()
 	res, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", p.ProjectId).Where("key", p.Key).
-		Data(g.Map{"status": "active", "last_verified_at": gtime.Now(),
-			"verified_by": aiUserId(ctx), "updated_at": gtime.Now()}).Update()
+		Data(g.Map{"status": "active", "last_verified_at": now,
+			"verified_by": aiUserId(ctx), "updated_at": now}).Update()
 	if err != nil {
 		return "", fmt.Errorf("更新失败")
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return "", fmt.Errorf("记忆不存在: %s", p.Key)
+	}
+	if _, err := g.DB().Model("project_memories").Ctx(ctx).
+		Where("project_id", p.ProjectId).Where("key", p.Key).
+		Where("expires_at IS NOT NULL").Where("expires_at <= ?", now).
+		Data("expires_at", nil).Update(); err != nil {
+		return "", fmt.Errorf("更新失败")
 	}
 	return marshalString(g.Map{"key": p.Key, "status": "verified"}), nil
 }
