@@ -142,14 +142,19 @@ func ScanDueTasks(ctx context.Context) error {
 // 不自动释放——人有沟通渠道，agent 崩溃无人知晓）。与到期扫描同挂定时框架。
 func ReleaseStaleClaims(ctx context.Context) error {
 	// 阈值 2 小时：claim 后正常执行（读开工包→写代码→complete）远短于此；
-	// 过短会把慢任务误释放，过长则失联任务卡死更久
-	threshold := gtime.Now().Add(-2 * time.Hour)
+	// 过短会把慢任务误释放，过长则失联任务卡死更久。
+	// 时区口径：tasks.updated_at 由触发器 tr_tasks_updated_at 写
+	// CURRENT_TIMESTAMP（SQLite 恒 UTC，且会覆盖应用层写入），阈值必须
+	// 同为 UTC——本地时间在 UTC+8 下会差 8h>2h，刚认领的任务会被全量误释放
+	threshold := time.Now().UTC().Add(-2 * time.Hour)
+	// 不用 LockUpdate()：SQLite 不支持 FOR UPDATE（实测语法错误，曾导致
+	// 本扫描每小时恒失败）；单写者模型下查询与后续事务的窗口由 UPDATE
+	// 的状态条件兜底（查询候选后任务恰好被 complete 的不会被释放回 open）
 	res, err := g.DB().Model("tasks t").Ctx(ctx).
 		Fields("t.id").
 		Where("t.status", "in_progress").
 		Where("t.updated_at < ?", threshold).
 		Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'ai')").
-		LockUpdate().
 		All()
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "租约释放查询失败")
@@ -163,14 +168,20 @@ func ReleaseStaleClaims(ctx context.Context) error {
 	}
 	// 回 open + 解除指派 + 记日志（释放动作本身入 ai_execution_logs 供追溯）
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		// 先取原 assignee 供日志留痕，再释放
-		rows, qe := tx.Ctx(ctx).Model("tasks").Fields("id, assignee_id").WhereIn("id", ids).All()
+		// 先取仍处于 in_progress 的候选供日志留痕（与 UPDATE 条件一致，
+		// 防止给已被 complete 的任务记释放日志）；updated_at 不显式赋值，
+		// 由触发器统一维护（写了也会被覆盖）
+		rows, qe := tx.Ctx(ctx).Model("tasks").
+			Fields("id, assignee_id").
+			WhereIn("id", ids).
+			Where("status", "in_progress").
+			All()
 		if qe != nil {
 			return qe
 		}
 		if _, e := tx.Ctx(ctx).Exec(
-			"UPDATE tasks SET status = 'open', assignee_id = 0, updated_at = ? WHERE id IN (?)",
-			gtime.Now(), ids); e != nil {
+			"UPDATE tasks SET status = 'open', assignee_id = 0 WHERE id IN (?) AND status = 'in_progress'",
+			ids); e != nil {
 			return e
 		}
 		for _, r := range rows {
