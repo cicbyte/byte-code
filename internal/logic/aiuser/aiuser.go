@@ -54,6 +54,11 @@ func (s *sAiUser) Create(ctx context.Context, req *api.AiUserCreateReq) (id int,
 
 func (s *sAiUser) Update(ctx context.Context, req *api.AiUserUpdateReq) (err error) {
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 目标类型前置校验：purge 无类型防护时误传 human id 会清空其全部
+		// token（强制登出）——UPDATE 带 type='ai' 条件 0 行生效挡不住 purge
+		if e := assertAiTarget(ctx, tx, req.Id); e != nil {
+			return e
+		}
 		// 指针语义按字段组装：nil=不更新。Status 显式传 0 才是禁用意图
 		data := g.Map{}
 		if req.RealName != nil {
@@ -83,6 +88,20 @@ func (s *sAiUser) Update(ctx context.Context, req *api.AiUserUpdateReq) (err err
 	return
 }
 
+// assertAiTarget 校验目标存在且为 agent 账号：purge 按用户 id 清
+// sys_tokens 等表，误传 human id 时会把人强制登出，调用前必须先验类型
+func assertAiTarget(ctx context.Context, tx gdb.TX, id int) error {
+	tp, err := tx.Ctx(ctx).Model("sys_users").
+		Where("id", id).Fields("type").Value()
+	if err != nil {
+		return err
+	}
+	if tp == nil || tp.String() != "ai" {
+		return fmt.Errorf("AI 用户不存在")
+	}
+	return nil
+}
+
 // PurgeAgentAccess 撤销 agent 的全部访问通道：项目准入、工作会话、已签发 token
 func PurgeAgentAccess(tx gdb.TX, agentId int) error {
 	if _, err := tx.Exec("DELETE FROM agent_project_bindings WHERE agent_id = ?", agentId); err != nil {
@@ -98,6 +117,10 @@ func PurgeAgentAccess(tx gdb.TX, agentId int) error {
 func (s *sAiUser) Delete(ctx context.Context, id int) (err error) {
 	// 删号同事务清准入/会话/token：binding 残留会让 IsAgentBound 持续为真
 	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 先验类型再 purge（同 Update：防误传 human id 清其 token）
+		if e := assertAiTarget(ctx, tx, id); e != nil {
+			return e
+		}
 		if err := PurgeAgentAccess(tx, id); err != nil {
 			return err
 		}
