@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -53,27 +54,75 @@ func generateSalt() string {
 // regLimit 注册端点 IP 限流：公开无认证端点必须防刷（每 IP 每小时 5 次）。
 // 单机内存实现与部署形态匹配；多实例部署时需换共享存储
 var regLimit = struct {
-	mu   sync.Mutex
-	seen map[string][]time.Time
+	mu sync.Mutex
+	// per-IP 滑动窗口；global 为不分来源的总量窗口——gf 的 GetClientIp
+	// 无条件信任 XFF，伪造随机 IP 即绕过每 IP 限制，全局配额封住刷号总量
+	seen   map[string][]time.Time
+	global []time.Time
 }{seen: map[string][]time.Time{}}
+
+const (
+	regLimitWindow     = time.Hour
+	regLimitPerIP      = 5
+	regLimitGlobalHour = 50
+	// 条目 TTL 与容量上限：防伪造 XFF 的随机 IP 把 map 撑到无限大
+	// （内存 DoS，同 aiKeyGuard 的防护口径）
+	regLimitEntryTTL   = 2 * time.Hour
+	regLimitMaxEntries = 10000
+)
 
 func registerRateLimited(ip string) bool {
 	regLimit.mu.Lock()
 	defer regLimit.mu.Unlock()
 	now := time.Now()
-	cutoff := now.Add(-time.Hour)
+	cutoff := now.Add(-regLimitWindow)
+	// TTL 清理：窗口外且早于 TTL 的条目直接删除（原实现只截断 slice，
+	// map key 永不清理）
+	for k, ts := range regLimit.seen {
+		if len(ts) == 0 || ts[len(ts)-1].Before(now.Add(-regLimitEntryTTL)) {
+			delete(regLimit.seen, k)
+		}
+	}
+	// 容量兜底：仍超量时按"最后一次记录时间"淘汰最旧的一半
+	if len(regLimit.seen) >= regLimitMaxEntries {
+		type kv struct {
+			k string
+			t time.Time
+		}
+		all := make([]kv, 0, len(regLimit.seen))
+		for k, ts := range regLimit.seen {
+			all = append(all, kv{k, ts[len(ts)-1]})
+		}
+		sort.Slice(all, func(i, j int) bool { return all[i].t.Before(all[j].t) })
+		for _, e := range all[:len(all)-regLimitMaxEntries/2] {
+			delete(regLimit.seen, e.k)
+		}
+	}
+	// 全局配额（不分来源）：正常使用远够不到，换 IP 刷号被封总量
+	keptGlobal := regLimit.global[:0]
+	for _, t := range regLimit.global {
+		if t.After(cutoff) {
+			keptGlobal = append(keptGlobal, t)
+		}
+	}
+	regLimit.global = keptGlobal
+	if len(regLimit.global) >= regLimitGlobalHour {
+		return false
+	}
+	// per-IP 滑动窗口
 	kept := regLimit.seen[ip][:0]
 	for _, t := range regLimit.seen[ip] {
 		if t.After(cutoff) {
 			kept = append(kept, t)
 		}
 	}
-	if len(kept) >= 5 {
+	if len(kept) >= regLimitPerIP {
 		regLimit.seen[ip] = kept
 		return false
 	}
 	kept = append(kept, now)
 	regLimit.seen[ip] = kept
+	regLimit.global = append(regLimit.global, now)
 	return true
 }
 
