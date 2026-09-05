@@ -224,8 +224,10 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		"requirement": {"requirements", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
 		"doc":         {"project_document_index", "title LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\'"},
 		"test_case":   {"test_cases", "title LIKE ? ESCAPE '\\' OR steps LIKE ? ESCAPE '\\'"},
+		// 记忆中枢定位下记忆必须可搜：key 与 value 全文命中
+		"memory":      {"project_memories", "`key` LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\'"},
 	}
-	modules := []string{"task", "requirement", "doc", "test_case"}
+	modules := []string{"task", "requirement", "doc", "test_case", "memory"}
 	if req.Module != "" {
 		modules = []string{req.Module}
 	}
@@ -252,6 +254,10 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		fields, order := "id, project_id, title", "id DESC"
 		if ms.table == "project_document_index" {
 			fields, order = "path, project_id, title", "updated_at DESC"
+		}
+		// memory 的展示标题是 key 列
+		if ms.table == "project_memories" {
+			fields = "id, project_id, [key] AS title"
 		}
 		err = g.DB().Model(ms.table).Ctx(ctx).
 			Fields(fields).

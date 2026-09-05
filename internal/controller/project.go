@@ -103,6 +103,10 @@ func (c *projectController) TaskList(ctx context.Context, req *api.TaskListReq) 
 	return service.Project().ListTasks(ctx, req)
 }
 
+func (c *projectController) ExportProject(ctx context.Context, req *api.ProjectExportReq) (*api.ProjectExportRes, error) {
+	return service.Project().ExportProject(ctx, req.ProjectId)
+}
+
 func (c *projectController) MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res *api.MyTaskListRes, err error) {
 	return service.Project().MyTaskList(ctx, req)
 }

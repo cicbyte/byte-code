@@ -54,6 +54,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			group.Bind(
 				controller.ProjectCtrl,
 			)
+			// 项目导出单独绑（同控制器整绑也行，但导出是重接口，显式列出便于审计路由表）
 
 			// 数据库模型管理
 			group.Bind(

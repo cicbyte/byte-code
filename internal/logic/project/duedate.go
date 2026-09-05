@@ -135,3 +135,57 @@ func ScanDueTasks(ctx context.Context) error {
 	}
 	return nil
 }
+
+// ReleaseStaleClaims 任务租约超时释放：agent 认领后失联（无心跳/未完成）的
+// in_progress 任务超时回到 open 并解除指派，人或其他 agent 可重新认领。
+// 判定依据：updated_at 距今超过阈值且 assignee 是 agent（human 的进行中任务
+// 不自动释放——人有沟通渠道，agent 崩溃无人知晓）。与到期扫描同挂定时框架。
+func ReleaseStaleClaims(ctx context.Context) error {
+	// 阈值 2 小时：claim 后正常执行（读开工包→写代码→complete）远短于此；
+	// 过短会把慢任务误释放，过长则失联任务卡死更久
+	threshold := gtime.Now().Add(-2 * time.Hour)
+	res, err := g.DB().Model("tasks t").Ctx(ctx).
+		Fields("t.id").
+		Where("t.status", "in_progress").
+		Where("t.updated_at < ?", threshold).
+		Where("EXISTS (SELECT 1 FROM sys_users u WHERE u.id = t.assignee_id AND u.type = 'ai')").
+		LockUpdate().
+		All()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "租约释放查询失败")
+	}
+	if len(res) == 0 {
+		return nil
+	}
+	ids := make([]int, 0, len(res))
+	for _, r := range res {
+		ids = append(ids, r["id"].Int())
+	}
+	// 回 open + 解除指派 + 记日志（释放动作本身入 ai_execution_logs 供追溯）
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 先取原 assignee 供日志留痕，再释放
+		rows, qe := tx.Ctx(ctx).Model("tasks").Fields("id, assignee_id").WhereIn("id", ids).All()
+		if qe != nil {
+			return qe
+		}
+		if _, e := tx.Ctx(ctx).Exec(
+			"UPDATE tasks SET status = 'open', assignee_id = 0, updated_at = ? WHERE id IN (?)",
+			gtime.Now(), ids); e != nil {
+			return e
+		}
+		for _, r := range rows {
+			if _, e := tx.Ctx(ctx).Model("ai_execution_logs").Insert(g.Map{
+				"task_id": r["id"].Int(), "ai_user_id": r["assignee_id"].Int(),
+				"action": "lease_expired", "detail": "认领超时未完成，系统自动释放（2 小时无进展）", "status": "failed",
+			}); e != nil {
+				break // 日志失败不阻断释放
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "租约释放失败")
+	}
+	g.Log().Infof(ctx, "lease release: %d tasks returned to open", len(ids))
+	return nil
+}

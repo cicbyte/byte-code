@@ -46,6 +46,15 @@ var (
 					g.Log().Warningf(bgCtx, "task due scan failed: %v", err)
 				}
 			}()
+			// 任务租约释放：每小时扫一次失联 agent 的认领（2h 无进展回 open）
+			if _, err := gcron.AddSingleton(ctx, "0 0 * * * *", func(ctx context.Context) {
+				if err := project.ReleaseStaleClaims(ctx); err != nil {
+					g.Log().Warningf(ctx, "schedule lease release failed: %v", err)
+				}
+			}); err != nil {
+				g.Log().Warningf(ctx, "schedule lease release failed: %v", err)
+			}
+
 			// 任务到期提醒：每天 09:00（工作时段推送；启动首跑见上方异步块）
 			if _, err := gcron.AddSingleton(ctx, "0 0 9 * * *", func(ctx context.Context) {
 				if err := project.ScanDueTasks(ctx); err != nil {
