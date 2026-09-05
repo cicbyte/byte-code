@@ -653,3 +653,13 @@
     padding: 0 3px;
   }
 </style>
+
+<style lang="less">
+// 非 scoped：modal teleport 到 body 后脱离组件 DOM 树，scoped/:deep 选不中根卡。
+// 所有 card 型弹窗在 style max-height 约束下内容区内部滚动——默认 overflow
+// visible 会让长内容穿透弹窗边界显示在下方（无 max-height 的弹窗不受影响）
+.n-modal.n-card > .n-card__content {
+  overflow-y: auto;
+  min-height: 0;
+}
+</style>
