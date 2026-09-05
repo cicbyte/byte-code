@@ -82,8 +82,10 @@ func notifyMentions(ctx context.Context, content, taskTitle, authorName string, 
 	if !strings.Contains(content, "@") {
 		return
 	}
+	// human 与已启用的 agent 都可被 @（人 → agent 的即时信息注入通道）；
+	// agent 收件后经 /v1/notifications 轮询或 SSE 消费
 	users, err := g.DB().Model("sys_users").Ctx(ctx).
-		Fields("id, username").Where("type", "human").Where("status", 1).All()
+		Fields("id, username").Where("status", 1).All()
 	if err != nil {
 		return
 	}

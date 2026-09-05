@@ -85,9 +85,17 @@
             buf = buf.slice(idx + 2);
             const dataLine = frame.split('\n').find((l) => l.startsWith('data: '));
             if (!dataLine) continue;
-            // 收到实时通知：刷未读数；面板打开时同步列表
+            // 收到实时通知：刷未读数；面板打开时同步列表；同时广播为
+            // window 事件——任务详情抽屉据此对正打开的任务做评论区实时刷新
+            let payload: any = null;
+            try {
+              payload = JSON.parse(dataLine.slice(6));
+            } catch {
+              payload = null;
+            }
             fetchUnread();
             if (popoverShow.value) loadList();
+            window.dispatchEvent(new CustomEvent('bc-notification', { detail: payload }));
           }
         }
       })

@@ -63,6 +63,24 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	lastId, _ := result.LastInsertId()
 	taskId := int(lastId)
 
+	// 未指派的 open 任务广播给项目内已准入的外部 agents（事件驱动认领，
+	// 替代盲轮询任务池）；已指派任务的触达走既有指派通知
+	if req.AssigneeId == 0 {
+		agentRows, aerr := g.DB().Model("agent_project_bindings b").Ctx(ctx).
+			Fields("b.agent_id, u.username").
+			LeftJoin("sys_users u", "u.id = b.agent_id").
+			Where("b.project_id", req.ProjectId).
+			Where("u.status", 1).
+			All()
+		if aerr == nil {
+			for _, ar := range agentRows {
+				notify.Send(ctx, ar["agent_id"].Int(), "新任务可认领",
+					fmt.Sprintf("项目新增未指派任务「%s」，可凭 bc key 认领（POST /v1/tasks/%d/claim）", req.Title, taskId),
+					"info", "task", taskId)
+			}
+		}
+	}
+
 	// 记录活动
 	s.recordActivity(ctx, uid, "task.created", "task", taskId, req.Title, req.ProjectId, "")
 

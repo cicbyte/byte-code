@@ -177,46 +177,55 @@
           </n-space>
         </n-card>
 
-        <!-- 评论区 -->
+        <!-- 评论区（IM 对话流：自己右对齐，他人/Agent 左对齐带身份标识） -->
         <n-card title="评论" size="small" :bordered="true" :segmented="{ content: true }">
-          <n-space vertical :size="12">
-            <n-empty v-if="comments.length === 0" description="暂无评论" size="small" />
-            <div v-for="comment in comments" :key="comment.id" class="border-b border-gray-100 pb-2 last:border-0">
-              <n-space justify="space-between" align="center">
-                <n-space size="small" align="center">
-                  <n-tag size="tiny" :type="comment.userType === 'ai' ? 'warning' : 'info'">
+          <div ref="chatListRef" class="chat-list">
+            <n-empty v-if="comments.length === 0" description="暂无评论，@成员 或 @Agent 可发送通知" size="small" />
+            <div
+              v-for="comment in comments"
+              :key="comment.id"
+              class="chat-row"
+              :class="{ mine: isMyComment(comment) }"
+            >
+              <!-- 头像位：Agent 用 sparkle，人用首字母圆 -->
+              <div v-if="!isMyComment(comment)" class="chat-avatar" :class="{ agent: comment.userType === 'ai' }">
+                <AgentSparkleIcon v-if="comment.userType === 'ai'" />
+                <template v-else>{{ avatarChar(comment) }}</template>
+              </div>
+              <div class="chat-main">
+                <div class="chat-meta">
+                  <span class="chat-name">{{ comment.realName || comment.username }}</span>
+                  <n-tag size="tiny" :bordered="false" :type="comment.userType === 'ai' ? 'warning' : 'info'">
                     {{ comment.userType === 'ai' ? 'Agent' : '用户' }}
                   </n-tag>
-                  <span class="text-sm font-medium">{{ comment.realName || comment.username }}</span>
-                </n-space>
-                <n-space :size="4" align="center">
-                  <span class="text-xs text-gray-400">{{ comment.createdAt }}</span>
+                  <span class="chat-time">{{ fmtChatTime(comment.createdAt) }}</span>
                   <template v-if="isMyComment(comment)">
                     <n-button text type="primary" size="tiny" @click="startEditComment(comment)">编辑</n-button>
                     <n-button text type="error" size="tiny" @click="handleDeleteComment(comment)">删除</n-button>
                   </template>
-                </n-space>
-              </n-space>
-              <template v-if="editingCommentId === comment.id">
-                <n-input v-model:value="editCommentContent" type="textarea" :rows="2" />
-                <n-space :size="4" class="mt-1" justify="end">
-                  <n-button size="tiny" @click="cancelEditComment">取消</n-button>
-                  <n-button size="tiny" type="primary" :loading="savingComment" @click="saveEditComment">保存</n-button>
-                </n-space>
-              </template>
-              <p v-else class="mt-1 text-sm text-gray-600 comment-body" v-html="renderComment(comment.content)"></p>
+                </div>
+                <template v-if="editingCommentId === comment.id">
+                  <n-input v-model:value="editCommentContent" type="textarea" :rows="2" />
+                  <n-space :size="4" class="mt-1" justify="end">
+                    <n-button size="tiny" @click="cancelEditComment">取消</n-button>
+                    <n-button size="tiny" type="primary" :loading="savingComment" @click="saveEditComment">保存</n-button>
+                  </n-space>
+                </template>
+                <div v-else class="chat-bubble comment-body" v-html="renderComment(comment.content)"></div>
+              </div>
             </div>
-          </n-space>
-          <n-divider />
+          </div>
+          <n-divider style="margin: 8px 0" />
           <n-space vertical :size="4">
             <n-mention
               v-model:value="newComment"
               type="textarea"
-              placeholder="输入评论内容，@ 可提及成员（将发送通知）"
+              placeholder="输入评论，@ 可提及成员或 Agent（实时送达通知）"
               :rows="2"
               :options="mentionOptions"
               :prefix="['@']"
               style="flex: 1"
+              @keydown.enter.exact.prevent="handleAddComment"
             />
             <n-space justify="end">
               <n-button type="primary" @click="handleAddComment" :loading="submitting">发送</n-button>
@@ -240,7 +249,7 @@
   import { getLinkedDocs } from '@/api/docs/index';
   import type { DocsSearchItem } from '@/api/docs/index';
   import { PaperClipOutlined, FileTextOutlined } from '@vicons/antd';
-  import { ref, computed } from 'vue';
+  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import {
@@ -258,6 +267,7 @@
   import { useUserStore } from '@/store/modules/user';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
   import { priorityTagType, statusLabel, statusTagType } from '@/enums/task';
+  import { AgentSparkleIcon } from '@/components/Icons/AgentSparkle';
 
 
   // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
@@ -356,10 +366,13 @@
   async function loadMentionOptions(projectId: number) {
     try {
       const res = await getMembers(projectId);
+      // human 与 Agent 都可被 @：Agent 头像标识区分，选中即发通知
       mentionOptions.value = (res?.list || [])
-        .filter((m) => !m.userType || m.userType === 'human')
+        .filter((m) => !m.userType || m.userType === 'human' || m.userType === 'ai')
         .map((m) => ({
-          label: `${m.realName || m.username}（${m.username}）`,
+          label: m.userType === 'ai'
+            ? `✦ ${m.realName || m.username}（${m.username}·Agent）`
+            : `${m.realName || m.username}（${m.username}）`,
           value: m.username,
         }));
     } catch {
@@ -525,6 +538,53 @@
     }
   }
 
+  // ==================== IM 对话流工具 ====================
+  const chatListRef = ref<HTMLElement | null>(null);
+
+  function avatarChar(c: CommentItem): string {
+    return (c.realName || c.username || '?').trim().charAt(0).toUpperCase();
+  }
+
+  // IM 时间：今天只显示时分，更早显示月-日 时分
+  function fmtChatTime(ts: string): string {
+    if (!ts) return '';
+    const d = ts.slice(0, 10);
+    const hm = ts.slice(11, 16);
+    const today = new Date();
+    const t = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return d === t ? hm : `${d.slice(5)} ${hm}`;
+  }
+
+  async function scrollChatBottom() {
+    await nextTick();
+    if (chatListRef.value) chatListRef.value.scrollTop = chatListRef.value.scrollHeight;
+  }
+
+  // SSE 联动：任务新评论通知到达时，若抽屉正开着且是当前任务则静默刷新评论
+  function onLiveNotification(e: Event) {
+    const detail = (e as CustomEvent).detail || {};
+    if (!visible.value || !task.value) return;
+    if (detail.sourceType === 'task' && Number(detail.sourceId) === task.value.id) {
+      if (detail.title === '任务新评论' || detail.title === '评论被回复' || detail.title === '评论提及了你') {
+        refreshComments(true);
+      }
+    }
+  }
+
+  async function refreshComments(silent = false) {
+    if (!task.value) return;
+    try {
+      const res = await getComments(task.value.id);
+      comments.value = res?.list || [];
+      if (silent) scrollChatBottom();
+    } catch {
+      // ignore
+    }
+  }
+
+  onMounted(() => window.addEventListener('bc-notification', onLiveNotification));
+  onUnmounted(() => window.removeEventListener('bc-notification', onLiveNotification));
+
   // ==================== 评论编辑/删除（仅作者本人） ====================
   const myUsername = computed(() => userStore.getUserInfo?.username || userStore.username || '');
 
@@ -594,10 +654,9 @@
     submitting.value = true;
     try {
       await createComment(task.value.id, { content: newComment.value });
-      message.success('评论发送成功');
       newComment.value = '';
-      const commentRes = await getComments(task.value.id);
-      comments.value = commentRes?.list || [];
+      // IM 式上屏：静默刷新后滚到底（新评论即见）
+      await refreshComments(true);
     } catch (e) {
       message.error('评论发送失败');
     } finally {
@@ -644,6 +703,94 @@
     &:hover {
       background: var(--hover-bg, #f5f5f5);
     }
+  }
+
+  // ==================== IM 对话流 ====================
+  .chat-list {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 4px 2px;
+  }
+
+  .chat-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+
+    &.mine {
+      flex-direction: row-reverse;
+
+      .chat-main {
+        align-items: flex-end;
+      }
+
+      .chat-bubble {
+        background: #36ad6a;
+        color: #fff;
+        border-radius: 12px 2px 12px 12px;
+
+        :deep(.mention) {
+          color: #fff;
+          background: rgb(255 255 255 / 20%);
+        }
+      }
+    }
+  }
+
+  .chat-avatar {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: #5a9cf8;
+    overflow: hidden;
+
+    &.agent {
+      background: #f0a020;
+      font-size: 16px;
+    }
+  }
+
+  .chat-main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    max-width: 86%;
+  }
+
+  .chat-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+    font-size: 12px;
+  }
+
+  .chat-name {
+    font-weight: 500;
+    color: #333;
+  }
+
+  .chat-time {
+    color: #999;
+  }
+
+  .chat-bubble {
+    background: #f2f3f5;
+    color: #333;
+    border-radius: 2px 12px 12px 12px;
+    padding: 6px 10px;
+    font-size: 13px;
+    line-height: 1.55;
+    word-break: break-word;
+    white-space: pre-wrap;
   }
 
   :deep(.mention) {
