@@ -155,15 +155,6 @@ export interface TaskUpdateData {
   dueDate?: string;
 }
 
-export interface TaskImportData {
-  requirementId: number;
-  sprintId?: number;
-}
-
-export interface TaskImportResult {
-  taskIds: number[];
-}
-
 /** 评论 */
 export interface CommentItem {
   id: number;
@@ -199,13 +190,6 @@ export interface AiLogItem {
 
 export interface AiLogListResult {
   list: AiLogItem[];
-}
-
-export interface AiLogCreateData {
-  aiUserId: number;
-  action: string;
-  detail?: string;
-  status?: string;
 }
 
 /** Sprint */
@@ -405,36 +389,19 @@ export function deleteTask(id: number) {
   return Alova.Delete(`/v1/tasks/${id}`);
 }
 
-/** AI 认领任务 */
-export function claimTask(id: number) {
-  return Alova.Post(`/v1/tasks/${id}/claim`);
-}
-
-/** AI 完成任务 */
-export function completeTask(id: number, data?: { artifacts?: string }) {
-  return Alova.Post(`/v1/tasks/${id}/complete`, data);
-}
-
 /** 审核任务 */
 export function reviewTask(id: number, data: { status: 'approved' | 'rejected'; comment?: string }) {
   return Alova.Post(`/v1/tasks/${id}/review`, data);
 }
 
-/** 从需求导入任务 */
-export function importTasks(projectId: number, data: TaskImportData) {
-  return Alova.Post<TaskImportResult>(`/v1/projects/${projectId}/tasks/import`, data);
+/** 创建评论 */
+export function createComment(taskId: number, data: CommentCreateData) {
+  return Alova.Post<{ id: number }>(`/v1/tasks/${taskId}/comments`, data);
 }
-
-// ==================== 评论 API ====================
 
 /** 评论列表 */
 export function getComments(taskId: number) {
   return Alova.Get<CommentListResult>(`/v1/tasks/${taskId}/comments`);
-}
-
-/** 创建评论 */
-export function createComment(taskId: number, data: CommentCreateData) {
-  return Alova.Post<{ id: number }>(`/v1/tasks/${taskId}/comments`, data);
 }
 
 // ==================== AI 执行日志 API ====================
@@ -444,26 +411,15 @@ export function getAiLogs(taskId: number) {
   return Alova.Get<AiLogListResult>(`/v1/tasks/${taskId}/ai-logs`);
 }
 
-/** 创建 AI 执行日志 */
-export function createAiLog(taskId: number, data: AiLogCreateData) {
-  return Alova.Post<{ id: number }>(`/v1/tasks/${taskId}/ai-logs`, data);
-}
-
-// ==================== Sprint API ====================
-
 /** Sprint 列表 */
 export function getSprints(projectId: number, params?: SprintListParams) {
-  return Alova.Get<SprintListResult>(`/v1/projects/${projectId}/sprints`, { params });
+  const query = params?.status ? `?status=${params.status}` : '';
+  return Alova.Get<SprintListResult>(`/v1/projects/${projectId}/sprints${query}`);
 }
 
 /** 创建 Sprint */
 export function createSprint(projectId: number, data: SprintCreateData) {
   return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/sprints`, data);
-}
-
-/** Sprint 详情 */
-export function getSprint(id: number) {
-  return Alova.Get<SprintItem>(`/v1/sprints/${id}`);
 }
 
 /** 更新 Sprint */

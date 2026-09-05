@@ -69,7 +69,3 @@ export function resetAiUserKey(id: number) {
 
 // ==================== AI 认证 API ====================
 
-/** AI 用户登录 */
-export function aiLogin(data: AiLoginData) {
-  return Alova.Post<{ token: string }>('/auth/ai/login', data);
-}

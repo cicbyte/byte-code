@@ -151,11 +151,6 @@ export function createTestCase(projectId: number, data: TestCaseCreateData) {
   return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/test-cases`, data);
 }
 
-/** 用例详情 */
-export function getTestCase(id: number) {
-  return Alova.Get<TestCaseItem>(`/v1/test-cases/${id}`);
-}
-
 /** 更新用例 */
 export function updateTestCase(id: number, data: TestCaseUpdateData) {
   return Alova.Put(`/v1/test-cases/${id}`, data);
@@ -176,11 +171,6 @@ export function getTestPlans(projectId: number, params?: TestPlanListParams) {
 /** 创建计划 */
 export function createTestPlan(projectId: number, data: TestPlanCreateData) {
   return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/test-plans`, data);
-}
-
-/** 计划详情 */
-export function getTestPlan(id: number) {
-  return Alova.Get<TestPlanItem>(`/v1/test-plans/${id}`);
 }
 
 /** 更新计划 */

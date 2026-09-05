@@ -21,18 +21,3 @@ export interface RoleUpdateData {
   menuIds?: number[];
 }
 
-export function createRole(data: RoleCreateData) {
-  return Alova.Post<{ id: number }>('/role', data);
-}
-
-export function updateRole(id: number, data: RoleUpdateData) {
-  return Alova.Put(`/role/${id}`, data);
-}
-
-export function deleteRole(id: number) {
-  return Alova.Delete(`/role/${id}`);
-}
-
-export function updateRoleMenus(id: number, menuIds: number[]) {
-  return Alova.Put(`/role/${id}/menus`, { menuIds });
-}
