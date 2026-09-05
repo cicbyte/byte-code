@@ -160,6 +160,12 @@ func (s *sPlatform) ListNotifications(ctx context.Context, req *api.Notification
 	if req.Unread == 1 {
 		m = m.Where("is_read", 0)
 	}
+	if req.Unread == 2 {
+		m = m.Where("is_read", 1)
+	}
+	if req.Type != "" {
+		m = m.Where("type", req.Type)
+	}
 
 	res.Total, err = m.Count()
 	if err != nil {

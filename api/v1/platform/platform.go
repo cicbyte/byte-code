@@ -114,9 +114,10 @@ type ActivityItem struct {
 // 通知
 type NotificationListReq struct {
 	g.Meta `path:"/notifications" method:"get" tags:"通知" summary:"通知列表"`
-	Unread int `json:"unread" in:"query"`
-	Page   int `json:"page" in:"query" d:"1"`
-	Size   int `json:"size" in:"query" d:"20"`
+	Unread int    `json:"unread" in:"query" dc:"0=全部 1=未读 2=已读"`
+	Type   string `json:"type" in:"query" v:"in:,info,warning,success,error#类型不合法" dc:"按类型筛选"`
+	Page   int    `json:"page" in:"query" d:"1"`
+	Size   int    `json:"size" in:"query" d:"20"`
 }
 
 type NotificationListRes struct {

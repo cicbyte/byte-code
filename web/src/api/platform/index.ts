@@ -83,6 +83,8 @@ export interface NotificationListResult {
 
 export interface NotificationListParams {
   unread?: number;
+  /** 按类型筛选：info/warning/success/error */
+  type?: string;
   page?: number;
   size?: number;
 }
