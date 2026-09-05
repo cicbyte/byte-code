@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/docs"
@@ -18,13 +19,17 @@ import (
 const staleDaysConfigKey = "memory_stale_days"
 
 var (
-	staleDaysCache     int
-	staleDaysCacheAt   time.Time
+	staleDaysMu      sync.Mutex
+	staleDaysCache   int
+	staleDaysCacheAt time.Time
 )
 
 // memoryStaleDays 腐化阈值（天）。sys_config 每请求都查一次太重，
-// 进程内缓存 30s——阈值是运营配置，秒级生效无意义（并发竞态最坏多查一次，无害）
+// 进程内缓存 30s——阈值是运营配置，秒级生效无意义（mutex 防 data race：
+// HTTP/AI 引擎/定时任务多 goroutine 并发读写裸变量）
 func memoryStaleDays(ctx context.Context) int {
+	staleDaysMu.Lock()
+	defer staleDaysMu.Unlock()
 	if time.Since(staleDaysCacheAt) < 30*time.Second {
 		return staleDaysCache
 	}

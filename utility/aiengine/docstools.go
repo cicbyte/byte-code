@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cicbyte/byte-code/utility/docs"
@@ -275,13 +276,16 @@ func (t *DocLinkedTool) InvokableRun(ctx context.Context, argsInJSON string, opt
 // ==================== 记忆工具 ====================
 
 var (
-	staleDaysCache     int
-	staleDaysCacheAt   time.Time
+	staleDaysMu      sync.Mutex
+	staleDaysCache   int
+	staleDaysCacheAt time.Time
 )
 
 // memoryStaleDays 腐化阈值（天）。sys_config 每请求都查一次太重，
 // 进程内缓存 30s——阈值是运营配置，秒级生效无意义（并发竞态最坏多查一次，无害）
 func memoryStaleDays(ctx context.Context) int {
+	staleDaysMu.Lock()
+	defer staleDaysMu.Unlock()
 	if time.Since(staleDaysCacheAt) < 30*time.Second {
 		return staleDaysCache
 	}

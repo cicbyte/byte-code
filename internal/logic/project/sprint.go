@@ -3,6 +3,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
@@ -51,14 +52,33 @@ func (s *sProject) UpdateSprint(ctx context.Context, req *api.SprintUpdateReq) (
 		data["end_date"] = *req.EndDate
 	}
 	if req.Status != nil {
+		// 与 sprints 表 CHECK(planning/active/completed) 对齐：非法值给业务错误而非裸 CHECK 报错
+		switch *req.Status {
+		case "planning", "active", "completed":
+		default:
+			return fmt.Errorf("状态必须是 planning/active/completed")
+		}
 		data["status"] = *req.Status
+	}
+	if req.StartDate != nil && *req.StartDate != "" {
+		if _, e := time.Parse("2006-01-02", (*req.StartDate)[:min(10, len(*req.StartDate))]); e != nil {
+			return fmt.Errorf("开始日期格式应为 Y-m-d")
+		}
+	}
+	if req.EndDate != nil && *req.EndDate != "" {
+		if _, e := time.Parse("2006-01-02", (*req.EndDate)[:min(10, len(*req.EndDate))]); e != nil {
+			return fmt.Errorf("结束日期格式应为 Y-m-d")
+		}
 	}
 	if len(data) == 0 {
 		return nil
 	}
-	_, err = g.DB().Model("sprints").Ctx(ctx).Where("id", req.Id).Data(data).Update()
+	res, err := g.DB().Model("sprints").Ctx(ctx).Where("id", req.Id).Data(data).Update()
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "更新Sprint失败")
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("Sprint 不存在")
 	}
 	return nil
 }

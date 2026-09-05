@@ -54,6 +54,11 @@ func backupDocs(ctx context.Context) {
 	}
 	name := fmt.Sprintf("docs-%s.tar.gz", time.Now().Format("20060102-150405"))
 	target := filepath.Join(backupDir, name)
+	// 同名兜底：os.Create 遇已存在文件会静默截断旧档（db 分支同款防护）
+	if _, err := os.Stat(target); err == nil {
+		target = filepath.Join(backupDir,
+			fmt.Sprintf("docs-%s-%d.tar.gz", time.Now().Format("20060102-150405"), time.Now().UnixNano()%1000))
+	}
 	f, err := os.Create(target)
 	if err != nil {
 		g.Log().Warningf(ctx, "dbbackup: create docs archive failed: %v", err)

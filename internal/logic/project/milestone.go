@@ -6,6 +6,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -65,12 +66,16 @@ func (s *sProject) UpdateMilestone(ctx context.Context, req *api.MilestoneUpdate
 }
 
 func (s *sProject) DeleteMilestone(ctx context.Context, id int) (err error) {
-	// 解除关联的需求（milestone_id 置 0，需求保留）
-	if _, err := g.DB().Model("requirements").Ctx(ctx).
-		Where("milestone_id", id).Data("milestone_id", 0).Update(); err != nil {
-		return liberr.WrapDb(ctx, err, "解除需求关联失败")
-	}
-	_, err = g.DB().Model("milestones").Ctx(ctx).Where("id", id).Delete()
+	// 解除关联的需求（milestone_id 置 0，需求保留）与删除同事务——
+	// 分开执行时第二步失败会让关联信息已丢而里程碑还在
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Ctx(ctx).Model("requirements").
+			Where("milestone_id", id).Data("milestone_id", 0).Update(); err != nil {
+			return err
+		}
+		_, err := tx.Ctx(ctx).Model("milestones").Where("id", id).Delete()
+		return err
+	})
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "删除里程碑失败")
 	}
