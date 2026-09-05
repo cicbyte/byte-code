@@ -95,7 +95,7 @@
     loading.value = true;
     try {
       // 看板需要整板展示，一次取足量（超大规模项目需改虚拟滚动）
-      const res = await getTasks(projectId.value, { page: 1, size: 500 });
+      const res = await getTasks(projectId.value, { page: 1, size: 200 });
       syncColumns(res?.list || []);
     } catch {
       // ignore
