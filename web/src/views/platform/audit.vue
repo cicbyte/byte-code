@@ -9,7 +9,7 @@
           placeholder="操作类型"
           style="width: 160px"
           clearable
-          @keyup.enter="loadData"
+          @keyup.enter="onFilterChange"
         />
         <n-select
           v-model:value="filters.targetType"
@@ -17,9 +17,9 @@
           placeholder="目标类型"
           style="width: 160px"
           clearable
-          @update:value="loadData"
+          @update:value="onFilterChange"
         />
-        <n-button type="primary" @click="loadData">查询</n-button>
+        <n-button type="primary" @click="onFilterChange">查询</n-button>
       </n-space>
 
       <n-spin :show="loading">
@@ -96,7 +96,13 @@
     { label: 'Agent', value: 'ai_user' },
   ];
 
-  async function loadData() {
+    // 筛选变更从第 1 页重查：第 N 页改筛选会请求空页显示"暂无"
+  function onFilterChange() {
+    pagination.page = 1;
+    loadData();
+  }
+
+async function loadData() {
     loading.value = true;
     try {
       const res = await getAuditLogs({

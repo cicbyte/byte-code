@@ -10,7 +10,7 @@
           placeholder="分类"
           style="width: 140px"
           clearable
-          @update:value="loadData"
+          @update:value="onFilterChange"
         />
         <n-select
           v-model:value="filters.status"
@@ -18,14 +18,14 @@
           placeholder="状态"
           style="width: 140px"
           clearable
-          @update:value="loadData"
+          @update:value="onFilterChange"
         />
         <n-input
           v-model:value="filters.keyword"
           placeholder="搜索用例"
           style="width: 200px"
           clearable
-          @keyup.enter="loadData"
+          @keyup.enter="onFilterChange"
         />
         <n-button type="primary" @click="handleCreate">
           <template #icon>
@@ -229,7 +229,13 @@
     editId.value = null;
   }
 
-  async function loadData() {
+    // 筛选变更从第 1 页重查：第 N 页改筛选会请求空页显示"暂无"
+  function onFilterChange() {
+    pagination.page = 1;
+    loadData();
+  }
+
+async function loadData() {
     loading.value = true;
     try {
       const res = await getTestCases(projectId.value, {

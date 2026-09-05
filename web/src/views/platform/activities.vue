@@ -10,7 +10,7 @@
             placeholder="按模块筛选"
             style="width: 160px"
             clearable
-            @update:value="loadData"
+            @update:value="onFilterChange"
           />
         </n-space>
       </template>
@@ -79,7 +79,13 @@
     return 'default';
   }
 
-  async function loadData() {
+    // 筛选变更从第 1 页重查：第 N 页改筛选会请求空页显示"暂无"
+  function onFilterChange() {
+    pagination.page = 1;
+    loadData();
+  }
+
+async function loadData() {
     loading.value = true;
     try {
       const res = await getActivities({
