@@ -93,6 +93,23 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 }
 
 func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err error) {
+	// 门禁：agent 禁改 status/assignee——任务状态流转必须走 claim/complete
+	// 专用端点（条件更新防并发、完成限 assignee/owner、人审拒 ai），
+	// PUT 直改 done 可整体绕过这三道防线（CanAccessProject 对绑定 agent 放行）。
+	// human 不受限：任意成员本就有 ReviewTask 权，直接改 done 不构成越权
+	actorType, terr := g.DB().Model("sys_users").Ctx(ctx).
+		Where("id", perm.UserId(ctx)).Fields("type").Value()
+	if terr != nil {
+		return liberr.WrapDb(ctx, terr, "校验操作者身份失败")
+	}
+	if actorType != nil && actorType.String() == "ai" {
+		if req.Status != nil {
+			return fmt.Errorf("Agent 不能直接修改任务状态，请通过认领/完成接口流转")
+		}
+		if req.AssigneeId != nil {
+			return fmt.Errorf("Agent 不能改派任务")
+		}
+	}
 	notifyAssigneeChange := 0
 	data := g.Map{}
 	// 指针语义：nil=不更新，非nil=更新（含零值/空串）

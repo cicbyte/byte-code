@@ -138,7 +138,8 @@ type TaskUpdateReq struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	Type        *string `json:"type"`
-	Status      *string `json:"status"`
+	// 枚举校验防脏值入库；指针为 nil 时 gf 跳过校验（不更新语义不受影响）
+	Status       *string `json:"status" v:"in:open,in_progress,review,done,closed"`
 	// 指针字段：nil=不更新，非nil零值=显式清空
 	Priority     *int    `json:"priority"`
 	AssigneeId   *int    `json:"assigneeId"`
