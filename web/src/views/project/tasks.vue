@@ -143,7 +143,7 @@
       </n-form>
     </n-modal>
 
-    <TaskDetailModal ref="taskDetailRef" />
+    <TaskDetailModal ref="taskDetailRef" @updated="loadTasks" />
   </div>
 </template>
 

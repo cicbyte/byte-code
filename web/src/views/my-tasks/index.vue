@@ -52,7 +52,7 @@
       </div>
     </n-card>
 
-    <TaskDetailModal ref="taskDetailRef" />
+    <TaskDetailModal ref="taskDetailRef" @updated="load" />
   </div>
 </template>
 

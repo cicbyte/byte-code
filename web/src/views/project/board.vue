@@ -35,7 +35,7 @@
       </n-spin>
     </div>
 
-    <TaskDetailModal ref="taskDetailRef" />
+    <TaskDetailModal ref="taskDetailRef" @updated="loadTasks" />
   </div>
 </template>
 

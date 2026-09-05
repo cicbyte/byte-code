@@ -286,6 +286,10 @@
   import { AgentSparkleIcon } from '@/components/Icons/AgentSparkle';
 
 
+  // 抽屉内的写操作（关闭/审核/改期）会改变宿主列表展示的数据，
+  // 成功后通知宿主重拉——defineExpose 只有 openModal，宿主无从感知
+  const emit = defineEmits<{ (e: 'updated'): void }>();
+
   // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
   const safeDescription = computed(() => DOMPurify.sanitize(task.value?.description || ''));
 
@@ -661,7 +665,10 @@
     });
   }
 
-  async function handleAddComment() {
+  async function handleAddComment(e?: KeyboardEvent) {
+    // 输入法组合态的 Enter（确认候选词）不是发送意图；keyCode 229 兼容
+    // Safari 等不置 isComposing 的旧实现
+    if (e && (e.isComposing || e.keyCode === 229)) return;
     if (!newComment.value.trim()) {
       message.warning('请输入评论内容');
       return;
@@ -688,6 +695,7 @@
       await updateTask(task.value.id, { dueDate: val || '' });
       task.value.dueDate = val || '';
       message.success(val ? `截止日期已设为 ${val}` : '已清除截止日期');
+      emit('updated');
     } catch {
       task.value.dueDate = old;
       message.error('更新截止日期失败');
@@ -701,6 +709,7 @@
       await updateTask(task.value.id, { status: 'closed' });
       message.success('任务已关闭');
       visible.value = false;
+      emit('updated');
     } catch {
       message.error('关闭失败');
     }
@@ -713,6 +722,7 @@
       message.success(status === 'approved' ? '已通过' : '已驳回');
       const taskRes = await getTask(task.value.id);
       task.value = taskRes || null;
+      emit('updated');
     } catch (e) {
       message.error('审核操作失败');
     }
