@@ -11,7 +11,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && tagList.length === 0" description="暂无标签" />
+        <EmptyState type="generic" title="暂无标签" v-if="!loading && tagList.length === 0" description="在任务详情或筛选栏中创建标签" />
         <n-space v-else>
           <n-tag
             v-for="item in tagList"
@@ -51,6 +51,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';

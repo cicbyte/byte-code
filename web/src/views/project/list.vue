@@ -32,7 +32,7 @@
       </n-space>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && projectList.length === 0" description="暂无项目" />
+        <EmptyState type="generic" title="还没有项目" v-if="!loading && projectList.length === 0" description="点击右上角「新建项目」开始" />
         <n-grid v-else cols="1 s:2 m:2 l:3 xl:4 2xl:4" responsive="screen" :x-gap="12" :y-gap="12">
           <n-grid-item v-for="item in projectList" :key="item.id">
             <n-card hoverable size="small" @click="handleDetail(item)" style="cursor: pointer">
@@ -92,6 +92,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { PROJECT_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted } from 'vue';
   import { useRouter } from 'vue-router';

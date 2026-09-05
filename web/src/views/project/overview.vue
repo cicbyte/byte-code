@@ -18,7 +18,7 @@
             </n-descriptions-item>
           </n-descriptions>
         </template>
-        <n-empty v-else-if="!loading" description="未找到项目信息" />
+        <EmptyState type="generic" title="未找到项目信息" v-else-if="!loading" />
       </n-spin>
     </n-card>
 
@@ -87,13 +87,13 @@
               <div class="text-xs text-gray-400">目标：{{ activeSprint.goal || '未设定' }}</div>
             </n-space>
           </template>
-          <n-empty v-else description="没有进行中的 Sprint" size="small" />
+          <EmptyState type="task" title="没有进行中的 Sprint" v-else compact />
         </n-card>
       </n-grid-item>
 
       <n-grid-item span="3 m:2">
         <n-card :bordered="false" size="small" title="最近动态" class="h-full">
-          <n-empty v-if="activities.length === 0" description="暂无动态" size="small" />
+          <EmptyState type="notify" title="暂无动态" v-if="activities.length === 0" compact />
           <n-space v-else vertical :size="10">
             <n-space v-for="a in activities" :key="a.id" align="center" :size="8">
               <n-tag size="tiny" :type="a.actorType === 'ai' ? 'warning' : 'info'" :bordered="false">
@@ -136,7 +136,7 @@
             成员
             <span class="text-xs text-gray-400">（{{ members.length }}）</span>
           </template>
-          <n-empty v-if="members.length === 0" description="暂无成员" size="small" />
+          <EmptyState type="member" title="暂无成员" v-if="members.length === 0" compact />
           <n-space v-else :size="8">
             <n-tag
               v-for="m in members"
@@ -156,6 +156,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { PROJECT_STATUS, SPRINT_STATUS, REQ_STATUS } from '@/enums/entities';
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';

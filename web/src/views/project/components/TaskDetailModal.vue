@@ -51,7 +51,7 @@
         <!-- 描述 -->
         <n-card title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
           <div v-if="task.description" v-html="safeDescription" class="prose max-w-none"></div>
-          <n-empty v-else description="暂无描述" size="small" />
+          <EmptyState type="doc" title="暂无描述" v-else compact />
         </n-card>
 
         <!-- 标签 -->
@@ -83,7 +83,7 @@
         <!-- 附件 -->
         <n-card title="附件" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
           <n-space vertical :size="6">
-            <n-empty v-if="attachments.length === 0" description="暂无附件" size="small" />
+            <EmptyState type="doc" title="暂无附件" v-if="attachments.length === 0" compact />
             <n-space v-for="a in attachments" :key="a.id" justify="space-between" align="center" class="w-full">
               <n-space :size="8" align="center">
                 <n-icon size="14"><PaperClipOutlined /></n-icon>
@@ -104,7 +104,7 @@
 
         <!-- 关联文档 -->
         <n-card title="关联文档" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
-          <n-empty v-if="linkedDocs.length === 0" description="暂无关联文档（文档 frontmatter linked 指向本任务时出现）" size="small" />
+          <EmptyState type="doc" title="暂无关联文档" v-if="linkedDocs.length === 0" description="在文档 frontmatter 的 linked 中指向本任务即可关联" compact />
           <n-space v-else vertical :size="4">
             <n-space
               v-for="d in linkedDocs"
@@ -126,7 +126,7 @@
 
         <!-- AI 执行日志时间线 -->
         <n-card title="Agent 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
-          <n-empty v-if="aiLogs.length === 0" description="暂无 AI 执行记录" size="small" />
+          <EmptyState type="generic" title="暂无 Agent 执行记录" v-if="aiLogs.length === 0" description="Agent 认领与执行的过程会留痕在这里" compact />
           <n-timeline v-else>
             <n-timeline-item
               v-for="log in aiLogs"
@@ -180,7 +180,7 @@
         <!-- 评论区（IM 对话流：自己右对齐，他人/Agent 左对齐带身份标识） -->
         <n-card title="评论" size="small" :bordered="true" :segmented="{ content: true }">
           <div ref="chatListRef" class="chat-list">
-            <n-empty v-if="comments.length === 0" description="暂无评论，@成员 或 @Agent 可发送通知" size="small" />
+            <EmptyState type="comment" title="暂无评论" v-if="comments.length === 0" description="@成员 或 @Agent 可实时送达通知" compact />
             <div
               v-for="comment in comments"
               :key="comment.id"
@@ -241,6 +241,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import DOMPurify from 'dompurify';
   import { MdPreview } from 'md-editor-v3';
   import 'md-editor-v3/lib/preview.css';

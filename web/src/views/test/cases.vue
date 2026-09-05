@@ -36,7 +36,7 @@
       </n-space>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && caseList.length === 0" description="暂无测试用例" />
+        <EmptyState type="doc" title="暂无测试用例" description="创建用例沉淀测试资产" v-if="!loading && caseList.length === 0" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -131,6 +131,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';

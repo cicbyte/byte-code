@@ -76,7 +76,7 @@
     <!-- 最近更新的任务 -->
     <n-card title="最近更新的任务" class="mt-4" :bordered="false">
       <n-spin :show="loading">
-        <n-empty v-if="!loading && stats.recentTasks.length === 0" description="暂无任务" />
+        <EmptyState type="task" title="暂无任务" v-if="!loading && stats.recentTasks.length === 0" description="创建第一个任务开始协作" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -103,6 +103,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted, nextTick } from 'vue';
   import echarts from '@/utils/lib/echarts';
   import { getDashboardStats } from '@/api/platform/index';

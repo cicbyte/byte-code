@@ -14,7 +14,7 @@
       </template>
 
       <n-spin :show="reqLoading">
-        <n-empty v-if="!reqLoading && requirementList.length === 0" description="暂无需求" />
+        <EmptyState type="doc" title="暂无需求" v-if="!reqLoading && requirementList.length === 0" description="在需求池沉淀产品需求" />
         <n-data-table
           v-else
           :columns="columns"
@@ -72,6 +72,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { REQ_STATUS, REQ_TYPES } from '@/enums/entities';
   import { ref, reactive, computed, onMounted, h } from 'vue';
   import { useRoute } from 'vue-router';

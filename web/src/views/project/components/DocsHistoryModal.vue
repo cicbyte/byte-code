@@ -8,7 +8,7 @@
     @update:show="$emit('update:show', $event)"
   >
     <n-spin :show="loading">
-      <n-empty v-if="!loading && items.length === 0" description="暂无历史版本（保存/删除时自动快照）" />
+      <EmptyState type="doc" title="暂无历史版本" v-if="!loading && items.length === 0" description="保存或删除文档时会自动快照" />
       <n-list v-else bordered clickable>
         <n-list-item v-for="it in items" :key="it.snapshot" @click="preview(it.snapshot)">
           <template #prefix>
@@ -42,6 +42,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, watch } from 'vue';
   import { useMessage, useDialog } from 'naive-ui';
   import { HistoryOutlined } from '@vicons/antd';

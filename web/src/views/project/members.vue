@@ -9,7 +9,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && memberList.length === 0" description="暂无成员" />
+        <EmptyState type="member" title="暂无成员" v-if="!loading && memberList.length === 0" description="添加成员或让 Agent 凭接入码加入" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -70,6 +70,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';

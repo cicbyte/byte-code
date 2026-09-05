@@ -11,7 +11,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && planList.length === 0" description="暂无测试计划" />
+        <EmptyState type="doc" title="暂无测试计划" description="创建测试计划组织用例执行" v-if="!loading && planList.length === 0" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -137,7 +137,7 @@
             </tbody>
           </n-table>
         </template>
-        <n-empty v-else-if="!detailLoading" description="暂无执行结果" />
+        <EmptyState type="data" title="暂无执行结果" description="向计划添加用例并执行后展示" v-else-if="!detailLoading" />
       </n-spin>
     </n-modal>
 
@@ -198,6 +198,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { SPRINT_STATUS } from '@/enums/entities';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';

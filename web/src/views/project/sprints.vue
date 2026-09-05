@@ -6,7 +6,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && sprints.length === 0" description="暂无 Sprint" />
+        <EmptyState type="task" title="暂无 Sprint" v-if="!loading && sprints.length === 0" description="创建第一个 Sprint 组织迭代" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
             <thead>
             <tr>
@@ -74,7 +74,7 @@
       <n-drawer-content :title="`任务绑定 - ${currentSprint?.name || ''}`" closable>
         <n-spin :show="tasksLoading">
           <h4 class="mb-2">已绑定（{{ boundTasks.length }}）</h4>
-          <n-empty v-if="boundTasks.length === 0" description="暂无绑定任务" size="small" />
+          <EmptyState type="task" title="暂无绑定任务" v-if="boundTasks.length === 0" description="从下方未绑定列表添加任务" compact />
           <n-space v-else vertical :size="4">
             <n-space v-for="t in boundTasks" :key="t.id" justify="space-between" align="center" class="w-full">
               <span class="text-sm">{{ t.title }}</span>
@@ -83,7 +83,7 @@
           </n-space>
           <n-divider />
           <h4 class="mb-2">未绑定（{{ unboundTasks.length }}）</h4>
-          <n-empty v-if="unboundTasks.length === 0" description="没有可绑定的任务" size="small" />
+          <EmptyState type="task" title="没有可绑定的任务" v-if="unboundTasks.length === 0" description="项目内任务均已绑定" compact />
           <n-space v-else vertical :size="4">
             <n-space v-for="t in unboundTasks" :key="t.id" justify="space-between" align="center" class="w-full">
               <n-space :size="6" align="center">
@@ -104,7 +104,7 @@
     <n-drawer v-model:show="showBurndown" :width="640" placement="right">
       <n-drawer-content :title="`燃尽图 - ${currentSprint?.name || ''}`" closable>
         <n-spin :show="burndownLoading">
-          <n-empty v-if="!burndownLoading && burndownItems.length === 0" description="暂无燃尽图数据（Sprint 内没有任务或日期无效）" />
+          <EmptyState type="data" title="暂无燃尽图数据" v-if="!burndownLoading && burndownItems.length === 0" description="Sprint 内绑定任务并设置有效起止日期后生成" />
           <div v-show="!burndownLoading && burndownItems.length > 0" ref="chartRef" style="width: 100%; height: 420px"></div>
         </n-spin>
       </n-drawer-content>
@@ -113,6 +113,7 @@
 </template>
 
 <script setup lang="ts">
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { SPRINT_STATUS } from '@/enums/entities';
   import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
   import { useRoute } from 'vue-router';

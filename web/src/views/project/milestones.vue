@@ -6,7 +6,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && milestones.length === 0" description="暂无里程碑" />
+        <EmptyState type="generic" title="暂无里程碑" v-if="!loading && milestones.length === 0" description="创建里程碑划定阶段目标" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -66,6 +66,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { MILESTONE_STATUS } from '@/enums/entities';

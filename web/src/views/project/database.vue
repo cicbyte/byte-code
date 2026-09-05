@@ -42,7 +42,7 @@
             {{ connResult ? '连接成功' : connMessage }}
           </n-tag>
         </n-space>
-        <n-empty v-if="dbConfig.dbType === 'none'" description="此项目未配置数据库" class="mt-2" />
+        <EmptyState type="data" title="未配置数据库" v-if="dbConfig.dbType === 'none'" description="在数据库页完成配置后可管理表结构" />
       </n-form>
     </n-card>
 
@@ -57,7 +57,7 @@
         </template>
 
         <n-spin :show="tablesLoading">
-          <n-empty v-if="!tablesLoading && tables.length === 0" description="暂无数据表" />
+          <EmptyState type="data" title="暂无数据表" v-if="!tablesLoading && tables.length === 0" description="同步或新建表后展示在这里" />
           <n-collapse v-else v-model:expanded-names="expandedTable" accordion>
             <n-collapse-item v-for="table in tables" :key="table.id" :name="table.id">
               <template #header>
@@ -123,7 +123,7 @@
       <!-- 变更历史 -->
       <n-card title="变更历史" :bordered="false">
         <n-spin :show="changesLoading">
-          <n-empty v-if="!changesLoading && changes.length === 0" description="暂无变更记录" />
+          <EmptyState type="data" title="暂无变更记录" v-if="!changesLoading && changes.length === 0" description="Schema 变更历史会记录在这里" />
           <n-timeline v-else>
             <n-timeline-item
               v-for="change in changes"
@@ -182,6 +182,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';

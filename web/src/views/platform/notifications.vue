@@ -31,7 +31,7 @@
       </n-space>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && list.length === 0" description="暂无通知" size="small" />
+        <EmptyState type="notify" title="暂无通知" v-if="!loading && list.length === 0" description="任务指派、评论提及与到期提醒会送达这里" compact />
         <div v-else class="notice-list">
           <div v-for="item in list" :key="item.id" class="notice-row" :class="{ unread: item.isRead === 0 }">
             <div class="notice-main">
@@ -69,6 +69,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
   import { getNotifications, readNotification, readAllNotifications, getUnreadCount } from '@/api/platform/index';

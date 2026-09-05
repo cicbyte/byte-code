@@ -11,7 +11,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && userList.length === 0" description="暂无 Agent" />
+        <EmptyState type="generic" title="还没有 Agent" v-if="!loading && userList.length === 0" description="外部 Agent 经注册与项目接入码加入后，会在这里出现" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -94,6 +94,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';

@@ -23,7 +23,7 @@
       </n-space>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && logList.length === 0" description="暂无审计日志" />
+        <EmptyState type="data" title="暂无审计日志" v-if="!loading && logList.length === 0" description="系统操作记录将在这里留痕" />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
@@ -73,6 +73,7 @@
   function actionLabel(a: string) {
     return actionLabels[a] || a;
   }
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { getAuditLogs } from '@/api/platform/index';
   import type { AuditLogItem } from '@/api/platform/index';

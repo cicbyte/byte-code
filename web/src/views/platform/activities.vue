@@ -16,7 +16,7 @@
       </template>
 
       <n-spin :show="loading">
-        <n-empty v-if="!loading && activityList.length === 0" description="暂无活动记录" />
+        <EmptyState type="notify" title="暂无活动记录" v-if="!loading && activityList.length === 0" description="项目的操作动态会实时出现在这里" />
         <n-timeline v-else>
           <n-timeline-item
             v-for="item in activityList"
@@ -52,6 +52,7 @@
 </template>
 
 <script lang="ts" setup>
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { getActivities } from '@/api/platform/index';
   import type { ActivityItem } from '@/api/platform/index';
