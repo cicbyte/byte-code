@@ -16,6 +16,18 @@ import (
 
 // 任务操作：认领/完成/审核/需求导入
 
+// actorIsAgent 判定当前操作者是否 agent 账号（sys_users.type='ai'）。
+// 查询失败返回错误供调用方 fail-closed：人审等安全门禁在操作者身份
+// 无法确认时必须拒绝而非放行（DB 抖动窗口可被 agent 趁机过审）
+func actorIsAgent(ctx context.Context) (bool, error) {
+	t, err := g.DB().Model("sys_users").Ctx(ctx).
+		Where("id", perm.UserId(ctx)).Fields("type").Value()
+	if err != nil {
+		return false, liberr.WrapDb(ctx, err, "校验操作者身份失败")
+	}
+	return t != nil && t.String() == "ai", nil
+}
+
 func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err error) {
 	// 预取任务信息用于存在性校验与活动记录
 	task, err := s.GetTask(ctx, req.Id)
@@ -93,8 +105,12 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 
 func (s *sProject) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err error) {
 	// 人审门禁：agent 不能自审通过自己提交的任务（CanAccessProject 对绑定
-	// agent 放行，此处是审核语义的最后防线）
-	if t, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", perm.UserId(ctx)).Fields("type").Value(); t != nil && t.String() == "ai" {
+	// agent 放行，此处是审核语义的最后防线）；身份查询失败同样拒绝
+	isAgent, aerr := actorIsAgent(ctx)
+	if aerr != nil {
+		return aerr
+	}
+	if isAgent {
 		return fmt.Errorf("任务审核仅限人类用户")
 	}
 	task, err := s.GetTask(ctx, req.Id)
