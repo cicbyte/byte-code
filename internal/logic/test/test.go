@@ -7,8 +7,8 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/test"
 	service "github.com/cicbyte/byte-code/internal/service"
-	"github.com/cicbyte/byte-code/utility/activity"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/activity"
 	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -243,14 +243,14 @@ func (s *sTest) CreatePlan(ctx context.Context, req *api.TestPlanCreateReq) (id 
 			panic("用户未登录")
 		}
 		result, err := g.DB().Model("test_plans").Ctx(ctx).Insert(g.Map{
-			"project_id":  req.ProjectId,
-			"name":        req.Name,
-			"description": req.Description,
+			"project_id":   req.ProjectId,
+			"name":         req.Name,
+			"description":  req.Description,
 			"milestone_id": req.MilestoneId,
-			"status":      "draft",
-			"creator_id":  uid,
-			"created_at":  time.Now().Format("2006-01-02 15:04:05"),
-			"updated_at":  time.Now().Format("2006-01-02 15:04:05"),
+			"status":       "draft",
+			"creator_id":   uid,
+			"created_at":   time.Now().Format("2006-01-02 15:04:05"),
+			"updated_at":   time.Now().Format("2006-01-02 15:04:05"),
 		})
 		liberr.ErrIsNil(ctx, err, "创建测试计划失败")
 		lastId, err := result.LastInsertId()
@@ -317,12 +317,18 @@ func (s *sTest) DeletePlan(ctx context.Context, id int) (err error) {
 		_, err = s.GetPlan(ctx, id)
 		liberr.ErrIsNil(ctx, err, "测试计划不存在")
 
-		// 删除计划关联的用例
-		_, err = g.DB().Model("test_plan_cases").Ctx(ctx).Where("test_plan_id", id).Delete()
-		liberr.ErrIsNil(ctx, err, "删除计划关联用例失败")
-
-		_, err = g.DB().Model("test_plans").Ctx(ctx).WherePri(id).Delete()
-		liberr.ErrIsNil(ctx, err, "删除测试计划失败")
+		// 两步删除同事务（g.Try 只是错误包装不是事务：第二步失败会留下
+		// 关联被删、计划还在的空壳）
+		txErr := g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+			if _, err := tx.Ctx(ctx).Model("test_plan_cases").Where("test_plan_id", id).Delete(); err != nil {
+				return err
+			}
+			if _, err := tx.Ctx(ctx).Model("test_plans").WherePri(id).Delete(); err != nil {
+				return err
+			}
+			return nil
+		})
+		liberr.ErrIsNil(ctx, txErr, "删除测试计划失败")
 
 		activity.Record(ctx, activity.ActivityInput{
 			ActorID:    uid,
@@ -400,10 +406,32 @@ func (s *sTest) AddCasesToPlan(ctx context.Context, req *api.TestPlanAddCaseReq)
 		_, err = s.GetPlan(ctx, req.Id)
 		liberr.ErrIsNil(ctx, err, "测试计划不存在")
 
+		// 批内去重：请求里重复的 id 会绕过 existing 检查各插一行
+		seen := map[int]bool{}
+		dedupIds := make([]int, 0, len(req.CaseIds))
+		for _, id := range req.CaseIds {
+			if !seen[id] {
+				seen[id] = true
+				dedupIds = append(dedupIds, id)
+			}
+		}
+		// 用例必须与计划同项目：跨项目挂载会在结果视图泄露他项目用例标题
+		planProject, perr := g.DB().Model("test_plans").Ctx(ctx).Where("id", req.Id).Fields("project_id").Value()
+		liberr.ErrIsNil(ctx, perr, "查询计划失败")
+		if len(dedupIds) > 0 {
+			foreignCnt, ferr := g.DB().Model("test_cases").Ctx(ctx).
+				WhereIn("id", dedupIds).
+				Where("project_id != ?", planProject.Int()).
+				Count()
+			liberr.ErrIsNil(ctx, ferr, "检查用例归属失败")
+			if foreignCnt > 0 {
+				liberr.ErrIsNil(ctx, fmt.Errorf("存在不属于本项目的用例"), "禁止跨项目添加")
+			}
+		}
 		// 批量查重（一次 WhereIn 替代 N 次 Count），未存在的单事务批量插入
 		existingRows, err := g.DB().Model("test_plan_cases").Ctx(ctx).
 			Where("test_plan_id", req.Id).
-			WhereIn("test_case_id", req.CaseIds).
+			WhereIn("test_case_id", dedupIds).
 			Fields("test_case_id").All()
 		liberr.ErrIsNil(ctx, err, "检查用例关联失败")
 		existing := map[int]bool{}
@@ -411,8 +439,8 @@ func (s *sTest) AddCasesToPlan(ctx context.Context, req *api.TestPlanAddCaseReq)
 			existing[r["test_case_id"].Int()] = true
 		}
 		now := time.Now().Format("2006-01-02 15:04:05")
-		rows := make([]g.Map, 0, len(req.CaseIds))
-		for _, caseId := range req.CaseIds {
+		rows := make([]g.Map, 0, len(dedupIds))
+		for _, caseId := range dedupIds {
 			if existing[caseId] {
 				continue
 			}
@@ -453,6 +481,9 @@ func (s *sTest) ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (e
 		planId, err := g.DB().Model("test_plan_cases").Ctx(ctx).
 			WherePri(req.Id).Value("test_plan_id")
 		liberr.ErrIsNil(ctx, err, "查询用例所属计划失败")
+		if planId.IsNil() {
+			liberr.ErrIsNil(ctx, fmt.Errorf("计划用例不存在"), "计划用例不存在")
+		}
 		if !planId.IsNil() {
 			planStatus, perr := g.DB().Model("test_plans").Ctx(ctx).
 				WherePri(planId.Int()).Value("status")
@@ -463,8 +494,8 @@ func (s *sTest) ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (e
 		}
 
 		data := g.Map{
-			"status":      req.Status,
-			"updated_at":  time.Now().Format("2006-01-02 15:04:05"),
+			"status":     req.Status,
+			"updated_at": time.Now().Format("2006-01-02 15:04:05"),
 		}
 		if req.ActualResult != "" {
 			data["actual_result"] = req.ActualResult

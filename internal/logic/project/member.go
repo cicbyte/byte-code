@@ -18,10 +18,28 @@ func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err er
 	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, req.ProjectId) {
 		return fmt.Errorf("仅项目管理员可管理成员")
 	}
+	// owner 只能由项目创建流程产生：API 传 owner 会凭空造出第二个 owner，
+	// 绕过 IsProjectOwner 的唯一性假设
+	if req.Role != "" && req.Role != "member" {
+		return fmt.Errorf("仅支持添加普通成员（role=member）")
+	}
+	// 用户必须真实存在（表无 FK 强制），且不允许把 AI 账号加为项目成员
+	uType, uerr := g.DB().Model("sys_users").Ctx(ctx).Where("id", req.UserId).Fields("type").Value()
+	if uerr != nil || uType == nil {
+		return fmt.Errorf("用户不存在")
+	}
+	if uType.String() == "ai" {
+		return fmt.Errorf("AI 账号不能添加为项目成员")
+	}
+	// 重复添加转友好提示（UNIQUE(project_id,user_id) 裸错误对用户无意义）
+	if cnt, _ := g.DB().Model("project_members").Ctx(ctx).
+		Where("project_id", req.ProjectId).Where("user_id", req.UserId).Count(); cnt > 0 {
+		return fmt.Errorf("该用户已是项目成员")
+	}
 	_, err = g.DB().Model("project_members").Ctx(ctx).Insert(g.Map{
 		"project_id": req.ProjectId,
 		"user_id":    req.UserId,
-		"role":       req.Role,
+		"role":       "member",
 	})
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "添加成员失败")

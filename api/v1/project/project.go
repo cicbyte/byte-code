@@ -36,11 +36,11 @@ type ProjectDeleteRes struct {
 }
 
 type ProjectListReq struct {
-	g.Meta   `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
-	Status   int    `json:"status" in:"query"`
-	Keyword  string `json:"keyword" in:"query"`
-	Page     int    `json:"page" in:"query" d:"1"`
-	Size     int    `json:"size" in:"query" d:"20"`
+	g.Meta  `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
+	Status  int    `json:"status" in:"query"`
+	Keyword string `json:"keyword" in:"query"`
+	Page    int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
+	Size    int    `json:"size" in:"query" d:"20" v:"max:100#每页上限100"`
 }
 
 type ProjectListRes struct {
@@ -115,17 +115,17 @@ type MemberListRes struct {
 // ==================== 任务 CRUD ====================
 
 type TaskCreateReq struct {
-	g.Meta         `path:"/projects/{projectId}/tasks" method:"post" tags:"任务管理" summary:"创建任务"`
-	ProjectId      int    `json:"projectId" v:"required" in:"path"`
-	RequirementId  int    `json:"requirementId"`
-	SprintId       int    `json:"sprintId"`
-	Title          string `json:"title" v:"required#任务标题不能为空"`
-	Description    string `json:"description"`
-	Type           string `json:"type" d:"feature"`
-	Priority       int    `json:"priority" d:"3"`
-	AssigneeId     int    `json:"assigneeId"`
-	ParentTaskId   int    `json:"parentTaskId"`
-	DueDate        string `json:"dueDate" dc:"截止日期（Y-m-d），缺省无截止；格式在 logic 层校验"`
+	g.Meta        `path:"/projects/{projectId}/tasks" method:"post" tags:"任务管理" summary:"创建任务"`
+	ProjectId     int    `json:"projectId" v:"required" in:"path"`
+	RequirementId int    `json:"requirementId"`
+	SprintId      int    `json:"sprintId"`
+	Title         string `json:"title" v:"required|max-length:255#任务标题不能为空|上限255字"`
+	Description   string `json:"description"`
+	Type          string `json:"type" d:"feature"`
+	Priority      int    `json:"priority" d:"3"`
+	AssigneeId    int    `json:"assigneeId"`
+	ParentTaskId  int    `json:"parentTaskId"`
+	DueDate       string `json:"dueDate" dc:"截止日期（Y-m-d），缺省无截止；格式在 logic 层校验"`
 }
 
 type TaskCreateRes struct {
@@ -133,18 +133,18 @@ type TaskCreateRes struct {
 }
 
 type TaskUpdateReq struct {
-	g.Meta  `path:"/tasks/{id}" method:"put" tags:"任务管理" summary:"更新任务"`
-	Id      int     `json:"id" v:"required" in:"path"`
-	Title   *string `json:"title"`
+	g.Meta      `path:"/tasks/{id}" method:"put" tags:"任务管理" summary:"更新任务"`
+	Id          int     `json:"id" v:"required" in:"path"`
+	Title       *string `json:"title"`
 	Description *string `json:"description"`
-	Type    *string `json:"type"`
-	Status  *string `json:"status"`
+	Type        *string `json:"type"`
+	Status      *string `json:"status"`
 	// 指针字段：nil=不更新，非nil零值=显式清空
-	Priority     *int `json:"priority"`
-	AssigneeId   *int `json:"assigneeId"`
-	SprintId     *int `json:"sprintId"`
-	ParentTaskId *int `json:"parentTaskId"`
-	SortOrder    *int `json:"sortOrder"`
+	Priority     *int    `json:"priority"`
+	AssigneeId   *int    `json:"assigneeId"`
+	SprintId     *int    `json:"sprintId"`
+	ParentTaskId *int    `json:"parentTaskId"`
+	SortOrder    *int    `json:"sortOrder"`
 	DueDate      *string `json:"dueDate" dc:"截止日期（Y-m-d）；空串=清除"`
 }
 
@@ -162,16 +162,16 @@ type TaskDeleteRes struct {
 }
 
 type TaskListReq struct {
-	g.Meta    `path:"/projects/{projectId}/tasks" method:"get" tags:"任务管理" summary:"任务列表"`
-	ProjectId int    `json:"projectId" v:"required" in:"path"`
-	Status    string `json:"status" in:"query"`
-	Type      string `json:"type" in:"query"`
-	SprintId  int    `json:"sprintId" in:"query"`
-	AssigneeId int   `json:"assigneeId" in:"query"`
-	Keyword   string `json:"keyword" in:"query"`
-	TagId     int    `json:"tagId" in:"query" dc:"按标签筛选"`
-	Page      int    `json:"page" in:"query" d:"1"`
-	Size      int    `json:"size" in:"query" d:"50"`
+	g.Meta     `path:"/projects/{projectId}/tasks" method:"get" tags:"任务管理" summary:"任务列表"`
+	ProjectId  int    `json:"projectId" v:"required" in:"path"`
+	Status     string `json:"status" in:"query"`
+	Type       string `json:"type" in:"query"`
+	SprintId   int    `json:"sprintId" in:"query"`
+	AssigneeId int    `json:"assigneeId" in:"query"`
+	Keyword    string `json:"keyword" in:"query"`
+	TagId      int    `json:"tagId" in:"query" dc:"按标签筛选"`
+	Page       int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
+	Size       int    `json:"size" in:"query" d:"50" v:"max:200#每页上限200"`
 }
 
 type TaskListRes struct {
@@ -186,8 +186,8 @@ type MyTaskListReq struct {
 	Status    string `json:"status" in:"query" dc:"缺省=进行中三态(open,in_progress,review)；all=全部；或逗号分隔状态列表"`
 	ProjectId int    `json:"projectId" in:"query" dc:"按项目过滤"`
 	Keyword   string `json:"keyword" in:"query"`
-	Page      int    `json:"page" in:"query" d:"1"`
-	Size      int    `json:"size" in:"query" d:"50"`
+	Page      int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
+	Size      int    `json:"size" in:"query" d:"50" v:"max:200#每页上限200"`
 }
 
 type MyTaskItem struct {
@@ -201,29 +201,29 @@ type MyTaskListRes struct {
 }
 
 type TaskItem struct {
-	Id                  int    `json:"id"`
-	ProjectId           int    `json:"projectId"`
-	RequirementId       int    `json:"requirementId"`
-	SprintId            int    `json:"sprintId"`
-	Title               string `json:"title"`
-	Description         string `json:"description"`
-	Type                string `json:"type"`
-	Status              string `json:"status"`
-	Priority            int    `json:"priority"`
-	AssigneeId          int    `json:"assigneeId"`
-	AssigneeName        string `json:"assigneeName"`
-	CreatorId           int    `json:"creatorId"`
-	CreatorName         string `json:"creatorName"`
-	ParentTaskId        int    `json:"parentTaskId"`
-	Artifacts           string `json:"artifacts"`
-	DueDate             string `json:"dueDate"`
-	RequiresHumanReview int    `json:"requiresHumanReview"`
-	HumanReviewStatus   string `json:"humanReviewStatus"`
-	SortOrder           int    `json:"sortOrder"`
-	Source              string `json:"source"`
+	Id                  int      `json:"id"`
+	ProjectId           int      `json:"projectId"`
+	RequirementId       int      `json:"requirementId"`
+	SprintId            int      `json:"sprintId"`
+	Title               string   `json:"title"`
+	Description         string   `json:"description"`
+	Type                string   `json:"type"`
+	Status              string   `json:"status"`
+	Priority            int      `json:"priority"`
+	AssigneeId          int      `json:"assigneeId"`
+	AssigneeName        string   `json:"assigneeName"`
+	CreatorId           int      `json:"creatorId"`
+	CreatorName         string   `json:"creatorName"`
+	ParentTaskId        int      `json:"parentTaskId"`
+	Artifacts           string   `json:"artifacts"`
+	DueDate             string   `json:"dueDate"`
+	RequiresHumanReview int      `json:"requiresHumanReview"`
+	HumanReviewStatus   string   `json:"humanReviewStatus"`
+	SortOrder           int      `json:"sortOrder"`
+	Source              string   `json:"source"`
 	Tags                []string `json:"tags"`
-	CreatedAt           string `json:"createdAt"`
-	UpdatedAt           string `json:"updatedAt"`
+	CreatedAt           string   `json:"createdAt"`
+	UpdatedAt           string   `json:"updatedAt"`
 }
 
 type TaskDetailReq struct {
@@ -257,10 +257,10 @@ type TaskCompleteRes struct {
 }
 
 type TaskReviewReq struct {
-	g.Meta   `path:"/tasks/{id}/review" method:"post" tags:"任务管理" summary:"审核任务"`
-	Id       int    `json:"id" v:"required" in:"path"`
-	Status   string `json:"status" v:"required|in:approved,rejected#审核状态不能为空|状态不合法"`
-	Comment  string `json:"comment"`
+	g.Meta  `path:"/tasks/{id}/review" method:"post" tags:"任务管理" summary:"审核任务"`
+	Id      int    `json:"id" v:"required" in:"path"`
+	Status  string `json:"status" v:"required|in:approved,rejected#审核状态不能为空|状态不合法"`
+	Comment string `json:"comment"`
 }
 
 type TaskReviewRes struct {
@@ -269,9 +269,9 @@ type TaskReviewRes struct {
 
 type TaskImportReq struct {
 	g.Meta        `path:"/projects/{projectId}/tasks/import" method:"post" tags:"任务管理" summary:"从需求导入任务"`
-	ProjectId     int  `json:"projectId" v:"required" in:"path"`
-	RequirementId int  `json:"requirementId" v:"required#需求ID不能为空"`
-	SprintId      int  `json:"sprintId"`
+	ProjectId     int `json:"projectId" v:"required" in:"path"`
+	RequirementId int `json:"requirementId" v:"required#需求ID不能为空"`
+	SprintId      int `json:"sprintId"`
 }
 
 type TaskImportRes struct {
@@ -284,7 +284,7 @@ type CommentCreateReq struct {
 	g.Meta   `path:"/tasks/{taskId}/comments" method:"post" tags:"任务评论" summary:"创建评论"`
 	TaskId   int    `json:"taskId" v:"required" in:"path"`
 	ParentId int    `json:"parentId"`
-	Content  string `json:"content" v:"required#评论内容不能为空"`
+	Content  string `json:"content" v:"required|max-length:16384#评论内容不能为空|上限16KB"`
 }
 
 type CommentCreateRes struct {
@@ -316,7 +316,7 @@ type CommentListRes struct {
 type CommentUpdateReq struct {
 	g.Meta  `path:"comments/{id}" method:"put" tags:"任务评论" summary:"编辑评论"`
 	Id      int     `json:"id" v:"required" in:"path"`
-	Content *string `json:"content" v:"required#评论内容不能为空"`
+	Content *string `json:"content" v:"required|max-length:16384#评论内容不能为空|上限16KB"`
 }
 
 type CommentUpdateRes struct {
@@ -335,12 +335,12 @@ type CommentDeleteRes struct {
 // ==================== AI 执行日志 ====================
 
 type AiLogCreateReq struct {
-	g.Meta    `path:"/tasks/{taskId}/ai-logs" method:"post" tags:"AI执行日志" summary:"创建AI执行日志"`
-	TaskId    int    `json:"taskId" v:"required" in:"path"`
-	AiUserId  int    `json:"aiUserId" v:"required#AI用户ID不能为空"`
-	Action    string `json:"action" v:"required#操作不能为空"`
-	Detail    string `json:"detail"`
-	Status    string `json:"status" d:"success"`
+	g.Meta   `path:"/tasks/{taskId}/ai-logs" method:"post" tags:"AI执行日志" summary:"创建AI执行日志"`
+	TaskId   int    `json:"taskId" v:"required" in:"path"`
+	AiUserId int    `json:"aiUserId" v:"required#AI用户ID不能为空"`
+	Action   string `json:"action" v:"required#操作不能为空"`
+	Detail   string `json:"detail"`
+	Status   string `json:"status" d:"success"`
 }
 
 type AiLogCreateRes struct {
@@ -437,9 +437,9 @@ type SprintDetailRes struct {
 
 // Sprint 任务管理
 type SprintTaskAddReq struct {
-	g.Meta    `path:"/sprints/{sprintId}/tasks" method:"post" tags:"Sprint" summary:"添加任务到Sprint"`
-	SprintId  int `json:"sprintId" v:"required" in:"path"`
-	TaskId    int `json:"taskId" v:"required#任务ID不能为空"`
+	g.Meta   `path:"/sprints/{sprintId}/tasks" method:"post" tags:"Sprint" summary:"添加任务到Sprint"`
+	SprintId int `json:"sprintId" v:"required" in:"path"`
+	TaskId   int `json:"taskId" v:"required#任务ID不能为空"`
 }
 
 type SprintTaskAddRes struct {
@@ -447,9 +447,9 @@ type SprintTaskAddRes struct {
 }
 
 type SprintTaskRemoveReq struct {
-	g.Meta    `path:"/sprints/{sprintId}/tasks/{taskId}" method:"delete" tags:"Sprint" summary:"从Sprint移除任务"`
-	SprintId  int `json:"sprintId" v:"required" in:"path"`
-	TaskId    int `json:"taskId" v:"required" in:"path"`
+	g.Meta   `path:"/sprints/{sprintId}/tasks/{taskId}" method:"delete" tags:"Sprint" summary:"从Sprint移除任务"`
+	SprintId int `json:"sprintId" v:"required" in:"path"`
+	TaskId   int `json:"taskId" v:"required" in:"path"`
 }
 
 type SprintTaskRemoveRes struct {
@@ -458,8 +458,8 @@ type SprintTaskRemoveRes struct {
 
 // 燃尽图数据
 type BurndownReq struct {
-	g.Meta   `path:"/sprints/{id}/burndown" method:"get" tags:"Sprint" summary:"燃尽图数据"`
-	Id       int `json:"id" v:"required" in:"path"`
+	g.Meta `path:"/sprints/{id}/burndown" method:"get" tags:"Sprint" summary:"燃尽图数据"`
+	Id     int `json:"id" v:"required" in:"path"`
 }
 
 type BurndownItem struct {
@@ -492,16 +492,16 @@ type RequirementCreateRes struct {
 }
 
 type RequirementUpdateReq struct {
-	g.Meta              `path:"/requirements/{id}" method:"put" tags:"需求管理" summary:"更新需求"`
-	Id                  int     `json:"id" v:"required" in:"path"`
-	Title               *string `json:"title"`
-	Description         *string `json:"description"`
-	Status              *string `json:"status"`
-	Priority            *int    `json:"priority"`
-	AssigneeId          *int    `json:"assigneeId"`
-	MilestoneId         *int    `json:"milestoneId"`
-	AcceptanceCriteria  *string `json:"acceptanceCriteria"`
-	SortOrder           *int    `json:"sortOrder"`
+	g.Meta             `path:"/requirements/{id}" method:"put" tags:"需求管理" summary:"更新需求"`
+	Id                 int     `json:"id" v:"required" in:"path"`
+	Title              *string `json:"title"`
+	Description        *string `json:"description"`
+	Status             *string `json:"status"`
+	Priority           *int    `json:"priority"`
+	AssigneeId         *int    `json:"assigneeId"`
+	MilestoneId        *int    `json:"milestoneId"`
+	AcceptanceCriteria *string `json:"acceptanceCriteria"`
+	SortOrder          *int    `json:"sortOrder"`
 }
 
 type RequirementUpdateRes struct {
@@ -523,8 +523,8 @@ type RequirementListReq struct {
 	Type      string `json:"type" in:"query"`
 	Status    string `json:"status" in:"query"`
 	ParentId  int    `json:"parentId" in:"query"`
-	Page      int    `json:"page" in:"query" d:"1"`
-	Size      int    `json:"size" in:"query" d:"50"`
+	Page      int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
+	Size      int    `json:"size" in:"query" d:"50" v:"max:200#每页上限200"`
 }
 
 type RequirementListRes struct {
@@ -579,7 +579,7 @@ type MilestoneCreateRes struct {
 
 type MilestoneListReq struct {
 	g.Meta    `path:"/projects/{projectId}/milestones" method:"get" tags:"里程碑" summary:"里程碑列表"`
-	ProjectId int    `json:"projectId" v:"required" in:"path"`
+	ProjectId int `json:"projectId" v:"required" in:"path"`
 }
 
 type MilestoneUpdateReq struct {
