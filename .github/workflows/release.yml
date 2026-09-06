@@ -1,0 +1,131 @@
+name: Build & Release
+
+# 发版机制参考 forks（ci-release 主题知识）：tag 驱动，版本语义由 tag 唯一定义。
+# 与 forks 的差异：byte-code 前端非 Go embed（静态服务读 resource/public），
+# 因此前端只构建一次、五平台 matrix 仅做 Go 交叉编译与组包（forks 每平台重复编前端）。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  # 前端构建一次，产物经 artifact 供各平台组包
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd web
+          npm ci
+          npm run build
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist/
+
+  build:
+    needs: frontend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: web/dist
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          BINARY=bytecode
+          if [ "$GOOS" = "windows" ]; then
+            BINARY=bytecode.exe
+          fi
+          go build -ldflags="-s -w -X github.com/cicbyte/byte-code/internal/version.Version=$VERSION" -o $BINARY .
+
+      # 二进制不自包含（非 embed）：resource/（前端产物 + SQL 迁移）与配置样例随包分发
+      - name: Package
+        run: |
+          mkdir -p pkg/resource
+          cp -r web/dist pkg/resource/public
+          cp -r resource/sql pkg/resource/sql
+          cp manifest/config/config.yaml pkg/config.example.yaml
+          cp ${{ matrix.goos == 'windows' && 'bytecode.exe' || 'bytecode' }} pkg/
+          tar -czf bytecode_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz -C pkg .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bytecode_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: bytecode_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # cliff 生成发版说明需要全历史与 tag
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        id: cliff
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.tar.gz
+          body: ${{ steps.cliff.outputs.changelog }}

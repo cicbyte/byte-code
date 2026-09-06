@@ -1,0 +1,12 @@
+services:
+  bytecode:
+    image: ghcr.io/cicbyte/bytecode:latest
+    container_name: bytecode
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    volumes:
+      # SQLite 库/备份/项目文档 vault 全部落宿主机，升级镜像数据不丢
+      - ./data:/data
+    environment:
+      TZ: Asia/Shanghai

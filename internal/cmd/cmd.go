@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/cicbyte/byte-code/internal/version"
 	"strings"
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
@@ -10,8 +11,8 @@ import (
 	"github.com/cicbyte/byte-code/internal/router"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/auditwriter"
-	"github.com/cicbyte/byte-code/utility/dbclean"
 	"github.com/cicbyte/byte-code/utility/dbbackup"
+	"github.com/cicbyte/byte-code/utility/dbclean"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/docs"
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
@@ -96,6 +97,7 @@ var (
 			// 审计日志异步落盘协程
 			auditwriter.Start()
 
+			g.Log().Infof(ctx, "bytecode %s starting", version.Version)
 			s := g.Server()
 			// 前端构建产物静态服务：resource/public 作为站点静态根
 			s.SetServerRoot("resource/public")
@@ -108,27 +110,27 @@ var (
 				r := &router.Router{}
 				r.BindController(ctx, group)
 
-			// 添加SPA路由回退支持，处理Vue Router的HTML5 History模式
-			group.Hook("/*", ghttp.HookBeforeServe, func(r *ghttp.Request) {
-				path := r.URL.Path
+				// 添加SPA路由回退支持，处理Vue Router的HTML5 History模式
+				group.Hook("/*", ghttp.HookBeforeServe, func(r *ghttp.Request) {
+					path := r.URL.Path
 
-				// 如果是API请求，跳过SPA回退
-				if strings.HasPrefix(path, "/api/") {
-					return
-				}
+					// 如果是API请求，跳过SPA回退
+					if strings.HasPrefix(path, "/api/") {
+						return
+					}
 
-				// 如果是静态资源文件（有文件扩展名），跳过SPA回退
-				if strings.Contains(path, ".") && !strings.HasSuffix(path, "/") {
-					return
-				}
+					// 如果是静态资源文件（有文件扩展名），跳过SPA回退
+					if strings.Contains(path, ".") && !strings.HasSuffix(path, "/") {
+						return
+					}
 
-				// 其余路径（含站点根路径 /）都返回 index.html，让 Vue Router 处理
-				// index.html 必须禁缓存：它引用带 hash 的资源文件，缓存会导致发版后
-				// 用户一直加载旧 bundle（hash 资源自身可长缓存）
-				r.Response.Header().Set("Cache-Control", "no-cache")
-				r.Response.ServeFile("resource/public/index.html")
-				r.ExitAll()
-			})
+					// 其余路径（含站点根路径 /）都返回 index.html，让 Vue Router 处理
+					// index.html 必须禁缓存：它引用带 hash 的资源文件，缓存会导致发版后
+					// 用户一直加载旧 bundle（hash 资源自身可长缓存）
+					r.Response.Header().Set("Cache-Control", "no-cache")
+					r.Response.ServeFile("resource/public/index.html")
+					r.ExitAll()
+				})
 			})
 			s.Run()
 			// ghttp 优雅关停完成后 Run 返回：排空审计缓冲再退出
