@@ -1,151 +1,157 @@
 # ByteCode
 
-> AI-Native 项目管理平台，集成产品管理、任务追踪、测试管理、知识库与 AI 智能体，开箱即用、零外部依赖。
+> An AI-native project management platform — the hub for your data, memory and governance; execution intelligence is delegated to the coding agent of your choice.
 
 [中文](README.md) | **English**
 
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev)
+[![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs)](https://vuejs.org)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+ByteCode ships without a built-in AI execution engine. Instead it works as a **capability platform**: it owns the project assets and governance — tasks, requirements, documents, memory — while coding is performed by external coding agents (claude-code, codex-cli, cursor, ...) connected via REST API / CLI. Humans plan and review; agents claim and execute.
+
+![Board](docs/images/board.png)
+
+## Core Concept
+
+```
+Humans: plan requirements → break into tasks → review & accept
+Agents: claim tasks → start with project memory → leave traces → submit for review
+Platform: remember everything (tasks / docs / memory / audit), keep the collaboration in order
+```
+
+**Three-layer agent onboarding model** ([protocol doc](dev-docs/agent-protocol.md), in Chinese):
+
+- **Identity** — agents self-register and receive a `bc_` API key (pure identity, zero permissions)
+- **Project access** — the project owner issues a one-time join code; agents join with it (many-to-many, revocable at any time)
+- **Session** — an agent handshakes once per project directory; subsequent calls are parameter-free (`X-Session` routing context)
 
 ## Features
 
-### Project & Product Management
-- **Product Line Management** — Multi-product project organization with requirements and milestone tracking
-- **PingCode-style Navigation** — Left sidebar modules + top entity sub-navigation for a drill-down experience
-- **Database Model Management** — Project-level database connection config, visual table/field editor, full schema change history
+### Agent Collaboration
+- **Claim & lease** — atomic claiming prevents races; 2 idle hours release the task back to the pool (checklist ticks and logs count as heartbeats)
+- **Checklists** — structured steps per task; each tick by an agent is progress, resumable across sessions
+- **Blocked state** — agents raise a hand when waiting for info/environment; blocked tasks are exempt from lease reclaim and the reason notifies the creator
+- **Human review gate** — agent submissions always enter the review queue; a dedicated review inbox centralizes accept/reject (rejection requires a reason)
+- **IM-style comments** — humans and agents in one thread; `@mentions` delivered in real time
 
-### Tasks & Sprints
-- **Task Board** — Visual task status workflow
-- **Task List** — Multi-dimensional filtering, sorting, batch operations
-- **Sprint Management** — Iteration planning, burndown charts, task import
-- **AI Claim & Complete** — AI agents auto-claim, execute, and submit results
+### Memory & Docs Hub
+- **Project memory** — key-value experience capture (naming conventions, deployment rules, collaboration practices) with a freshness state machine (active/stale/expired), delivered to agents in the context pack
+- **Global memory** — platform-wide conventions shared across projects
+- **Knowledge base & docs** — Markdown with frontmatter metadata and version history; tasks and documents interlink
 
-### Team Collaboration
-- **Member Management** — Project-level roles and permissions
-- **Comment System** — Unified comment stream for human and AI users
-- **Activity Feed & Notifications** — Real-time project updates
-- **Tagging System** — Cross-entity tag classification
+### Project Management
+- Full pipeline: **requirements → milestones → sprints → tasks**, one-click requirement-to-tasks conversion
+- **Board / list / my-tasks** views with five-state flow (including blocked)
+- **Test management** — cases, plans, execution records; failures link to bug tasks in one click
+- **Notification center** — assignment / mention / due / overdue / review events, with real-time SSE push
 
-### Platform Capabilities
-- **Test Management** — Test cases, test plans, execution records
-- **Knowledge Base** — Document management with Markdown editing
-- **Attachment Management** — S3-compatible storage (RustFS / MinIO)
-- **System Administration** — Users, roles, menus, audit logs
+### Platform Governance
+- **Members and agent access managed separately** — join-code lifecycle; revocation takes effect immediately (sessions and credentials invalidated together)
+- **Audit log & activity stream** — full-chain tracing, distinguishing human and agent actors
+- **Project export** — full JSON (including document contents), your data ownership exit
 
-## Quick Start
+## Getting Started
 
-### Prerequisites
+### Docker (recommended)
 
-- Go 1.21+
-- Node.js 18+
-- pnpm
+```bash
+mkdir bytecode && cd bytecode
+curl -O https://raw.githubusercontent.com/cicbyte/byte-code/master/docker-compose.yml
+docker compose up -d
+# Open http://localhost:8000 — default admin: admin / admin123 (forced password change on first login)
+```
 
-### Clone & Run
+All SQLite data lives in the `./data` volume; upgrading the image never loses data.
+
+### From source
 
 ```bash
 git clone https://github.com/cicbyte/byte-code.git
 cd byte-code
 
-# Start backend (auto-migrates SQLite database)
-go run main.go
+go run main.go                    # backend on :8000, SQLite migrates automatically
 
-# Frontend dev server (new terminal)
-cd web
-pnpm install
-pnpm dev
+cd web && npm i && npm run dev    # frontend on :8001 with HMR
 ```
 
-Backend runs at [http://localhost:8000](http://localhost:8000), frontend dev server at [http://localhost:8002](http://localhost:8002).
+## Connect an Agent to Your Project
 
-Default admin credentials: `admin` / `admin123` (forced password change on first login; only password-related pages are accessible until changed)
+```bash
+# 1. Generate an agent join code on the project "Members" page (Web)
+# 2. On the agent side (bcode CLI for example)
+bcode register my-agent          # register identity, bc_ key stored locally
+bcode join <join-code>           # join the project
+bcode start                      # open session, shows the context pack (memory + my tasks)
+bcode tasks && bcode claim 42
+bcode complete 42 --artifacts-file out.md
+```
+
+CLI source: [bcode-cli](https://github.com/cicbyte/bcode-cli) (Rust). Full protocol: [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md).
+
+## Screenshots
+
+Task detail: description, checklist, agent execution timeline, markdown artifacts, review actions and an IM-style comment area, with anchor navigation.
+
+![Task detail](docs/images/task-detail.png)
+
+Review inbox: centralize agent submissions, expand artifacts inline, accept / reject (reason required).
+
+![Review inbox](docs/images/reviews.png)
+
+Project memory: the vehicle for experience passing between agents, delivered automatically in the context pack.
+
+![Project memory](docs/images/memories.png)
 
 ## Tech Stack
 
-| Layer | Technology |
+| Layer | Choices |
 |---|---|
-| Frontend | Vue 3 + TypeScript + Naive UI |
-| State Management | Pinia |
-| HTTP Client | Alova v3 |
-| Backend | Go + GoFrame v2 |
-| Database | SQLite (zero config, data file at `resource/data/app.db`) |
-| Authentication | JWT Token |
-| File Storage | S3-compatible (RustFS / MinIO) |
+| Backend | Go 1.25 · GoFrame v2 · SQLite (pure-Go driver, zero external dependency) |
+| Frontend | Vue 3 · TypeScript · Naive UI · Pinia · Alova |
+| Deployment | Single binary (bundled frontend & migrations) / Docker |
+| CLI | Rust ([bcode-cli](https://github.com/cicbyte/bcode-cli)) |
 
-## Project Structure
+## Project Layout
 
 ```
 byte-code/
-├── api/                    # API request/response struct definitions
-│   └── v1/                 # v1 API (project, product, database...)
+├── api/v1/                 # API request/response definitions (project, agent, docs, test...)
 ├── internal/
-│   ├── cmd/                # Entry point, database migration
-│   ├── controller/         # Controller layer (thin proxy)
-│   ├── logic/              # Business logic implementation
-│   ├── model/              # Data models
-│   ├── service/            # Service interface definitions
-│   └── router/             # Route registration
+│   ├── cmd/                # entrypoint, migrations, cron jobs
+│   ├── controller/         # controllers (thin proxies)
+│   ├── logic/              # business logic (domain-packaged)
+│   ├── service/ router/    # service interfaces & route registration
 ├── resource/
-│   ├── sql/sqlite/         # Database migration files (sequentially numbered)
-│   ├── data/               # SQLite data file
-│   └── public/             # Frontend build output (production mode)
+│   ├── sql/sqlite/         # migrations (ordered, auto-applied at startup)
+│   ├── data/               # SQLite data files
+│   └── public/             # frontend build output
 ├── web/                    # Vue 3 frontend
-│   ├── src/
-│   │   ├── api/            # Frontend API layer
-│   │   ├── config/         # Navigation config, etc.
-│   │   ├── layout/         # Layout components (Sidebar, Header, EntityNavBar)
-│   │   ├── router/         # Frontend routes
-│   │   ├── store/          # Pinia state management
-│   │   └── views/          # Page components
-│   └── package.json
-├── main.go                 # Entry file
-└── Makefile                # Build commands
+├── dev-docs/               # protocol / requirements / research docs
+└── scripts/                # helper scripts (e.g. README screenshot capture)
 ```
 
 ## Configuration
 
-Config file: `manifest/config/config.yaml`
+Works out of the box with defaults (`manifest/config/config.yaml`); for production mainly watch:
 
-| Setting | Description | Default |
-|---|---|---|
-| `server.address` | Backend listen address | `:8000` |
-| `server.openapiPath` | OpenAPI doc path | `/api.json` |
-| `server.swaggerPath` | Swagger UI path | `/swagger` |
-| `database.default.link` | Database connection | `sqlite::@file(./resource/data/app.db)` |
-| `database.default.extra` | SQLite connection PRAGMAs (WAL, busy_timeout) | `busy_timeout=10000&journal_mode=WAL` |
-| `token.secret` | JWT signing secret; empty = auto-generated to `resource/data/jwt.secret` (or use env `JWT_SECRET`) | empty (auto) |
+| Option | Notes |
+|---|---|
+| `server.address` | listen address (default `:8000`) |
+| `server.openapiPath` / `swaggerPath` | clear both in production to disable public exposure |
+| `database.default.link` | SQLite path (redirected to the `/data` volume inside Docker) |
+| `token.secret` | JWT secret; auto-generated when empty (`JWT_SECRET` env var supported) |
 
-## Build
+API docs: [Swagger UI](http://localhost:8000/swagger) after startup.
 
-```bash
-# Build backend
-go build -o byte-code .
+## Releasing
 
-# Build frontend
-cd web && pnpm build
-
-# Run in production (backend serves frontend static files)
-./byte-code
-```
-
-## Development Commands
-
-```bash
-make build        # Build binary
-make dao          # Generate DAO layer code
-make service      # Generate Service interfaces
-make ctrl         # Generate Controller code
-```
-
-## API Documentation
-
-After starting the backend, access Swagger UI at: [http://localhost:8000/swagger](http://localhost:8000/swagger)
+Fully automated, tag-driven: `git tag v0.1.0 && git push --tags`, or run the *Tag Release* workflow on the Actions page (the next version is derived from commit semantics). Five-platform artifacts + Docker image + categorized changelog in one shot — zero release commits.
 
 ## Contributing
 
-1. Fork this repository
-2. Create a feature branch (`git checkout -b feature/xxx`)
-3. Commit your changes (`git commit -m 'feat: xxx'`)
-4. Push the branch (`git push origin feature/xxx`)
-5. Create a Pull Request
+Issues and PRs are welcome. Commit messages follow Chinese Conventional Commits (`feat(scope): description`) — they are also the raw material for the auto-generated changelog.
 
 ## License
 
-MIT License
+[MIT](LICENSE) © 2026 cicbyte
