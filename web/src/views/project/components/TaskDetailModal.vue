@@ -10,6 +10,19 @@
     <n-drawer-content title="任务详情" closable>
     <n-spin :show="loading">
       <template v-if="task">
+        <!-- 吸顶锚点：长抽屉快速跳转（胶囊分段风格，点击滚动到对应卡片） -->
+        <div class="section-nav">
+          <button
+            v-for="sec in navSections"
+            :key="sec.id"
+            class="nav-chip"
+            :class="{ active: activeSec === sec.id }"
+            @click="scrollToSection(sec.id)"
+          >
+            {{ sec.label }}
+          </button>
+        </div>
+
         <!-- 基本信息 -->
         <n-descriptions label-placement="left" :column="2" bordered size="small" class="mb-4">
           <n-descriptions-item label="标题" :span="2">
@@ -50,7 +63,7 @@
 
         <!-- 描述：markdown 渲染（agent 侧描述习惯 md；与 artifacts 同款
              MdPreview + DOMPurify 消毒，替换原裸 v-html） -->
-        <n-card title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+        <n-card id="sec-desc" title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
           <MdPreview
             v-if="task.description"
             :id="`md-desc-${task.id}`"
@@ -131,7 +144,7 @@
         </n-card>
 
         <!-- AI 执行日志时间线 -->
-        <n-card title="Agent 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+        <n-card id="sec-logs" title="Agent 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
           <EmptyState type="generic" title="暂无 Agent 执行记录" v-if="aiLogs.length === 0" description="Agent 认领与执行的过程会留痕在这里" compact />
           <n-timeline v-else>
             <n-timeline-item
@@ -159,6 +172,7 @@
 
         <!-- AI 产出（artifacts，markdown 渲染） -->
         <n-card
+          id="sec-artifacts"
           v-if="task.artifacts"
           title="Agent 产出"
           size="small"
@@ -171,7 +185,7 @@
 
         <!-- 步骤清单：长任务工作流的执行步骤；打勾即进展（触发 updated_at
              构成租约心跳），agent 恢复上下文时据此知道做到第几步 -->
-        <n-card title="步骤清单" size="small" class="mb-4" :bordered="true">
+        <n-card id="sec-checklist" title="步骤清单" size="small" class="mb-4" :bordered="true">
           <template #header-extra>
             <span v-if="checklist.length" class="text-xs text-gray-400">
               {{ checklist.filter((c) => c.done).length }}/{{ checklist.length }}
@@ -231,6 +245,7 @@
 
     <!-- 审核操作 -->
         <n-card
+          id="sec-review"
           v-if="task.requiresHumanReview && task.humanReviewStatus === 'pending'"
           title="审核操作"
           size="small"
@@ -244,7 +259,7 @@
         </n-card>
 
         <!-- 评论区（IM 对话流：自己右对齐，他人/Agent 左对齐带身份标识） -->
-        <n-card title="评论" size="small" :bordered="true" :segmented="{ content: true }">
+        <n-card id="sec-comments" title="评论" size="small" :bordered="true" :segmented="{ content: true }">
           <div ref="chatListRef" class="chat-list">
             <EmptyState type="comment" title="暂无评论" v-if="comments.length === 0" description="@成员 或 @Agent 可实时送达通知" compact />
             <div
@@ -770,6 +785,26 @@
     }
   }
 
+  // 快速跳转：锚点随卡片存在性动态显示；scroll-margin-top 防 sticky 条遮挡
+  const activeSec = ref('');
+  const navSections = computed(() => {
+    const secs = [
+      { id: 'sec-desc', label: '描述' },
+      { id: 'sec-checklist', label: '清单' },
+      { id: 'sec-logs', label: '日志' },
+    ];
+    if (task.value?.artifacts) secs.push({ id: 'sec-artifacts', label: '产出' });
+    if (task.value?.requiresHumanReview === 1 && task.value?.humanReviewStatus === 'pending') {
+      secs.push({ id: 'sec-review', label: '审核' });
+    }
+    secs.push({ id: 'sec-comments', label: '评论' });
+    return secs;
+  });
+  function scrollToSection(id: string) {
+    activeSec.value = id;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   // 步骤清单：JSON [{text,done}]；变更走 updateTask（updated_at 随之刷新，
   // 打勾即租约心跳）。本地乐观更新，失败静默回读
   interface CheckItem { text: string; done: boolean }
@@ -874,6 +909,50 @@
 </script>
 
 <style lang="less" scoped>
+  // 吸顶锚点条：胶囊分段风格（轻量、无边框按钮感）
+  .section-nav {
+    position: sticky;
+    top: -16px; // 抵消抽屉内容区 padding
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+    margin-bottom: 4px;
+    // 显式白底：sticky 需不透明遮底；勿用 --n-color（项目主题 primaryColor
+    // 为绿色，该变量在此上下文解析为主题绿——实测踩坑）。暗色主题适配
+    // 与 notifications.vue 一并处理（见 status 文档 F 项）
+    background: #fff;
+    border-bottom: 1px solid var(--border-color, #efeff5);
+
+    .nav-chip {
+      border: none;
+      background: transparent;
+      color: var(--n-text-color-3, #999);
+      font-size: 12px;
+      line-height: 1;
+      padding: 5px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: color 0.2s, background-color 0.2s;
+
+      &:hover {
+        color: var(--n-primary-color, #2080f0);
+        background: var(--n-color-hover, rgba(32, 128, 240, 0.08));
+      }
+
+      &.active {
+        color: #fff;
+        background: var(--n-primary-color, #2080f0);
+      }
+    }
+  }
+  // 各节卡片滚动定位时避开 sticky 条高度
+  ::v-deep([id^='sec-']) {
+    scroll-margin-top: 52px;
+  }
+
   .checklist-row {
     display: flex;
     justify-content: space-between;
