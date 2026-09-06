@@ -32,6 +32,8 @@ type IProject interface {
 	ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err error)
 	CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (err error)
 	ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err error)
+	BlockTask(ctx context.Context, req *api.TaskBlockReq) (err error)
+	UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (err error)
 	ImportTasks(ctx context.Context, req *api.TaskImportReq) (taskIds []int, err error)
 
 	// 评论

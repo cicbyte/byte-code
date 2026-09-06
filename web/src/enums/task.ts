@@ -16,6 +16,7 @@ export interface TaskStatusDict {
 export const TASK_STATUS: TaskStatusDict[] = [
   { value: 'open', label: '待处理', tagType: 'default' },
   { value: 'in_progress', label: '进行中', tagType: 'info' },
+  { value: 'blocked', label: '已阻塞', tagType: 'error' },
   { value: 'review', label: '审核中', tagType: 'warning' },
   { value: 'done', label: '已完成', tagType: 'success' },
   { value: 'closed', label: '已关闭', tagType: 'success' },
@@ -29,7 +30,7 @@ export const TASK_TYPES = [
   { value: 'test', label: 'Test', tagType: 'info' },
 ] as const;
 
-/** 看板四列（closed 不入板，与后端 TaskActiveStatuses + done 口径一致） */
+/** 看板列（closed 不入板，与后端 TaskActiveStatuses + done 口径一致；blocked 为"等人"信号列） */
 export const BOARD_COLUMNS = TASK_STATUS.filter((s) => s.value !== 'closed');
 
 const statusMap = new Map(TASK_STATUS.map((s) => [s.value, s]));

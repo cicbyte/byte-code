@@ -138,6 +138,7 @@ func ScanDueTasks(ctx context.Context) error {
 
 // ReleaseStaleClaims 任务租约超时释放：agent 认领后失联（无心跳/未完成）的
 // in_progress 任务超时回到 open 并解除指派，人或其他 agent 可重新认领。
+// blocked 任务豁免（只扫 in_progress）：阻塞是明确的"等人"，不是失联。
 // 判定依据：updated_at 距今超过阈值且 assignee 是 agent（human 的进行中任务
 // 不自动释放——人有沟通渠道，agent 崩溃无人知晓）。与到期扫描同挂定时框架。
 func ReleaseStaleClaims(ctx context.Context) error {

@@ -107,6 +107,74 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 	return nil
 }
 
+// BlockTask 上报阻塞：assignee 执行中遇到外部阻碍（等信息补充/环境问题/
+// 依赖未就绪）主动举手。条件更新保证只有 in_progress 可进 blocked；
+// 原因进执行日志留痕（任务详情的时间线上分人可见），并通知任务创建者。
+// blocked 豁免租约回收（ReleaseStaleClaims 只扫 in_progress）——
+// 阻塞是明确的"等人"，不是失联
+func (s *sProject) BlockTask(ctx context.Context, req *api.TaskBlockReq) (err error) {
+	task, err := s.GetTask(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectOwner(ctx, perm.UserId(ctx), task.ProjectId) {
+		return fmt.Errorf("仅任务负责人或项目管理员可上报阻塞")
+	}
+	result, err := g.DB().Model("tasks").Ctx(ctx).
+		Where("id", req.Id).
+		Where("status", consts.TaskStatusInProgress).
+		Data(g.Map{"status": consts.TaskStatusBlocked}).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "上报阻塞失败")
+	}
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		return fmt.Errorf("仅进行中的任务可上报阻塞")
+	}
+	if _, e := g.DB().Model("ai_execution_logs").Ctx(ctx).Insert(g.Map{
+		"task_id": req.Id, "ai_user_id": perm.UserId(ctx),
+		"action": "blocked", "detail": req.Reason, "status": "failed",
+	}); e != nil {
+		g.Log().Warningf(ctx, "block log insert failed: %v", e)
+	}
+	notify.Send(ctx, task.CreatorId, "任务已阻塞",
+		fmt.Sprintf("任务「%s」被阻塞：%s（请补充信息或处理环境问题）", task.Title, req.Reason),
+		"warning", "task", req.Id)
+	s.recordActivity(ctx, perm.UserId(ctx), "task.blocked", "task", req.Id, task.Title, task.ProjectId, req.Reason)
+	return nil
+}
+
+// UnblockTask 解除阻塞：信息补齐后回进行中，继续由原 assignee 执行
+func (s *sProject) UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (err error) {
+	task, err := s.GetTask(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectOwner(ctx, perm.UserId(ctx), task.ProjectId) {
+		return fmt.Errorf("仅任务负责人或项目管理员可解除阻塞")
+	}
+	result, err := g.DB().Model("tasks").Ctx(ctx).
+		Where("id", req.Id).
+		Where("status", consts.TaskStatusBlocked).
+		Data(g.Map{"status": consts.TaskStatusInProgress}).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "解除阻塞失败")
+	}
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		return fmt.Errorf("任务不在阻塞状态")
+	}
+	if _, e := g.DB().Model("ai_execution_logs").Ctx(ctx).Insert(g.Map{
+		"task_id": req.Id, "ai_user_id": perm.UserId(ctx),
+		"action": "unblocked", "detail": "阻塞解除，恢复执行", "status": "success",
+	}); e != nil {
+		g.Log().Warningf(ctx, "unblock log insert failed: %v", e)
+	}
+	notify.Send(ctx, task.CreatorId, "阻塞已解除",
+		fmt.Sprintf("任务「%s」的阻塞已解除，恢复进行中", task.Title),
+		"success", "task", req.Id)
+	s.recordActivity(ctx, perm.UserId(ctx), "task.unblocked", "task", req.Id, task.Title, task.ProjectId, "")
+	return nil
+}
+
 func (s *sProject) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err error) {
 	// 人审门禁：agent 不能自审通过自己提交的任务（CanAccessProject 对绑定
 	// agent 放行，此处是审核语义的最后防线）；身份查询失败同样拒绝

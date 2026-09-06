@@ -399,6 +399,16 @@ export function reviewTask(id: number, data: { status: 'approved' | 'rejected'; 
   return Alova.Post(`/v1/tasks/${id}/review`, data);
 }
 
+/** 上报阻塞（assignee/owner；进行中→已阻塞，原因必填） */
+export function blockTask(id: number, reason: string) {
+  return Alova.Post(`/v1/tasks/${id}/block`, { reason });
+}
+
+/** 解除阻塞（已阻塞→进行中） */
+export function unblockTask(id: number) {
+  return Alova.Post(`/v1/tasks/${id}/unblock`, {});
+}
+
 /** 创建评论 */
 export function createComment(taskId: number, data: CommentCreateData) {
   return Alova.Post<{ id: number }>(`/v1/tasks/${taskId}/comments`, data);

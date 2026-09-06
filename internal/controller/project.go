@@ -129,6 +129,22 @@ func (c *projectController) CompleteTask(ctx context.Context, req *api.TaskCompl
 	return &api.TaskCompleteRes{}, nil
 }
 
+func (c *projectController) BlockTask(ctx context.Context, req *api.TaskBlockReq) (res *api.TaskBlockRes, err error) {
+	err = service.Project().BlockTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TaskBlockRes{}, nil
+}
+
+func (c *projectController) UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (res *api.TaskUnblockRes, err error) {
+	err = service.Project().UnblockTask(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TaskUnblockRes{}, nil
+}
+
 func (c *projectController) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (res *api.TaskReviewRes, err error) {
 	err = service.Project().ReviewTask(ctx, req)
 	if err != nil {

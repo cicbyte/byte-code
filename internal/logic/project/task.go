@@ -129,7 +129,7 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur == nil || cur.String() == "" {
 				data["completed_at"] = time.Now().Format("2006-01-02 15:04:05")
 			}
-		case consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusReview:
+		case consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusBlocked, consts.TaskStatusReview:
 			// 从完成态切回非完成态时才清空（重开）；首次设定非完成态不误清
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur != nil && cur.String() != "" {
 				data["completed_at"] = ""
@@ -343,7 +343,7 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 
 // ==================== 我的任务（跨项目聚合） ====================
 
-// myTaskStatuses 解析状态过滤口径：缺省=进行中三态；all=不过滤；其余按逗号列表
+// myTaskStatuses 解析状态过滤口径：缺省=活跃四态（含 blocked）；all=不过滤；其余按逗号列表
 func myTaskStatuses(s string) []string {
 	if s == "" {
 		return consts.TaskActiveStatuses

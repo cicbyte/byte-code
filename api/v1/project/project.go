@@ -140,7 +140,7 @@ type TaskUpdateReq struct {
 	Description *string `json:"description"`
 	Type        *string `json:"type"`
 	// 枚举校验防脏值入库；指针为 nil 时 gf 跳过校验（不更新语义不受影响）
-	Status       *string `json:"status" v:"in:open,in_progress,review,done,closed"`
+	Status       *string `json:"status" v:"in:open,in_progress,blocked,review,done,closed"`
 	// 指针字段：nil=不更新，非nil零值=显式清空
 	Priority     *int    `json:"priority"`
 	AssigneeId   *int    `json:"assigneeId"`
@@ -185,7 +185,7 @@ type TaskListRes struct {
 
 type MyTaskListReq struct {
 	g.Meta    `path:"/my-tasks" method:"get" tags:"任务管理" summary:"我的任务（当前用户跨项目聚合）"`
-	Status    string `json:"status" in:"query" dc:"缺省=进行中三态(open,in_progress,review)；all=全部；或逗号分隔状态列表"`
+	Status    string `json:"status" in:"query" dc:"缺省=活跃四态(open,in_progress,blocked,review)；all=全部；或逗号分隔状态列表"`
 	ProjectId int    `json:"projectId" in:"query" dc:"按项目过滤"`
 	Keyword   string `json:"keyword" in:"query"`
 	Page      int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
@@ -252,6 +252,25 @@ type TaskCompleteReq struct {
 	g.Meta    `path:"/tasks/{id}/complete" method:"post" tags:"任务管理" summary:"AI完成任务"`
 	Id        int    `json:"id" v:"required" in:"path"`
 	Artifacts string `json:"artifacts"`
+}
+
+type TaskBlockReq struct {
+	g.Meta `path:"/tasks/{id}/block" method:"post" tags:"任务管理" summary:"上报阻塞（assignee/owner；in_progress→blocked）"`
+	Id     int    `json:"id" v:"required" in:"path"`
+	Reason string `json:"reason" v:"required#阻塞原因不能为空"`
+}
+
+type TaskBlockRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type TaskUnblockReq struct {
+	g.Meta `path:"/tasks/{id}/unblock" method:"post" tags:"任务管理" summary:"解除阻塞（assignee/owner；blocked→in_progress）"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type TaskUnblockRes struct {
+	g.Meta `mime:"application/json"`
 }
 
 type TaskCompleteRes struct {

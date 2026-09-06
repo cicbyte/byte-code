@@ -9,6 +9,7 @@ const (
 const (
 	TaskStatusOpen       = "open"
 	TaskStatusInProgress = "in_progress"
+	TaskStatusBlocked    = "blocked"
 	TaskStatusReview     = "review"
 	TaskStatusDone       = "done"
 	TaskStatusClosed     = "closed"
@@ -18,7 +19,8 @@ const (
 var TaskTerminalStatuses = []string{TaskStatusDone, TaskStatusClosed}
 
 // TaskActiveStatuses 非终态
-var TaskActiveStatuses = []string{TaskStatusOpen, TaskStatusInProgress, TaskStatusReview}
+// blocked 属活跃态（非终态）：阻塞任务是"等人"不是"完结"，仍进列表/看板
+var TaskActiveStatuses = []string{TaskStatusOpen, TaskStatusInProgress, TaskStatusBlocked, TaskStatusReview}
 
 // ==================== 项目状态 ====================
 

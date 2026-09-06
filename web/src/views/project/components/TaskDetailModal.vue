@@ -163,6 +163,23 @@
           <MdPreview :id="mdPreviewId" :model-value="task.artifacts" :sanitize="sanitizeHtml" />
         </n-card>
 
+        <!-- 阻塞操作：in_progress 可上报（等信息/环境问题），blocked 可解除。
+             显示从宽（后端门禁把关 assignee/owner），阻塞原因在下方 Agent
+             执行日志时间线留痕可见 -->
+        <n-card v-if="task.status === 'in_progress' || task.status === 'blocked'" title="阻塞" size="small" class="mb-4" :bordered="true">
+          <n-space>
+            <n-button v-if="task.status === 'in_progress'" size="small" type="warning" ghost @click="showBlockModal = true">
+              上报阻塞
+            </n-button>
+            <n-popconfirm v-else @positive-click="handleUnblock">
+              <template #trigger>
+                <n-button size="small" type="success">解除阻塞</n-button>
+              </template>
+              解除后任务回到进行中，由负责人继续执行。
+            </n-popconfirm>
+          </n-space>
+        </n-card>
+
         <!-- 终态操作：done 后可关闭清账 -->
         <n-card
           v-if="task.status === 'done'"
@@ -253,6 +270,24 @@
 
     </n-drawer-content>
   </n-drawer>
+
+  <!-- 上报阻塞：原因必填，作为通知与执行日志留痕 -->
+  <n-modal v-model:show="showBlockModal" preset="dialog" title="上报阻塞" :show-icon="false">
+    <n-input
+      v-model:value="blockReason"
+      type="textarea"
+      placeholder="阻塞原因（必填）：说明卡在哪、需要什么信息/环境，将通知任务创建者"
+      :rows="3"
+    />
+    <template #action>
+      <n-space>
+        <n-button size="small" @click="showBlockModal = false">取消</n-button>
+        <n-button size="small" type="warning" :disabled="!blockReason.trim()" :loading="blocking" @click="handleBlock">
+          确认阻塞
+        </n-button>
+      </n-space>
+    </template>
+  </n-modal>
 </template>
 
 <script lang="ts" setup>
@@ -273,6 +308,8 @@
     getComments,
     createComment,
     reviewTask,
+    blockTask,
+    unblockTask,
     getAiLogs,
     updateTask,
     getMembers,
@@ -699,6 +736,42 @@
     } catch {
       task.value.dueDate = old;
       message.error('更新截止日期失败');
+    }
+  }
+
+  // 阻塞流转：原因必填；成功后刷新任务并通知宿主列表
+  const showBlockModal = ref(false);
+  const blockReason = ref('');
+  const blocking = ref(false);
+
+  async function handleBlock() {
+    if (!task.value || !blockReason.value.trim()) return;
+    blocking.value = true;
+    try {
+      await blockTask(task.value.id, blockReason.value.trim());
+      message.success('已上报阻塞，任务创建者会收到通知');
+      showBlockModal.value = false;
+      blockReason.value = '';
+      const res = await getTask(task.value.id);
+      task.value = res || null;
+      emit('updated');
+    } catch (e: any) {
+      message.error(e?.message || '上报阻塞失败');
+    } finally {
+      blocking.value = false;
+    }
+  }
+
+  async function handleUnblock() {
+    if (!task.value) return;
+    try {
+      await unblockTask(task.value.id);
+      message.success('已解除阻塞，任务恢复进行中');
+      const res = await getTask(task.value.id);
+      task.value = res || null;
+      emit('updated');
+    } catch (e: any) {
+      message.error(e?.message || '解除阻塞失败');
     }
   }
 
