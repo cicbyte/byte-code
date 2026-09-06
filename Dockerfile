@@ -3,11 +3,12 @@
 
 # ====== 前端 ======
 FROM node:22-alpine AS frontend
+RUN corepack enable && corepack prepare pnpm@latest-10 --activate
 WORKDIR /web
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY web/ .
-RUN npm run build
+RUN pnpm run build
 
 # ====== 后端 ======
 FROM golang:1.25-alpine AS backend
