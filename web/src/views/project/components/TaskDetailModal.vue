@@ -48,9 +48,15 @@
           <n-descriptions-item label="创建时间">{{ task.createdAt }}</n-descriptions-item>
         </n-descriptions>
 
-        <!-- 描述 -->
+        <!-- 描述：markdown 渲染（agent 侧描述习惯 md；与 artifacts 同款
+             MdPreview + DOMPurify 消毒，替换原裸 v-html） -->
         <n-card title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
-          <div v-if="task.description" v-html="safeDescription" class="prose max-w-none"></div>
+          <MdPreview
+            v-if="task.description"
+            :id="`md-desc-${task.id}`"
+            :model-value="task.description"
+            :sanitize="sanitizeHtml"
+          />
           <EmptyState type="doc" title="暂无描述" v-else compact />
         </n-card>
 
@@ -354,9 +360,6 @@
   // 抽屉内的写操作（关闭/审核/改期）会改变宿主列表展示的数据，
   // 成功后通知宿主重拉——defineExpose 只有 openModal，宿主无从感知
   const emit = defineEmits<{ (e: 'updated'): void }>();
-
-  // description 来自用户输入，渲染前消毒（历史遗留的裸 v-html 注入面）
-  const safeDescription = computed(() => DOMPurify.sanitize(task.value?.description || ''));
 
   // 评论正文：纯文本渲染但高亮 @提及——先整体 HTML 转义，再把 @词 包上样式 span，
   // 最后 DOMPurify 兜底（转义后内容理论无标签，消毒是纵深防御）
