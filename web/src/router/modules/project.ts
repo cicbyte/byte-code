@@ -48,6 +48,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_board`,
             meta: {
               title: '任务看板',
+              group: '任务',
               hideInMenu: true,
             },
             component: () => import('@/views/project/board.vue'),
@@ -57,6 +58,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_tasks`,
             meta: {
               title: '任务列表',
+              group: '任务',
               hideInMenu: true,
             },
             component: () => import('@/views/project/tasks.vue'),
@@ -67,6 +69,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_reviews`,
             meta: {
               title: '待审核',
+              group: '任务',
             },
             component: () => import('@/views/project/reviews.vue'),
           },
@@ -75,6 +78,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_requirements`,
             meta: {
               title: '需求池',
+              group: '规划',
               hideInMenu: true,
             },
             component: () => import('@/views/project/requirements.vue'),
@@ -84,6 +88,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_milestones`,
             meta: {
               title: '里程碑',
+              group: '规划',
               hideInMenu: true,
             },
             component: () => import('@/views/project/milestones.vue'),
@@ -93,6 +98,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_sprints`,
             meta: {
               title: '迭代管理',
+              group: '规划',
               hideInMenu: true,
             },
             component: () => import('@/views/project/sprints.vue'),
@@ -103,6 +109,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_knowledge`,
             meta: {
               title: '知识库',
+              group: '知识',
               hideInMenu: true,
               vaultSpace: 'knowledge',
             },
@@ -114,6 +121,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_docs`,
             meta: {
               title: '文档',
+              group: '知识',
               hideInMenu: true,
             },
             component: () => import('@/views/project/docs.vue'),
@@ -124,6 +132,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_memories`,
             meta: {
               title: '项目记忆',
+              group: '知识',
               hideInMenu: true,
             },
             component: () => import('@/views/project/memories.vue'),
@@ -133,6 +142,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_test_cases`,
             meta: {
               title: '测试用例',
+              group: '测试',
               hideInMenu: true,
             },
             component: () => import('@/views/test/cases.vue'),
@@ -142,6 +152,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_test_plans`,
             meta: {
               title: '测试计划',
+              group: '测试',
               hideInMenu: true,
             },
             component: () => import('@/views/test/plans.vue'),
@@ -151,6 +162,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_members`,
             meta: {
               title: '成员管理',
+              group: '管理',
               hideInMenu: true,
             },
             component: () => import('@/views/project/members.vue'),
@@ -160,6 +172,7 @@ const routes: Array<RouteRecordRaw> = [
             name: `${routeName}_database`,
             meta: {
               title: '数据库模型',
+              group: '管理',
               hideInMenu: true,
             },
             component: () => import('@/views/project/database.vue'),

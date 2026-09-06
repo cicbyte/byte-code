@@ -7,13 +7,15 @@
       :collapsed-width="64"
       :collapsed-icon-size="20"
       :indent="24"
+      :expanded-keys="expanded"
       @update:value="handleSelect"
+      @update:expanded-keys="(keys: string[]) => (expanded = keys)"
     />
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { computed, h } from 'vue';
+  import { computed, h, ref, watchEffect } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { NIcon } from 'naive-ui';
   import {
@@ -30,6 +32,11 @@
     DatabaseOutlined,
     BugOutlined,
     ExperimentOutlined,
+    CarryOutOutlined,
+    AimOutlined,
+    ReadOutlined,
+    SafetyOutlined,
+    ControlOutlined,
   } from '@vicons/antd';
   import { useEntityContext } from '@/store/modules/entityContext';
 
@@ -44,7 +51,7 @@
     () => Number(route.params.projectId) || entityContext.currentProject?.id
   );
 
-  // 图标按路径段映射——纯视觉，缺省兜底；标题与顺序不在此定义
+  // 二级项图标按路径段映射——纯视觉，缺省兜底；标题与顺序不在此定义
   const iconBySegment: Record<string, any> = {
     overview: HomeOutlined,
     board: AppstoreOutlined,
@@ -61,35 +68,85 @@
     database: DatabaseOutlined,
   };
 
+  // 一级分组图标（组名与路由 meta.group 对应）
+  const groupIcons: Record<string, any> = {
+    任务: CarryOutOutlined,
+    规划: AimOutlined,
+    知识: ReadOutlined,
+    测试: SafetyOutlined,
+    管理: ControlOutlined,
+  };
+
   const renderIcon = (icon: any) =>
     () =>
       h(NIcon, null, {
         default: () => h(icon),
       });
 
-  // 菜单由路由表派生：标题的单一真相源在路由 meta.title（与面包屑同源），
-  // 顺序即路由 children 顺序——新增项目页只需在路由表加一条，此处零改动
+  // 菜单由路由表派生：标题/顺序/分组的单一真相源在路由 meta（title/group），
+  // 无 group 的子页为顶层单项（项目概览），同 group 连续子页归入该组二级
   const menuOptions = computed(() => {
     const pid = projectId.value;
     if (!pid) return [];
     const ws = route.matched.find((r) => r.name === 'project_workspace');
     if (!ws) return [];
-    return ws.children
-      .filter((c) => c.meta?.title && !c.redirect)
-      .map((c) => {
-        const seg = String(c.path);
-        return {
-          label: String(c.meta!.title),
-          key: `/project/${pid}/${seg}`,
-          icon: renderIcon(iconBySegment[seg] || AppstoreOutlined),
+    type Node = { label: string; key: string; icon: any; children?: Node[] };
+    const out: Node[] = [];
+    const groupNodes = new Map<string, Node>();
+    for (const c of ws.children) {
+      if (!c.meta?.title || c.redirect) continue;
+      const seg = String(c.path);
+      const item: Node = {
+        label: String(c.meta!.title),
+        key: `/project/${pid}/${seg}`,
+        icon: renderIcon(iconBySegment[seg] || AppstoreOutlined),
+      };
+      const g = c.meta.group ? String(c.meta.group) : '';
+      if (!g) {
+        out.push(item);
+        continue;
+      }
+      let node = groupNodes.get(g);
+      if (!node) {
+        node = {
+          label: g,
+          key: `group:${g}`,
+          icon: renderIcon(groupIcons[g] || AppstoreOutlined),
+          children: [],
         };
-      });
+        groupNodes.set(g, node);
+        out.push(node);
+      }
+      node.children!.push(item);
+    }
+    return out;
+  });
+
+  // 展平后的叶子（activeKey 查找与组定位用）
+  const flatLeaves = computed(() => {
+    const leaves: { key: string; group?: string }[] = [];
+    for (const o of menuOptions.value as any[]) {
+      if (o.children) {
+        for (const k of o.children) leaves.push({ key: k.key, group: o.key });
+      } else {
+        leaves.push({ key: o.key });
+      }
+    }
+    return leaves;
   });
 
   const activeKey = computed(() => {
-    // 精确匹配当前路由（子路径如 /project/1/tasks 时高亮对应项）
-    const item = menuOptions.value.find((m) => route.path.startsWith(m.key));
+    const item = flatLeaves.value.find((m) => route.path.startsWith(m.key));
     return item?.key ?? route.path;
+  });
+
+  // 当前路由所在组自动展开（不收拢用户手动展开的其他组）
+  const expanded = ref<string[]>([]);
+  watchEffect(() => {
+    const item = flatLeaves.value.find((m) => route.path.startsWith(m.key));
+    if (item?.group && !expanded.value.includes(item.group)) {
+      expanded.value = [...expanded.value, item.group];
+    }
   });
 
   function handleSelect(key: string) {
