@@ -119,6 +119,8 @@ jobs:
           config: cliff.toml
           args: --latest --strip header
         env:
+          # OUTPUT 设定后 action 把 changelog 写入该文件（多行内容经文件
+          # 传给 release 更稳；此时 outputs.changelog 是文件路径）
           OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
 
@@ -132,4 +134,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*.tar.gz
-          body: ${{ steps.cliff.outputs.changelog }}
+          body_path: CHANGELOG.md
