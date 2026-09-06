@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -55,6 +56,14 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	}
 	if due != "" {
 		insert["due_date"] = due
+	}
+	// 步骤清单：空串按空清单落库；非 JSON 数组拒绝（防脏数据进列）
+	if req.Checklist != "" && req.Checklist != "[]" {
+		var probe []interface{}
+		if err := json.Unmarshal([]byte(req.Checklist), &probe); err != nil {
+			return 0, fmt.Errorf("checklist 必须是 JSON 数组")
+		}
+		insert["checklist"] = req.Checklist
 	}
 	result, err := g.DB().Model("tasks").Ctx(ctx).Insert(insert)
 	if err != nil {
@@ -159,6 +168,13 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	}
 	if req.SortOrder != nil {
 		data["sort_order"] = *req.SortOrder
+	}
+	if req.Checklist != nil {
+		var probe []interface{}
+		if e := json.Unmarshal([]byte(*req.Checklist), &probe); e != nil {
+			return fmt.Errorf("checklist 必须是 JSON 数组")
+		}
+		data["checklist"] = *req.Checklist
 	}
 	if req.DueDate != nil {
 		due, derr := normalizeDueDate(*req.DueDate)

@@ -163,6 +163,34 @@
           <MdPreview :id="mdPreviewId" :model-value="task.artifacts" :sanitize="sanitizeHtml" />
         </n-card>
 
+        <!-- 步骤清单：长任务工作流的执行步骤；打勾即进展（触发 updated_at
+             构成租约心跳），agent 恢复上下文时据此知道做到第几步 -->
+        <n-card title="步骤清单" size="small" class="mb-4" :bordered="true">
+          <template #header-extra>
+            <span v-if="checklist.length" class="text-xs text-gray-400">
+              {{ checklist.filter((c) => c.done).length }}/{{ checklist.length }}
+            </span>
+          </template>
+          <div v-if="checklist.length === 0" class="text-xs text-gray-400">
+            未设置步骤（勾选即进展，可跨会话接续）
+          </div>
+          <div v-for="(item, i) in checklist" :key="i" class="checklist-row">
+            <n-checkbox
+              :checked="item.done"
+              @update:checked="(v: boolean) => toggleCheck(i, v)"
+            >
+              <span :class="{ 'checklist-done': item.done }">{{ item.text }}</span>
+            </n-checkbox>
+            <n-button text size="tiny" type="error" @click="removeCheck(i)">删</n-button>
+          </div>
+          <n-input
+            v-model:value="newCheckText"
+            size="small"
+            placeholder="添加步骤，回车确认"
+            @keydown.enter.exact.prevent="addCheck"
+          />
+        </n-card>
+
         <!-- 阻塞操作：in_progress 可上报（等信息/环境问题），blocked 可解除。
              显示从宽（后端门禁把关 assignee/owner），阻塞原因在下方 Agent
              执行日志时间线留痕可见 -->
@@ -739,6 +767,44 @@
     }
   }
 
+  // 步骤清单：JSON [{text,done}]；变更走 updateTask（updated_at 随之刷新，
+  // 打勾即租约心跳）。本地乐观更新，失败静默回读
+  interface CheckItem { text: string; done: boolean }
+  const checklist = computed<CheckItem[]>(() => {
+    try {
+      return JSON.parse(task.value?.checklist || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const newCheckText = ref('');
+
+  async function saveChecklist(items: CheckItem[]) {
+    if (!task.value) return;
+    try {
+      await updateTask(task.value.id, { checklist: JSON.stringify(items) });
+      // 回写本地（computed 依赖 task.value.checklist，不回写则 UI 不动）
+      task.value = { ...task.value, checklist: JSON.stringify(items) };
+    } catch {
+      message.error('保存清单失败');
+      const res = await getTask(task.value.id);
+      task.value = res || null;
+    }
+  }
+  function toggleCheck(i: number, done: boolean) {
+    const items = checklist.value.map((c, idx) => (idx === i ? { ...c, done } : c));
+    saveChecklist(items);
+  }
+  function addCheck() {
+    const text = newCheckText.value.trim();
+    if (!text) return;
+    newCheckText.value = '';
+    saveChecklist([...checklist.value, { text, done: false }]);
+  }
+  function removeCheck(i: number) {
+    saveChecklist(checklist.value.filter((_, idx) => idx !== i));
+  }
+
   // 阻塞流转：原因必填；成功后刷新任务并通知宿主列表
   const showBlockModal = ref(false);
   const blockReason = ref('');
@@ -805,6 +871,17 @@
 </script>
 
 <style lang="less" scoped>
+  .checklist-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+  }
+  .checklist-done {
+    text-decoration: line-through;
+    color: var(--text-color-3, #999);
+  }
+
   .linked-doc {
     padding: 4px 8px;
     margin: 0 -8px;

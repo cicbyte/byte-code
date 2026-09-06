@@ -59,16 +59,15 @@
   const loading = ref(false);
   const taskDetailRef = ref();
 
-  // 每列独立的任务数组供 Draggable 原地变更；closed 状态不在看板四列内，不展示
-  const columnTasks = reactive<Record<string, TaskItem[]>>({
-    open: [],
-    in_progress: [],
-    review: [],
-    done: [],
-  });
+  // 每列独立的任务数组供 Draggable 原地变更；列集与 BOARD_COLUMNS 同源
+  // 派生（此前硬编码四桶，TASK_STATUS 加 blocked 出现第五列后
+  // columnTasks['blocked'] 为 undefined 导致渲染崩——状态增减只改枚举）
+  const emptyColumns = () =>
+    Object.fromEntries(BOARD_COLUMNS.map((c) => [c.value, [] as TaskItem[]]));
+  const columnTasks = reactive<Record<string, TaskItem[]>>(emptyColumns());
 
   function syncColumns(list: TaskItem[]) {
-    const map: Record<string, TaskItem[]> = { open: [], in_progress: [], review: [], done: [] };
+    const map = emptyColumns();
     for (const t of list) {
       if (map[t.status]) map[t.status].push(t);
     }
@@ -134,6 +133,9 @@
     }
     &[data-status='in_progress'] {
       border-top: 3px solid #2080f0;
+    }
+    &[data-status='blocked'] {
+      border-top: 3px solid #d03050;
     }
     &[data-status='review'] {
       border-top: 3px solid #f0a020;

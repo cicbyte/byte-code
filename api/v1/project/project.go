@@ -99,12 +99,12 @@ type MemberListReq struct {
 }
 
 type MemberItem struct {
-	Id       int    `json:"id"`
-	UserId   int    `json:"userId"`
-	Username string `json:"username"`
-	RealName string `json:"realName"`
-	Role     string `json:"role"`
-	JoinedAt string `json:"joinedAt"`
+	Id         int    `json:"id"`
+	UserId     int    `json:"userId"`
+	Username   string `json:"username"`
+	RealName   string `json:"realName"`
+	Role       string `json:"role"`
+	JoinedAt   string `json:"joinedAt"`
 	UserType   string `json:"userType" dc:"human/ai"`
 	ViaBinding int    `json:"viaBinding" dc:"1=来自 agent 项目准入（移除走 DeleteAgentProject）；0=project_members"`
 }
@@ -127,6 +127,7 @@ type TaskCreateReq struct {
 	AssigneeId    int    `json:"assigneeId"`
 	ParentTaskId  int    `json:"parentTaskId"`
 	DueDate       string `json:"dueDate" dc:"截止日期（Y-m-d），缺省无截止；格式在 logic 层校验"`
+	Checklist     string `json:"checklist" dc:"步骤清单 JSON 数组 [{text,done}]，缺省空清单"`
 }
 
 type TaskCreateRes struct {
@@ -140,7 +141,7 @@ type TaskUpdateReq struct {
 	Description *string `json:"description"`
 	Type        *string `json:"type"`
 	// 枚举校验防脏值入库；指针为 nil 时 gf 跳过校验（不更新语义不受影响）
-	Status       *string `json:"status" v:"in:open,in_progress,blocked,review,done,closed"`
+	Status *string `json:"status" v:"in:open,in_progress,blocked,review,done,closed"`
 	// 指针字段：nil=不更新，非nil零值=显式清空
 	Priority     *int    `json:"priority"`
 	AssigneeId   *int    `json:"assigneeId"`
@@ -148,6 +149,7 @@ type TaskUpdateReq struct {
 	ParentTaskId *int    `json:"parentTaskId"`
 	SortOrder    *int    `json:"sortOrder"`
 	DueDate      *string `json:"dueDate" dc:"截止日期（Y-m-d）；空串=清除"`
+	Checklist    *string `json:"checklist" dc:"步骤清单 JSON [{text,done}]；打勾=进展（顺带续租约）"`
 }
 
 type TaskUpdateRes struct {
@@ -203,29 +205,32 @@ type MyTaskListRes struct {
 }
 
 type TaskItem struct {
-	Id                  int      `json:"id"`
-	ProjectId           int      `json:"projectId"`
-	RequirementId       int      `json:"requirementId"`
-	SprintId            int      `json:"sprintId"`
-	Title               string   `json:"title"`
-	Description         string   `json:"description"`
-	Type                string   `json:"type"`
-	Status              string   `json:"status"`
-	Priority            int      `json:"priority"`
-	AssigneeId          int      `json:"assigneeId"`
-	AssigneeName        string   `json:"assigneeName"`
-	CreatorId           int      `json:"creatorId"`
-	CreatorName         string   `json:"creatorName"`
-	ParentTaskId        int      `json:"parentTaskId"`
-	Artifacts           string   `json:"artifacts"`
-	DueDate             string   `json:"dueDate"`
-	RequiresHumanReview int      `json:"requiresHumanReview"`
-	HumanReviewStatus   string   `json:"humanReviewStatus"`
-	SortOrder           int      `json:"sortOrder"`
-	Source              string   `json:"source"`
-	Tags                []string `json:"tags"`
-	CreatedAt           string   `json:"createdAt"`
-	UpdatedAt           string   `json:"updatedAt"`
+	Id                  int    `json:"id"`
+	ProjectId           int    `json:"projectId"`
+	RequirementId       int    `json:"requirementId"`
+	SprintId            int    `json:"sprintId"`
+	Title               string `json:"title"`
+	Description         string `json:"description"`
+	Type                string `json:"type"`
+	Status              string `json:"status"`
+	Priority            int    `json:"priority"`
+	AssigneeId          int    `json:"assigneeId"`
+	AssigneeName        string `json:"assigneeName"`
+	CreatorId           int    `json:"creatorId"`
+	CreatorName         string `json:"creatorName"`
+	ParentTaskId        int    `json:"parentTaskId"`
+	Artifacts           string `json:"artifacts"`
+	DueDate             string `json:"dueDate"`
+	RequiresHumanReview int    `json:"requiresHumanReview"`
+	HumanReviewStatus   string `json:"humanReviewStatus"`
+	// 步骤清单 JSON：[{"text":"...","done":false}]；打勾走 UpdateTask
+	// （触发 updated_at，构成租约心跳）
+	Checklist string   `json:"checklist"`
+	SortOrder int      `json:"sortOrder"`
+	Source    string   `json:"source"`
+	Tags      []string `json:"tags"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
 }
 
 type TaskDetailReq struct {

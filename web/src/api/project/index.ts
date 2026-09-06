@@ -69,6 +69,7 @@ export interface TaskItem {
   title: string;
   description: string;
   tags?: string[] | null;
+  checklist?: string;
   type: string;
   status: string;
   priority: number;
@@ -139,6 +140,8 @@ export interface TaskCreateData {
   parentTaskId?: number;
   /** 截止日期（Y-m-d），缺省无截止 */
   dueDate?: string;
+  /** 步骤清单 JSON [{text,done}] */
+  checklist?: string;
 }
 
 export interface TaskUpdateData {
@@ -151,6 +154,8 @@ export interface TaskUpdateData {
   sprintId?: number;
   parentTaskId?: number;
   sortOrder?: number;
+  /** 步骤清单 JSON [{text,done}]；打勾即进展（顺带续租约） */
+  checklist?: string;
   /** 截止日期（Y-m-d）；传空串清除 */
   dueDate?: string;
 }
