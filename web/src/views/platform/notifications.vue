@@ -33,7 +33,13 @@
       <n-spin :show="loading">
         <EmptyState type="notify" title="暂无通知" v-if="!loading && list.length === 0" description="任务指派、评论提及与到期提醒会送达这里" compact />
         <div v-else class="notice-list">
-          <div v-for="item in list" :key="item.id" class="notice-row" :class="{ unread: item.isRead === 0 }">
+          <div
+            v-for="item in list"
+            :key="item.id"
+            class="notice-row clickable"
+            :class="{ unread: item.isRead === 0 }"
+            @click="openSource(item)"
+          >
             <div class="notice-main">
               <n-space :size="8" align="center">
                 <n-tag size="small" :bordered="false" :type="typeTagType[item.type] || 'default'">
@@ -75,8 +81,10 @@
   import { getNotifications, readNotification, readAllNotifications, getUnreadCount } from '@/api/platform/index';
   import type { NotificationItem } from '@/api/platform/index';
   import { NOTICE_TYPE_LABELS, NOTICE_TYPE_TAG, NOTICE_SOURCE_LABELS, noticeTypeOptions } from '@/enums/notification';
+  import { useRouter } from 'vue-router';
 
   const message = useMessage();
+  const router = useRouter();
   const loading = ref(false);
   const list = ref<NotificationItem[]>([]);
   const total = ref(0);
@@ -133,6 +141,23 @@
     load();
   }
 
+  // 行点击=已读+跳转源实体（与铃铛同款；"标为已读"按钮只读不跳）
+  async function openSource(item: NotificationItem) {
+    if (item.isRead === 0) await handleRead(item);
+    try {
+      if (item.sourceType === 'task' && item.sourceId) {
+        // 动态 import：避免静态引 api 层进入 alova↔store 循环依赖
+        const { getTask } = await import('@/api/project/index');
+        const t = await getTask(item.sourceId);
+        if (t?.projectId) router.push(`/project/${t.projectId}/tasks?task=${item.sourceId}`);
+      } else if (item.sourceType === 'project' && item.sourceId) {
+        router.push(`/project/${item.sourceId}/overview`);
+      }
+    } catch {
+      message.warning('无法打开来源（可能已无访问权限）');
+    }
+  }
+
   async function handleRead(item: NotificationItem) {
     try {
       await readNotification(item.id);
@@ -161,6 +186,10 @@
 </script>
 
 <style lang="less" scoped>
+  .clickable {
+    cursor: pointer;
+  }
+
   .notice-list {
     display: flex;
     flex-direction: column;

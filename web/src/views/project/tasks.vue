@@ -151,7 +151,7 @@
 
 <script lang="ts" setup>
   import { ref, reactive, computed, onMounted } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { getTags } from '@/api/platform/index';
   import { getTasks, createTask, updateTask, deleteTask, getMembers } from '@/api/project/index';
@@ -164,6 +164,7 @@
   } from '@/enums/task';
 
   const route = useRoute();
+  const router = useRouter();
   const message = useMessage();
   const dialog = useDialog();
   const projectId = computed(() => Number(route.params.projectId));
@@ -333,5 +334,13 @@
     });
   }
 
-  onMounted(loadTasks);
+  // 通知跳转入口：?task=<id> 自动打开详情抽屉（读完即清，防刷新重复弹）
+  onMounted(() => {
+    loadTasks();
+    const q = Number(route.query.task);
+    if (q > 0) {
+      router.replace({ query: { ...route.query, task: undefined } });
+      taskDetailRef.value?.openModal(q);
+    }
+  });
 </script>

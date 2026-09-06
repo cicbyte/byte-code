@@ -40,6 +40,7 @@
 
 <script lang="ts" setup>
   import { onMounted, onUnmounted, ref } from 'vue';
+  import { useRouter } from 'vue-router';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { noticeTypeLabel, noticeTypeTagType } from '@/enums/notification';
   import { storage } from '@/utils/Storage';
@@ -52,6 +53,8 @@
     readAllNotifications,
     readNotification,
   } from '@/api/platform';
+
+  const router = useRouter();
 
   // 轮询降级兜底：SSE 断开时仍能拉到通知（间隔放长到 5 分钟）
   const POLL_INTERVAL = 5 * 60 * 1000;
@@ -147,13 +150,37 @@
   }
 
   async function markRead(item: NotificationItem) {
-    if (item.isRead !== 0) return;
+    // 点击=已读+跳转源实体（已读失败不阻断跳转）
+    if (item.isRead === 0) {
+      try {
+        await readNotification(item.id);
+        item.isRead = 1;
+        fetchUnread();
+      } catch {
+        // 忽略单条已读失败
+      }
+    }
+    jumpToSource(item);
+  }
+
+  // 跳转源实体：task → 任务列表并自动开抽屉（?task= 由宿主页消费）；
+  // project → 项目概览。getTask 用动态 import——layout 组件静态引 api 层
+  // 会进 alova↔store 循环依赖，破坏全站模块初始化（踩坑两次，勿改回）
+  async function jumpToSource(item: NotificationItem) {
     try {
-      await readNotification(item.id);
-      item.isRead = 1;
-      fetchUnread();
+      if (item.sourceType === 'task' && item.sourceId) {
+        const { getTask } = await import('@/api/project/index');
+        const t = await getTask(item.sourceId);
+        if (t?.projectId) {
+          popoverShow.value = false;
+          router.push(`/project/${t.projectId}/tasks?task=${item.sourceId}`);
+        }
+      } else if (item.sourceType === 'project' && item.sourceId) {
+        popoverShow.value = false;
+        router.push(`/project/${item.sourceId}/overview`);
+      }
     } catch {
-      // 忽略单条已读失败
+      // 无权访问或实体已删：停留原地
     }
   }
 
