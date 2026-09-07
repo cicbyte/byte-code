@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+
+	"github.com/cicbyte/byte-code/utility/dbinit"
 )
 
 const (
@@ -24,6 +26,14 @@ const (
 // 磁盘文档（resource/projects/*/docs）是记忆/文档中枢的真相源——DB 丢了可重扫，
 // 磁盘丢了文档就没了，故同轮打包备份
 func Run(ctx context.Context) {
+	// MySQL 无文件级备份：公网部署通常有外部方案（云 RDS 快照/mysqldump 定时），
+	// 这里跳过 DB 备份但保留文档 vault 备份
+	if dbinit.Dialect() == "mysql" {
+		g.Log().Info(ctx, "dbbackup: MySQL 模式跳过内置 DB 备份（请用 mysqldump/云快照）；文档 vault 照常备份")
+		backupDocs(ctx)
+		rotate(ctx)
+		return
+	}
 	if err := os.MkdirAll(backupDir, 0o700); err != nil {
 		g.Log().Warningf(ctx, "dbbackup: create dir failed: %v", err)
 		return

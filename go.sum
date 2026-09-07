@@ -63,6 +63,8 @@ github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre
 github.com/go-sql-driver/mysql v1.10.0 h1:Q+1LV8DkHJvSYAdR83XzuhDaTykuDx0l6fkXxoWCWfw=
 github.com/go-sql-driver/mysql v1.10.0/go.mod h1:M+cqaI7+xxXGG9swrdeUIoPG3Y3KCkF0pZej+SK+nWk=
 github.com/gofrs/uuid v3.2.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
+github.com/gogf/gf/contrib/drivers/mysql/v2 v2.10.0 h1:UvqxwinkelKxwdwnKUfdy51/ls4RL7MCeJqAZOVAy0I=
+github.com/gogf/gf/contrib/drivers/mysql/v2 v2.10.0/go.mod h1:6v7oGBF9wv59WERJIOJxXmLhkUcxwON3tPYW3AZ7wbY=
 github.com/gogf/gf/contrib/drivers/sqlite/v2 v2.10.0 h1:OyAH7Ls2c9Un7CJiAq7G6eY1jWIICRkN8C5SyM94rnY=
 github.com/gogf/gf/contrib/drivers/sqlite/v2 v2.10.0/go.mod h1:fwhAMG0qZpeHbbP2JE78rJRfV7eBbu9jXkxTMM1lwyo=
 github.com/gogf/gf/v2 v2.10.0 h1:rzDROlyqGMe/eM6dCalSR8dZOuMIdLhmxKSH1DGhbFs=

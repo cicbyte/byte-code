@@ -14,6 +14,10 @@ logger:
   stdout: true
 
 # https://goframe.org/docs/core/gdb-config-file
+# 双数据库支持：默认 SQLite（单机零运维）；公网部署/数据共享可切 MySQL（>=8.0.13）。
+# 切换方式：把 link 换成 MySQL 形式即可，迁移系统按方言自动选择
+# resource/sql/{sqlite,mysql} 目录（MySQL 全新库走 01 基线建表）：
+#   link: "mysql:user:pass@tcp(host:3306)/bytecode?charset=utf8mb4&parseTime=true&loc=Local"
 database:
   default:
     link: "sqlite::@file(./resource/data/app.db)"

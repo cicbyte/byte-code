@@ -17,6 +17,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/agent"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -224,10 +225,14 @@ func Join(ctx context.Context, code string) (*api.JoinRes, error) {
 		if n, _ := res.RowsAffected(); n == 0 {
 			return fmt.Errorf("接入码已被使用")
 		}
-		if _, e := tx.Ctx(ctx).Exec(
-			`INSERT INTO agent_project_bindings (agent_id, project_id, role) VALUES (?,?,?)
-			 ON CONFLICT(agent_id, project_id) DO NOTHING`,
-			agentId, projectId, row["role"].String()); e != nil {
+		// SQLite: ON CONFLICT DO NOTHING / MySQL: INSERT IGNORE（都依赖
+		// agent_project_bindings 的 UNIQUE(agent_id, project_id)）
+		bindingSQL := `INSERT INTO agent_project_bindings (agent_id, project_id, role) VALUES (?,?,?)
+			 ON CONFLICT(agent_id, project_id) DO NOTHING`
+		if dbinit.Dialect() == "mysql" {
+			bindingSQL = `INSERT IGNORE INTO agent_project_bindings (agent_id, project_id, role) VALUES (?,?,?)`
+		}
+		if _, e := tx.Ctx(ctx).Exec(bindingSQL, agentId, projectId, row["role"].String()); e != nil {
 			return e
 		}
 		return nil

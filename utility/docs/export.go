@@ -11,6 +11,9 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/container/gvar"
+
+	"github.com/cicbyte/byte-code/utility/dbinit"
 )
 
 // legacyExportFlag 导出完成标记（sys_config key），置 1 后不再重复导出
@@ -24,6 +27,12 @@ const legacyTargetPrefix = KnowledgeDir
 func ExportLegacyDocs(ctx context.Context) error {
 	v, _ := g.DB().Model("sys_config").Ctx(ctx).Where("key", legacyExportFlag).Value("value")
 	if v.String() == "1" {
+		return nil
+	}
+	// 全新安装没有 docs/doc_relations 表（表随旧版迁移早已移除）：无存量可导，
+	// 直接置标记——否则每次启动都因表缺失告警且标记永远置不上
+	if !tableExists(ctx, "docs") || !tableExists(ctx, "doc_relations") {
+		markLegacyExported(ctx)
 		return nil
 	}
 
@@ -72,15 +81,35 @@ func ExportLegacyDocs(ctx context.Context) error {
 		}
 	}
 
-	// 标记完成（count-then-insert，与 setting.go 既有模式一致）
+	markLegacyExported(ctx)
+	g.Log().Infof(ctx, "legacy docs exported to vault: %d projects", len(byProject))
+	return nil
+}
+
+// markLegacyExported 置完成标记（count-then-insert，与 setting.go 既有模式一致）
+func markLegacyExported(ctx context.Context) {
 	cnt, _ := g.DB().Model("sys_config").Ctx(ctx).Where("key", legacyExportFlag).Count()
 	if cnt > 0 {
 		_, _ = g.DB().Model("sys_config").Ctx(ctx).Where("key", legacyExportFlag).Data("value", "1").Update()
 	} else {
 		_, _ = g.DB().Model("sys_config").Ctx(ctx).Data(g.Map{"key": legacyExportFlag, "value": "1"}).Insert()
 	}
-	g.Log().Infof(ctx, "legacy docs exported to vault: %d projects", len(byProject))
-	return nil
+}
+
+// tableExists 跨方言表存在性探测（mysql: information_schema / sqlite: sqlite_master）
+func tableExists(ctx context.Context, name string) bool {
+	var (
+		v   *gvar.Var
+		err error
+	)
+	if dbinit.Dialect() == "mysql" {
+		v, err = g.DB().GetValue(ctx,
+			"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", name)
+	} else {
+		v, err = g.DB().GetValue(ctx,
+			"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", name)
+	}
+	return err == nil && v != nil && v.Int() > 0
 }
 
 // exportProjectDocs 导出单个项目：folder→目录、doc/template→md（frontmatter: space=knowledge）

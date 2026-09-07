@@ -9,6 +9,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/docs"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -186,14 +187,25 @@ func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *a
 	}
 	// 单语句原子 upsert：count-then-insert 在并发写同 key 时会撞
 	// UNIQUE(project_id, key)——报"索引同步失败"完全误导排障方向
-	_, err = g.DB().Exec(ctx,
-		`INSERT INTO project_memories
+	upsertSQL := `INSERT INTO project_memories
 			(project_id, key, value, status, expires_at, last_verified_at, verified_by, updated_by, created_at, updated_at)
 		VALUES (?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(project_id, key) DO UPDATE SET
 			value = excluded.value, status = excluded.status, expires_at = excluded.expires_at,
 			last_verified_at = excluded.last_verified_at, verified_by = excluded.verified_by,
-			updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+			updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+	if dbinit.Dialect() == "mysql" {
+		// VALUES() 写法在 MySQL 8.0.19+ 标记弃用但可用，且是 MariaDB 唯一支持的形式；
+		// key/value 是 MySQL 保留字，列名必须反引号
+		upsertSQL = "INSERT INTO project_memories\n" +
+			"\t\t\t(`project_id`, `key`, `value`, `status`, `expires_at`, `last_verified_at`, `verified_by`, `updated_by`, `created_at`, `updated_at`)\n" +
+			"\t\tVALUES (?,?,?,?,?,?,?,?,?,?)\n" +
+			"\t\tON DUPLICATE KEY UPDATE\n" +
+			"\t\t\t`value` = VALUES(`value`), `status` = VALUES(`status`), `expires_at` = VALUES(`expires_at`),\n" +
+			"\t\t\t`last_verified_at` = VALUES(`last_verified_at`), `verified_by` = VALUES(`verified_by`),\n" +
+			"\t\t\t`updated_by` = VALUES(`updated_by`), `updated_at` = VALUES(`updated_at`)"
+	}
+	_, err = g.DB().Exec(ctx, upsertSQL,
 		projectId, key, req.Value, status, expiresAt, lastVerified, uid, uid, now, now)
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "写入记忆失败")

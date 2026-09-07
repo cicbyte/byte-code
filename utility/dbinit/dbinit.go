@@ -62,13 +62,22 @@ func AutoMigrate(ctx context.Context) error {
 	}()
 	db := g.DB()
 
-	// 创建 migrations 跟踪表
-	_, err2 := db.Exec(ctx, `CREATE TABLE IF NOT EXISTS _migrations (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		filename TEXT NOT NULL UNIQUE,
-		executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-	)`)
-	if err2 != nil {
+	dialect := Dialect()
+
+	// 创建 migrations 跟踪表（按方言取合法 DDL）
+	trackDDL := `CREATE TABLE IF NOT EXISTS _migrations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	filename TEXT NOT NULL UNIQUE,
+	executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`
+	if dialect == "mysql" {
+		trackDDL = "CREATE TABLE IF NOT EXISTS `_migrations` (\n" +
+			"\t`id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n" +
+			"\t`filename` VARCHAR(255) NOT NULL UNIQUE,\n" +
+			"\t`executed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP\n" +
+			") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+	}
+	if _, err2 := db.Exec(ctx, trackDDL); err2 != nil {
 		return fmt.Errorf("create _migrations table: %w", err2)
 	}
 
@@ -83,8 +92,8 @@ func AutoMigrate(ctx context.Context) error {
 		executedMap[e.Filename] = true
 	}
 
-	// 读取 SQL 目录
-	sqlDir := "resource/sql/sqlite"
+	// 迁移目录按方言区分：sqlite / mysql 双轨维护
+	sqlDir := filepath.Join("resource", "sql", dialect)
 	files, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return fmt.Errorf("read sql dir: %w", err)
@@ -127,9 +136,19 @@ func AutoMigrate(ctx context.Context) error {
 		// 单文件整体事务：SQL 与 _migrations 记录同生共死，中途失败整体回滚
 		// 且不记录执行，下次启动可完整重试，不会留下半成品 schema 导致启动死循环。
 		// 注意：迁移文件内不要再写 BEGIN/COMMIT 或 PRAGMA（PRAGMA 在事务内是空操作）
+		// SQLite 驱动接受多语句整发；MySQL 驱动默认拒绝，切分后逐条执行
+		// （迁移禁用存储过程/触发器，无需处理 DELIMITER）
+		var stmts []string
+		if dialect == "mysql" {
+			stmts = splitSQLStatements(content)
+		} else {
+			stmts = []string{content}
+		}
 		err = db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-			if _, err := tx.Exec(content); err != nil {
-				return err
+			for _, st := range stmts {
+				if _, err := tx.Exec(st); err != nil {
+					return err
+				}
 			}
 			if _, err := tx.Exec("INSERT INTO _migrations (filename) VALUES (?)", filename); err != nil {
 				return err
@@ -152,4 +171,82 @@ func migrationNumber(name string) int {
 		return n
 	}
 	return math.MaxInt32
+}
+
+// splitSQLStatements 按分号切分 SQL 文件为独立语句（MySQL 驱动需要逐条执行）。
+// 正确跳过：单/双/反引号字符串、-- 行注释、/* */ 块注释；切分后去注释与空白。
+func splitSQLStatements(content string) []string {
+	var (
+		out []string
+		buf strings.Builder
+		i   int
+	)
+	flush := func() {
+		s := strings.TrimSpace(buf.String())
+		if s != "" {
+			out = append(out, s)
+		}
+		buf.Reset()
+	}
+	for i < len(content) {
+		c := content[i]
+		switch {
+		case c == '\'' || c == '"' || c == '`':
+			// 引号串原样吞（含 '' 转义）
+			quote := c
+			buf.WriteByte(c)
+			i++
+			for i < len(content) {
+				buf.WriteByte(content[i])
+				if content[i] == quote {
+					if i+1 < len(content) && content[i+1] == quote {
+						buf.WriteByte(content[i+1])
+						i++
+					} else {
+						i++
+						break
+					}
+				}
+				i++
+			}
+		case c == '-' && i+1 < len(content) && content[i+1] == '-':
+			// 行注释丢弃
+			for i < len(content) && content[i] != '\n' {
+				i++
+			}
+		case c == '/' && i+1 < len(content) && content[i+1] == '*':
+			// 块注释丢弃
+			i += 2
+			for i+1 < len(content) && !(content[i] == '*' && content[i+1] == '/') {
+				i++
+			}
+			i += 2
+		case c == ';':
+			flush()
+			i++
+		default:
+			buf.WriteByte(c)
+			i++
+		}
+	}
+	flush()
+	return out
+}
+
+// Dialect 取当前配置的数据库方言（"sqlite" | "mysql"）。
+// GoFrame 的 link 形如 "mysql:user:pass@tcp(...)/db" / "sqlite::@file(path)"，
+// 以前缀区分；无 link 配置时兜底 sqlite
+func Dialect() string {
+	var link string
+	cfg := g.DB().GetConfig()
+	if cfg != nil && cfg.Link != "" {
+		link = cfg.Link
+	} else if cfg != nil && cfg.Type != "" {
+		link = cfg.Type + ":"
+	}
+	link = strings.ToLower(strings.TrimSpace(link))
+	if strings.HasPrefix(link, "mysql") {
+		return "mysql"
+	}
+	return "sqlite"
 }
