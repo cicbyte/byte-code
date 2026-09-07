@@ -95,7 +95,7 @@
         <n-card :bordered="false" size="small" title="最近动态" class="h-full">
           <EmptyState type="notify" title="暂无动态" v-if="activities.length === 0" compact />
           <n-space v-else vertical :size="10">
-            <n-space v-for="a in activities" :key="a.id" align="center" :size="8">
+            <n-space v-for="a in activities" :key="a.id" align="center" :size="8" :class="{ 'act-clickable': jumpable(a) }" @click="jumpTarget(a)">
               <n-tag size="tiny" :type="a.actorType === 'ai' ? 'warning' : 'info'" :bordered="false">
                 {{ a.actorType === 'ai' ? 'Agent' : '用户' }}
               </n-tag>
@@ -158,7 +158,22 @@
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { PROJECT_STATUS, SPRINT_STATUS, REQ_STATUS } from '@/enums/entities';
+  import { useRouter } from 'vue-router';
   import { actionText } from '@/enums/activity';
+// 动态条目跳转（与平台活动流同口径）
+function jumpTarget(item: any) {
+  const pid = item.projectId || projectId.value;
+  if (!pid || !item.targetId) return;
+  switch (item.targetType) {
+    case 'task': router.push(`/project/${pid}/tasks?task=${item.targetId}`); break;
+    case 'topic': router.push(`/project/${pid}/topics`); break;
+    case 'feedback': router.push(`/project/${pid}/feedbacks`); break;
+    case 'test_plan_case': router.push(`/project/${pid}/test-plans`); break;
+  }
+}
+function jumpable(item: any): boolean {
+  return !!item.targetId && ['task', 'topic', 'feedback', 'test_plan_case'].includes(item.targetType);
+}
   import { ref, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { getProject, getTasks, getSprints, getMembers, getRequirements } from '@/api/project/index';
@@ -166,7 +181,8 @@
   import { getActivities } from '@/api/platform/index';
 
   const route = useRoute();
-  const projectId = computed(() => Number(route.params.projectId));
+  const router = useRouter();
+    const projectId = computed(() => Number(route.params.projectId));
   const loading = ref(false);
   const project = ref<ProjectItem | null>(null);
   const tasks = ref<TaskItem[]>([]);
@@ -241,3 +257,17 @@
     loading.value = false;
   });
 </script>
+
+<style lang="less" scoped>
+  .act-clickable {
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 8px;
+    padding: 4px 8px;
+    margin: 0 -8px;
+
+    &:hover {
+      background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+    }
+  }
+</style>

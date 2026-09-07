@@ -23,6 +23,8 @@
             :key="item.id"
             :type="timelineType(item.action)"
             :time="item.createdAt"
+            :class="{ 'act-clickable': jumpable(item) }"
+            @click="jumpTarget(item)"
           >
             <template #header>
               <n-space size="small" align="center">
@@ -53,6 +55,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import { useRouter } from 'vue-router';
   import { ACTION_LABELS, actionText, TARGET_TYPE_LABELS } from '@/enums/activity';
   import { ref, reactive, onMounted } from 'vue';
   import { getActivities } from '@/api/platform/index';
@@ -72,6 +75,25 @@
     { label: '知识库', value: 'knowledge' },
     { label: 'Agent', value: 'ai' },
   ];
+
+  const router = useRouter();
+
+  // 动态条目跳转：target 是实体时可点直达（task 开抽屉、topic/feedback 跳
+  // 专题/反馈页、project 跳概览、test_plan_case 跳测试计划）
+  function jumpTarget(item: any) {
+    const pid = item.projectId;
+    if (!pid || !item.targetId) return;
+    switch (item.targetType) {
+      case 'task': router.push(`/project/${pid}/tasks?task=${item.targetId}`); break;
+      case 'topic': router.push(`/project/${pid}/topics`); break;
+      case 'feedback': router.push(`/project/${pid}/feedbacks`); break;
+      case 'project': router.push(`/project/${item.targetId}/overview`); break;
+      case 'test_plan_case': router.push(`/project/${pid}/test-plans`); break;
+    }
+  }
+  function jumpable(item: any): boolean {
+    return !!item.targetId && ['task', 'topic', 'feedback', 'project', 'test_plan_case'].includes(item.targetType);
+  }
 
   function timelineType(action: string): 'default' | 'info' | 'success' | 'warning' | 'error' {
     if (action.includes('创建') || action.includes('create')) return 'success';
@@ -109,3 +131,17 @@ async function loadData() {
     loadData();
   });
 </script>
+
+<style lang="less" scoped>
+  :deep(.act-clickable) {
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 8px;
+    padding: 4px 6px;
+    margin: 0 -6px;
+
+    &:hover {
+      background: var(--hover-bg, rgba(0, 0, 0, 0.03));
+    }
+  }
+</style>
