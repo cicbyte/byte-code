@@ -63,6 +63,8 @@
           <span>{{ item.tips }}</span>
         </n-tooltip>
       </div>
+      <!-- 项目快速切换 -->
+      <ProjectSwitch />
       <!--明暗模式切换-->
       <ThemeToggle />
             <!--通知中心-->
@@ -124,13 +126,14 @@
   import components from './components';
   import ProjectSetting from './ProjectSetting.vue';
   import NotificationIcon from './NotificationIcon.vue';
+  import ProjectSwitch from './ProjectSwitch.vue';
   import ThemeToggle from './ThemeToggle.vue';
   import SearchModal from './SearchModal.vue';
   import { ref as vueRef } from 'vue';
 
   export default defineComponent({
     name: 'PageHeader',
-    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal },
+    components: { ...components, NDialogProvider, ProjectSetting, AsideMenu, NotificationIcon, ThemeToggle, SearchModal, ProjectSwitch },
     props: {
       collapsed: {
         type: Boolean,
