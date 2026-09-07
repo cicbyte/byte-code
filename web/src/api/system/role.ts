@@ -7,8 +7,9 @@ export interface RoleItem {
   name: string;
   explain: string;
   isDefault: boolean;
-  menuIds?: number[];
-  menuKeys?: string[];
+  /** 后端序列化为 snake_case，勿写成 menuIds */
+  menu_ids?: number[];
+  menu_keys?: string[];
   createDate?: string;
   create_date?: string;
   status: string;

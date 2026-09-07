@@ -219,7 +219,7 @@
 
   // 权限范围列：只展示叶子菜单标题（父节点随子级级联，单独列出是噪音）
   function scopeTitles(item: RoleItem): string[] {
-    return (item.menuIds || [])
+    return (item.menu_ids || [])
       .filter((id) => leafIds.value.has(id))
       .map((id) => idTitle.value.get(id) || `#${id}`);
   }
@@ -275,7 +275,7 @@
     }
     currentRole.value = item;
     // 回显只放叶子 id：父节点由级联推导，直接放父 id 会把未选的兄弟子级一起勾上
-    checkedKeys.value = (item.menuIds || [])
+    checkedKeys.value = (item.menu_ids || [])
       .filter((id) => leafIds.value.has(id))
       .map((id) => String(id));
     expandedKeys.value = menuTree.value.map((n) => n.key);
