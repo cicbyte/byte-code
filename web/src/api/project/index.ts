@@ -371,6 +371,35 @@ export function removeMember(projectId: number, userId: number) {
   return Alova.Delete(`/v1/projects/${projectId}/members/${userId}`);
 }
 
+// ==================== QA 库 ====================
+
+export interface QaItem {
+  id: number;
+  question: string;
+  answer: string;
+  tags: string;
+  hits: number;
+  status: string;
+  updater: string;
+  updatedAt: string;
+}
+
+export function getQas(projectId: number, params?: { keyword?: string; tag?: string }) {
+  return Alova.Get<{ list: QaItem[] }>(`/v1/projects/${projectId}/qas`, { params });
+}
+
+export function upsertQa(projectId: number, data: { question: string; answer: string; tags?: string }) {
+  return Alova.Post<{ id: number; updated: boolean }>(`/v1/projects/${projectId}/qas`, data);
+}
+
+export function hitQa(projectId: number, id: number) {
+  return Alova.Post(`/v1/projects/${projectId}/qas/${id}/hit`, {});
+}
+
+export function archiveQa(projectId: number, id: number) {
+  return Alova.Post(`/v1/projects/${projectId}/qas/${id}/archive`, {});
+}
+
 // ==================== 专题（long-task） ====================
 
 export interface TopicPhase {

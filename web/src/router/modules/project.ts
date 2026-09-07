@@ -149,6 +149,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/docs.vue'),
           },
           {
+            // QA 库：常见问答沉淀（agent 维护 + 检索）
+            path: 'qas',
+            name: `${routeName}_qas`,
+            meta: {
+              title: 'QA 库',
+              group: '知识',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/qas.vue'),
+          },
+          {
             // 记忆/文档中枢：项目 KV 记忆
             path: 'memories',
             name: `${routeName}_memories`,

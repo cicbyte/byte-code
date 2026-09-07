@@ -257,6 +257,34 @@ func (c *projectController) FinishTopic(ctx context.Context, req *api.TopicFinis
 	return &api.TopicFinishRes{}, nil
 }
 
+func (c *projectController) UpsertQa(ctx context.Context, req *api.QaUpsertReq) (res *api.QaUpsertRes, err error) {
+	id, updated, err := service.Project().UpsertQa(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.QaUpsertRes{Id: id, Updated: updated}, nil
+}
+
+func (c *projectController) ListQas(ctx context.Context, req *api.QaListReq) (res *api.QaListRes, err error) {
+	return service.Project().ListQas(ctx, req)
+}
+
+func (c *projectController) HitQa(ctx context.Context, req *api.QaHitReq) (res *api.QaHitRes, err error) {
+	err = service.Project().HitQa(ctx, req.ProjectId, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &api.QaHitRes{}, nil
+}
+
+func (c *projectController) ArchiveQa(ctx context.Context, req *api.QaArchiveReq) (res *api.QaArchiveRes, err error) {
+	err = service.Project().ArchiveQa(ctx, req.ProjectId, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &api.QaArchiveRes{}, nil
+}
+
 func (c *projectController) BlockTask(ctx context.Context, req *api.TaskBlockReq) (res *api.TaskBlockRes, err error) {
 	err = service.Project().BlockTask(ctx, req)
 	if err != nil {

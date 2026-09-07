@@ -402,6 +402,21 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 			res.ActiveTopics = append(res.ActiveTopics, brief)
 		}
 	}
+	// 高频 QA（按命中数前 5）：新会话最可能用到的问题先给
+	res.TopQas = []api.QaBrief{}
+	if qaRows, qerr := g.DB().Model("project_qas").Ctx(ctx).
+		Where("project_id", projectId).Where("status", "active").
+		Order("hits DESC, id DESC").Limit(5).All(); qerr == nil {
+		for _, qr := range qaRows {
+			ans := qr["answer"].String()
+			if len(ans) > 400 {
+				ans = ans[:400]
+			}
+			res.TopQas = append(res.TopQas, api.QaBrief{
+				Id: qr["id"].Int(), Question: qr["question"].String(), Answer: ans, Hits: qr["hits"].Int(),
+			})
+		}
+	}
 	return res, nil
 }
 
