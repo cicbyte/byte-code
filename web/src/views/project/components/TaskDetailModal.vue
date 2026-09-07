@@ -143,6 +143,27 @@
           </n-space>
         </n-card>
 
+        <!-- 跨项目引用：bug 的发现地与修复地分离；点击跳转被引任务 -->
+        <n-card id="sec-refs" title="跨项目引用" size="small" class="mb-4" :bordered="true">
+          <template #header-extra>
+            <n-button text size="tiny" type="primary" @click="showRefModal = true">+ 添加引用</n-button>
+          </template>
+          <div v-if="relatedRefs.length === 0" class="text-xs text-gray-400">
+            未关联其他项目的实体
+          </div>
+          <div
+            v-for="(r, i) in relatedRefs"
+            :key="i"
+            class="ref-row"
+            @click="openRef(r)"
+          >
+            <svg class="ic xs"><use href="#i-switch"/></svg>
+            <span class="ref-title">{{ r.title }}</span>
+            <n-tag size="tiny" :bordered="false">{{ refProjectLabel(r.projectId) }}</n-tag>
+            <n-button text size="tiny" type="error" @click.stop="removeRef(i)">移除</n-button>
+          </div>
+        </n-card>
+
         <!-- AI 执行日志时间线 -->
         <n-card id="sec-logs" title="Agent 执行日志" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
           <EmptyState type="generic" title="暂无 Agent 执行记录" v-if="aiLogs.length === 0" description="Agent 认领与执行的过程会留痕在这里" compact />
@@ -320,6 +341,34 @@
     </n-drawer-content>
   </n-drawer>
 
+  <!-- 添加跨项目引用：项目下拉 + 该项目任务选择 -->
+  <n-modal v-model:show="showRefModal" preset="dialog" title="添加跨项目引用" :show-icon="false">
+    <n-space vertical :size="10" class="py-2">
+      <n-select
+        v-model:value="refForm.projectId"
+        :options="refProjectOptions"
+        placeholder="选择项目"
+        size="small"
+        @update:value="loadRefTasks"
+      />
+      <n-select
+        v-model:value="refForm.taskId"
+        :options="refTaskOptions"
+        placeholder="选择任务"
+        size="small"
+        filterable
+        :loading="refTasksLoading"
+        :disabled="!refForm.projectId"
+      />
+    </n-space>
+    <template #action>
+      <n-space>
+        <n-button size="small" @click="showRefModal = false">取消</n-button>
+        <n-button size="small" type="primary" :disabled="!refForm.taskId" @click="addRef">添加</n-button>
+      </n-space>
+    </template>
+  </n-modal>
+
   <!-- 上报阻塞：原因必填，作为通知与执行日志留痕 -->
   <n-modal v-model:show="showBlockModal" preset="dialog" title="上报阻塞" :show-icon="false">
     <n-input
@@ -349,11 +398,12 @@
   import { getLinkedDocs } from '@/api/docs/index';
   import type { DocsSearchItem } from '@/api/docs/index';
   import { PaperClipOutlined, FileTextOutlined } from '@vicons/antd';
-  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+  import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import {
     getTask,
+    getProjects,
     getComments,
     createComment,
     reviewTask,
@@ -790,6 +840,7 @@
   const navSections = computed(() => {
     const secs = [
       { id: 'sec-desc', label: '描述' },
+      { id: 'sec-refs', label: '引用' },
       { id: 'sec-checklist', label: '清单' },
       { id: 'sec-logs', label: '日志' },
     ];
@@ -842,6 +893,78 @@
   function removeCheck(i: number) {
     saveChecklist(checklist.value.filter((_, idx) => idx !== i));
   }
+
+  // 跨项目引用：解析/增删/跳转；写走 updateTask（后端校验权限与结构，
+  // 新增项通知被引任务创建者）
+  interface RelatedRef { type: string; projectId: number; id: number; title: string }
+  const relatedRefs = computed<RelatedRef[]>(() => {
+    try {
+      return JSON.parse(task.value?.relatedRefs || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const showRefModal = ref(false);
+  const refForm = reactive({ projectId: null as number | null, taskId: null as number | null });
+  const refProjectOptions = ref<Array<{ label: string; value: number }>>([]);
+  const refTaskOptions = ref<Array<{ label: string; value: number }>>([]);
+  const refTasksLoading = ref(false);
+
+  async function loadRefProjects() {
+    try {
+      const res = await getProjects({ size: 100 });
+      refProjectOptions.value = (res?.list || [])
+        .filter((p: any) => p.id !== task.value?.projectId)
+        .map((p: any) => ({ label: p.name, value: p.id }));
+    } catch { /* ignore */ }
+  }
+  async function loadRefTasks(pid: number) {
+    refForm.taskId = null;
+    refTaskOptions.value = [];
+    refTasksLoading.value = true;
+    try {
+      const res = await getTasks(pid, { size: 100 });
+      refTaskOptions.value = (res?.list || []).map((t: TaskItem) => ({ label: t.title, value: t.id }));
+    } catch {
+      message.error('加载该项目任务失败（可能无访问权限）');
+    } finally {
+      refTasksLoading.value = false;
+    }
+  }
+  function refProjectLabel(pid: number): string {
+    const hit = refProjectOptions.value.find((p) => p.value === pid);
+    return hit?.label || `项目 ${pid}`;
+  }
+  async function saveRefs(list: RelatedRef[]) {
+    if (!task.value) return;
+    try {
+      await updateTask(task.value.id, { relatedRefs: JSON.stringify(list) });
+      task.value = { ...task.value, relatedRefs: JSON.stringify(list) };
+    } catch (e: any) {
+      message.error(e?.message || '保存引用失败');
+    }
+  }
+  async function addRef() {
+    if (!refForm.projectId || !refForm.taskId) return;
+    const opt = refTaskOptions.value.find((t) => t.value === refForm.taskId);
+    const next = [...relatedRefs.value, {
+      type: 'task', projectId: refForm.projectId, id: refForm.taskId, title: opt?.label || String(refForm.taskId),
+    }];
+    await saveRefs(next);
+    if (task.value && JSON.parse(task.value.relatedRefs || '[]').length === next.length) {
+      message.success('引用已添加，对方创建者将收到通知');
+      showRefModal.value = false;
+    }
+  }
+  function removeRef(i: number) {
+    saveRefs(relatedRefs.value.filter((_, idx) => idx !== i));
+  }
+  function openRef(r: RelatedRef) {
+    if (r.type === 'task') {
+      router.push(`/project/${r.projectId}/tasks?task=${r.id}`);
+    }
+  }
+  watch(showRefModal, (v) => { if (v) loadRefProjects(); });
 
   // 阻塞流转：原因必填；成功后刷新任务并通知宿主列表
   const showBlockModal = ref(false);
@@ -953,6 +1076,26 @@
     scroll-margin-top: 52px;
   }
 
+  .ref-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    cursor: pointer;
+
+    .ref-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ic {
+      stroke: var(--primary);
+      flex: none;
+    }
+  }
   .checklist-row {
     display: flex;
     justify-content: space-between;

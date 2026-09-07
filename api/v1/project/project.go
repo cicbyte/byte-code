@@ -122,12 +122,14 @@ type TaskCreateReq struct {
 	SprintId      int    `json:"sprintId"`
 	Title         string `json:"title" v:"required|max-length:255#任务标题不能为空|上限255字"`
 	Description   string `json:"description"`
-	Type          string `json:"type" d:"feature"`
-	Priority      int    `json:"priority" d:"3"`
-	AssigneeId    int    `json:"assigneeId"`
-	ParentTaskId  int    `json:"parentTaskId"`
-	DueDate       string `json:"dueDate" dc:"截止日期（Y-m-d），缺省无截止；格式在 logic 层校验"`
-	Checklist     string `json:"checklist" dc:"步骤清单 JSON 数组 [{text,done}]，缺省空清单"`
+	// 静默创建：不向准入 agent 广播"新任务可认领"（批量建/搁置类任务用）
+	Quiet        bool   `json:"quiet"`
+	Type         string `json:"type" d:"feature"`
+	Priority     int    `json:"priority" d:"3"`
+	AssigneeId   int    `json:"assigneeId"`
+	ParentTaskId int    `json:"parentTaskId"`
+	DueDate      string `json:"dueDate" dc:"截止日期（Y-m-d），缺省无截止；格式在 logic 层校验"`
+	Checklist    string `json:"checklist" dc:"步骤清单 JSON 数组 [{text,done}]，缺省空清单"`
 }
 
 type TaskCreateRes struct {
@@ -150,6 +152,9 @@ type TaskUpdateReq struct {
 	SortOrder    *int    `json:"sortOrder"`
 	DueDate      *string `json:"dueDate" dc:"截止日期（Y-m-d）；空串=清除"`
 	Checklist    *string `json:"checklist" dc:"步骤清单 JSON [{text,done}]；打勾=进展（顺带续租约）"`
+	// 跨项目引用 JSON：[{"type":"task","projectId":N,"id":N,"title":"快照"}]；
+	// 写入校验结构 + 引用者对被引项目可读（logic 层），新增项通知被引实体创建者
+	RelatedRefs *string `json:"relatedRefs"`
 }
 
 type TaskUpdateRes struct {
@@ -225,12 +230,13 @@ type TaskItem struct {
 	HumanReviewStatus   string `json:"humanReviewStatus"`
 	// 步骤清单 JSON：[{"text":"...","done":false}]；打勾走 UpdateTask
 	// （触发 updated_at，构成租约心跳）
-	Checklist string   `json:"checklist"`
-	SortOrder int      `json:"sortOrder"`
-	Source    string   `json:"source"`
-	Tags      []string `json:"tags"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	Checklist   string   `json:"checklist"`
+	RelatedRefs string   `json:"relatedRefs"`
+	SortOrder   int      `json:"sortOrder"`
+	Source      string   `json:"source"`
+	Tags        []string `json:"tags"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
 }
 
 type TaskDetailReq struct {

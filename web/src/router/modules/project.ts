@@ -74,6 +74,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/reviews.vue'),
           },
           {
+            // 跨项目反馈收件箱：对方项目投递的线索，分析后转任务或忽略
+            path: 'feedbacks',
+            name: `${routeName}_feedbacks`,
+            meta: {
+              title: '反馈',
+              group: '任务',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/feedbacks.vue'),
+          },
+          {
             path: 'requirements',
             name: `${routeName}_requirements`,
             meta: {

@@ -70,6 +70,7 @@ type SessionCreateRes struct {
 	Conventions    []ConventionItem `json:"conventions"`
 	MyTasks        []TaskBrief      `json:"myTasks"`
 	PendingReviews []TaskBrief      `json:"pendingReviews"`
+	PendingFeedbacks []FeedbackBrief `json:"pendingFeedbacks" dc:"待分析跨项目反馈（阅读后 convert 建任务或 dismiss 忽略）"`
 }
 
 type ProjectBrief struct {
@@ -103,4 +104,12 @@ type AgentTasksRes struct {
 	g.Meta `mime:"application/json"`
 	List   []TaskBrief `json:"list"`
 	Total  int         `json:"total"`
+}
+
+type FeedbackBrief struct {
+	Id      int    `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	SourceProjectName string `json:"sourceProjectName"`
+	SourceTaskId int    `json:"sourceTaskId"`
 }

@@ -40,15 +40,69 @@
       </n-spin>
     </n-card>
 
+    <!-- 关联项目（owner 治理反馈投递面）：A 关联 B 后 A 可向 B 投递跨项目反馈 -->
+    <n-card title="关联项目" :bordered="false" class="mt-4">
+      <template #header-extra>
+        <n-button size="small" @click="showRelation = true">添加关联</n-button>
+      </template>
+      <n-spin :show="relationsLoading">
+        <EmptyState v-if="!relationsLoading && relations.length === 0" type="member" title="未关联其他项目" description="建立关联后可互相投递跨项目反馈（线索由对方 Agent 分析是否建任务）" compact />
+        <n-table v-else :bordered="false" :single-line="false" size="small">
+          <thead><tr><th>项目</th><th>关联时间</th><th style="width: 80px">操作</th></tr></thead>
+          <tbody>
+            <tr v-for="r in relations" :key="r.id">
+              <td>{{ r.name }}（#{{ r.projectId }}）</td>
+              <td>{{ (r.createdAt || '').slice(0, 16) }}</td>
+              <td><n-button text type="error" size="small" @click="handleRemoveRelation(r)">移除</n-button></td>
+            </tr>
+          </tbody>
+        </n-table>
+      </n-spin>
+    </n-card>
+
     <!-- Agent 接入码（一次性展示） -->
-    <n-modal v-model:show="showAgentCode" preset="dialog" title="Agent 项目接入码" :show-icon="false">
-      <n-space vertical :size="8" class="py-2">
+    <!-- 添加关联：从当前账号可访问的项目里选 -->
+    <n-modal v-model:show="showRelation" preset="dialog" title="添加关联项目" :show-icon="false">
+      <n-select v-model:value="relationTarget" :options="relationOptions" placeholder="选择项目（须为你可访问的项目）" size="small" />
+      <template #action>
+        <n-space>
+          <n-button size="small" @click="showRelation = false">取消</n-button>
+          <n-button size="small" type="primary" :disabled="!relationTarget" @click="handleAddRelation">关联</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
+    <n-modal v-model:show="showAgentCode" preset="dialog" title="Agent 项目接入" :show-icon="false" style="width: 560px">
+      <n-space vertical :size="10" class="py-2">
         <n-alert type="info" :show-icon="false">
-          外部 Agent 用此码调用 <code>POST /v1/agent/projects/join</code> 加入本项目。
-          码为一次性、24 小时有效，关闭本弹窗后不再展示。
+          把以下信息交给 Agent 侧（或其驱动者），复制即用。接入码一次性、24 小时有效，关闭后不再展示。
         </n-alert>
-        <n-code :code="agentCode" language="text" />
-        <n-text depth="3" style="font-size: 12px">有效期至：{{ agentCodeExpires }}</n-text>
+
+        <div class="onboard-sec">
+          <div class="onboard-label">服务器地址 <n-text depth="3" style="font-size: 11px">（写入 ~/.bc/config.toml 的 server_url）</n-text></div>
+          <div class="onboard-row">
+            <n-code :code="serverUrl" language="text" class="onboard-code" />
+            <n-button text size="tiny" type="primary" @click="copyText(serverUrl)">复制</n-button>
+          </div>
+        </div>
+
+        <div class="onboard-sec">
+          <div class="onboard-label">项目接入码</div>
+          <div class="onboard-row">
+            <n-code :code="agentCode" language="text" class="onboard-code" />
+            <n-button text size="tiny" type="primary" @click="copyText(agentCode)">复制</n-button>
+          </div>
+          <n-text depth="3" style="font-size: 12px">有效期至：{{ agentCodeExpires }}</n-text>
+        </div>
+
+        <div class="onboard-sec">
+          <div class="onboard-label">Agent 侧接入命令（bcode CLI）</div>
+          <div class="onboard-row">
+            <n-code :code="onboardCommands" language="bash" class="onboard-code block" />
+            <n-button text size="tiny" type="primary" @click="copyText(onboardCommands)">复制</n-button>
+          </div>
+          <n-text depth="3" style="font-size: 12px">首次接入四步：配置服务器 → 注册身份（bc_ key 自动落本地）→ 凭码加入项目 → 建立会话（开工包）</n-text>
+        </div>
       </n-space>
     </n-modal>
 
@@ -76,10 +130,10 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { ref, reactive, computed, onMounted } from 'vue';
+  import { ref, reactive, computed, watch, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
-  import { getMembers, addMember, removeMember, removeAgentProject } from '@/api/project/index';
+  import { getMembers, addMember, removeMember, removeAgentProject, getRelations, addRelation, removeRelation, getProjects } from '@/api/project/index';
   import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
@@ -144,10 +198,79 @@
     });
   }
 
+  // 关联项目治理（owner）
+  const relations = ref<Array<{ id: number; projectId: number; name: string; createdAt: string }>>([]);
+  const relationsLoading = ref(false);
+  const showRelation = ref(false);
+  const relationTarget = ref<number | null>(null);
+  const relationOptions = ref<Array<{ label: string; value: number }>>([]);
+
+  async function loadRelations() {
+    relationsLoading.value = true;
+    try {
+      const res = await getRelations(projectId.value);
+      relations.value = res?.list || [];
+    } catch { /* ignore */ } finally { relationsLoading.value = false; }
+  }
+  async function openRelationPicker() {
+    try {
+      const res = await getProjects({ size: 100 });
+      const related = new Set(relations.value.map((r) => r.projectId));
+      relationOptions.value = (res?.list || [])
+        .filter((p: any) => p.id !== projectId.value && !related.has(p.id))
+        .map((p: any) => ({ label: p.name, value: p.id }));
+    } catch { /* ignore */ }
+    relationTarget.value = null;
+  }
+  watch(showRelation, (v) => { if (v) openRelationPicker(); });
+  async function handleAddRelation() {
+    if (!relationTarget.value) return;
+    try {
+      await addRelation(projectId.value, relationTarget.value);
+      message.success('关联已建立');
+      showRelation.value = false;
+      loadRelations();
+    } catch (e: any) { message.error(e?.message || '添加失败'); }
+  }
+  function handleRemoveRelation(r: { id: number; name: string }) {
+    dialog.warning({
+      title: '移除关联',
+      content: `移除后「${r.name}」将无法向本项目投递反馈，确定？`,
+      positiveText: '移除',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try { await removeRelation(projectId.value, r.id); message.success('已移除'); loadRelations(); }
+        catch (e: any) { message.error(e?.message || '移除失败'); }
+      },
+    });
+  }
+
   // Agent 接入码：owner 生成，一次性展示
   const showAgentCode = ref(false);
   const agentCode = ref('');
   const agentCodeExpires = ref('');
+  // 连接信息随码展示：agent 侧无需手动问服务器地址（取当前访问地址 + /api 前缀）
+  const serverUrl = computed(() => window.location.origin + '/api');
+  const onboardCommands = computed(() =>
+    [
+      '# 1. 配置服务器（一次性，写入 ~/.bc/config.toml）',
+      `bcode config set server ${serverUrl.value}`,
+      '',
+      '# 2. 注册身份（bc_ key 自动落本地 ~/.bc/agents/<profile>/）',
+      'bcode register <agent-name>',
+      '',
+      '# 3. 凭码加入本项目',
+      `bcode join ${agentCode.value || '<接入码>'}`,
+      '',
+      '# 4. 在项目目录建立会话（展示开工包：项目记忆 + 我的任务 + 待分析反馈）',
+      'bcode start',
+    ].join('\n'));
+  function copyText(text: string) {
+    navigator.clipboard?.writeText(text).then(
+      () => message.success('已复制'),
+      () => message.error('复制失败，请手动选择'),
+    );
+  }
   async function handleGenAgentCode() {
     try {
       const res = await createAgentJoinCode(projectId.value);
@@ -160,5 +283,34 @@
     }
   }
 
-onMounted(loadMembers);
+onMounted(() => { loadMembers(); loadRelations(); });
 </script>
+
+<style lang="less" scoped>
+  .onboard-sec {
+    .onboard-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-color-2, #5c6470);
+      margin-bottom: 4px;
+    }
+    .onboard-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+
+      .onboard-code {
+        flex: 1;
+        min-width: 0;
+        background: #f7f8fa;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      .onboard-code.block {
+        white-space: pre;
+        overflow-x: auto;
+      }
+    }
+  }
+</style>

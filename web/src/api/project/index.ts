@@ -70,6 +70,7 @@ export interface TaskItem {
   description: string;
   tags?: string[] | null;
   checklist?: string;
+  relatedRefs?: string;
   type: string;
   status: string;
   priority: number;
@@ -142,6 +143,8 @@ export interface TaskCreateData {
   dueDate?: string;
   /** 步骤清单 JSON [{text,done}] */
   checklist?: string;
+  /** 跨项目引用 JSON [{type,projectId,id,title}] */
+  relatedRefs?: string;
 }
 
 export interface TaskUpdateData {
@@ -365,6 +368,63 @@ export function addMember(projectId: number, data: MemberAddData) {
 /** 移除成员 */
 export function removeMember(projectId: number, userId: number) {
   return Alova.Delete(`/v1/projects/${projectId}/members/${userId}`);
+}
+
+// ==================== 跨项目反馈 ====================
+
+export interface FeedbackItem {
+  id: number;
+  title: string;
+  content: string;
+  status: string;
+  sourceProjectId: number;
+  sourceProjectName: string;
+  sourceTaskId: number;
+  convertedTaskId: number;
+  dismissReason: string;
+  createdAt: string;
+}
+
+export interface FeedbackListResult {
+  list: FeedbackItem[];
+  total: number;
+}
+
+export function getFeedbacks(projectId: number, params?: { status?: string; page?: number; size?: number }) {
+  return Alova.Get<FeedbackListResult>(`/v1/projects/${projectId}/feedbacks`, { params });
+}
+
+export function createFeedback(projectId: number, data: { title: string; content?: string; sourceTaskId?: number }) {
+  return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/feedbacks`, data);
+}
+
+export function convertFeedback(projectId: number, id: number, data?: { title?: string; sprintId?: number }) {
+  return Alova.Post<{ taskId: number }>(`/v1/projects/${projectId}/feedbacks/${id}/convert`, data || {});
+}
+
+export function dismissFeedback(projectId: number, id: number, reason: string) {
+  return Alova.Post(`/v1/projects/${projectId}/feedbacks/${id}/dismiss`, { reason });
+}
+
+// ==================== 项目关联 ====================
+
+export interface RelationItem {
+  id: number;
+  projectId: number;
+  name: string;
+  createdAt: string;
+}
+
+export function getRelations(projectId: number) {
+  return Alova.Get<{ list: RelationItem[] }>(`/v1/projects/${projectId}/relations`);
+}
+
+export function addRelation(projectId: number, relatedProjectId: number) {
+  return Alova.Post(`/v1/projects/${projectId}/relations`, { relatedProjectId });
+}
+
+export function removeRelation(projectId: number, relationId: number) {
+  return Alova.Delete(`/v1/projects/${projectId}/relations/${relationId}`);
 }
 
 /** 移除 Agent 项目准入（协议接入的 agent 行用；会话一并失效） */

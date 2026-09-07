@@ -350,6 +350,23 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 	for _, r := range rvRows {
 		res.PendingReviews = append(res.PendingReviews, rowToTaskBrief(r))
 	}
+
+	// 待分析的跨项目反馈：对方项目投递的线索，由本 agent 阅读后决定
+	// 是否建任务（POST /v1/projects/{pid}/feedbacks/{id}/convert|dismiss）
+	res.PendingFeedbacks = []api.FeedbackBrief{}
+	fbRows, ferr := g.DB().Model("project_feedbacks f").Ctx(ctx).
+		LeftJoin("projects p", "p.id = f.source_project_id").
+		Fields("f.id, f.title, f.content, p.name AS source_project_name, f.source_task_id").
+		Where("f.project_id", projectId).Where("f.status", "open").
+		Order("f.id ASC").Limit(20).All()
+	if ferr == nil {
+		for _, r := range fbRows {
+			res.PendingFeedbacks = append(res.PendingFeedbacks, api.FeedbackBrief{
+				Id: r["id"].Int(), Title: r["title"].String(), Content: r["content"].String(),
+				SourceProjectName: r["source_project_name"].String(), SourceTaskId: r["source_task_id"].Int(),
+			})
+		}
+	}
 	return res, nil
 }
 

@@ -73,8 +73,9 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	taskId := int(lastId)
 
 	// 未指派的 open 任务广播给项目内已准入的外部 agents（事件驱动认领，
-	// 替代盲轮询任务池）；已指派任务的触达走既有指派通知
-	if req.AssigneeId == 0 {
+	// 替代盲轮询任务池）；已指派任务的触达走既有指派通知。
+	// quiet=true 静默：批量建/搁置类任务不制造广播噪声
+	if req.AssigneeId == 0 && !req.Quiet {
 		agentRows, aerr := g.DB().Model("agent_project_bindings b").Ctx(ctx).
 			Fields("b.agent_id, u.username").
 			LeftJoin("sys_users u", "u.id = b.agent_id").
@@ -102,6 +103,8 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 }
 
 func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err error) {
+	// 引用变更延迟到 Update 成功后再通知（写库失败不应发通知）
+	var deferredRefs []relatedRef
 	// 门禁：agent 禁改 status/assignee——任务状态流转必须走 claim/complete
 	// 专用端点（条件更新防并发、完成限 assignee/owner、人审拒 ai），
 	// PUT 直改 done 可整体绕过这三道防线（CanAccessProject 对绑定 agent 放行）。
@@ -176,6 +179,19 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 		}
 		data["checklist"] = *req.Checklist
 	}
+	if req.RelatedRefs != nil {
+		refs, rerr := parseRelatedRefs(ctx, *req.RelatedRefs)
+		if rerr != nil {
+			return rerr
+		}
+		// 写库用校验后的结构（含 title 快照回填），而非原始请求串
+		if raw, merr := json.Marshal(refs); merr == nil {
+			data["related_refs"] = string(raw)
+		} else {
+			return fmt.Errorf("relatedRefs 序列化失败")
+		}
+		deferredRefs = refs
+	}
 	if req.DueDate != nil {
 		due, derr := normalizeDueDate(*req.DueDate)
 		if derr != nil {
@@ -190,6 +206,11 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 
 	// 旧指派用于对比（改派才通知，原值相同/清空不发）
 	oldAssignee := 0
+	// 旧引用用于新增 diff（必须在 Update 前取——Update 后库里已是新值）
+	var oldRelatedRefs []relatedRef
+	if v, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("related_refs").Value(); v != nil {
+		oldRelatedRefs, _ = parseRelatedRefs(ctx, v.String())
+	}
 	if v, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("assignee_id").Value(); v != nil {
 		oldAssignee = v.Int()
 	}
@@ -197,6 +218,28 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "更新任务失败")
 	}
+	// 跨项目引用：新增项通知被引实体创建者（去重：仅新增的 id）
+	if len(deferredRefs) > 0 {
+		refProjectId := s.taskProjectId(ctx, req.Id)
+		oldSet := map[string]bool{}
+		for _, r := range oldRelatedRefs {
+			oldSet[r.refKey()] = true
+		}
+		for _, r := range deferredRefs {
+			if oldSet[r.refKey()] {
+				continue
+			}
+			if r.Type == "task" {
+				if creator, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", r.Id).Fields("creator_id").Value(); creator != nil && creator.Int() > 0 {
+					notify.Send(ctx, creator.Int(), "任务被跨项目引用",
+						fmt.Sprintf("%s 任务「%s」引用了你的任务「%s」", s.refProjectName(ctx, refProjectId), s.taskTitle(ctx, req.Id), r.Title),
+						"info", "task", req.Id)
+				}
+			}
+		}
+		s.recordActivity(ctx, perm.UserId(ctx), "task.linked", "task", req.Id, s.taskTitle(ctx, req.Id), refProjectId, fmt.Sprintf("引用了 %d 个跨项目实体", len(deferredRefs)))
+	}
+
 	if notifyAssigneeChange > 0 && notifyAssigneeChange != oldAssignee {
 		title, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("title").Value()
 		notify.Send(ctx, notifyAssigneeChange, "任务转派给你",

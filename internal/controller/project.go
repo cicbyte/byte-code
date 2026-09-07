@@ -129,6 +129,54 @@ func (c *projectController) CompleteTask(ctx context.Context, req *api.TaskCompl
 	return &api.TaskCompleteRes{}, nil
 }
 
+func (c *projectController) ListRelations(ctx context.Context, req *api.RelationListReq) (res *api.RelationListRes, err error) {
+	return service.Project().ListRelations(ctx, req.ProjectId)
+}
+
+func (c *projectController) AddRelation(ctx context.Context, req *api.RelationAddReq) (res *api.RelationAddRes, err error) {
+	err = service.Project().AddRelation(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.RelationAddRes{}, nil
+}
+
+func (c *projectController) RemoveRelation(ctx context.Context, req *api.RelationRemoveReq) (res *api.RelationRemoveRes, err error) {
+	err = service.Project().RemoveRelation(ctx, req.ProjectId, req.RelationId)
+	if err != nil {
+		return nil, err
+	}
+	return &api.RelationRemoveRes{}, nil
+}
+
+func (c *projectController) CreateFeedback(ctx context.Context, req *api.FeedbackCreateReq) (res *api.FeedbackCreateRes, err error) {
+	id, err := service.Project().CreateFeedback(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.FeedbackCreateRes{Id: id}, nil
+}
+
+func (c *projectController) ListFeedbacks(ctx context.Context, req *api.FeedbackListReq) (res *api.FeedbackListRes, err error) {
+	return service.Project().ListFeedbacks(ctx, req)
+}
+
+func (c *projectController) ConvertFeedback(ctx context.Context, req *api.FeedbackConvertReq) (res *api.FeedbackConvertRes, err error) {
+	taskId, err := service.Project().ConvertFeedback(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.FeedbackConvertRes{TaskId: taskId}, nil
+}
+
+func (c *projectController) DismissFeedback(ctx context.Context, req *api.FeedbackDismissReq) (res *api.FeedbackDismissRes, err error) {
+	err = service.Project().DismissFeedback(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.FeedbackDismissRes{}, nil
+}
+
 func (c *projectController) BlockTask(ctx context.Context, req *api.TaskBlockReq) (res *api.TaskBlockRes, err error) {
 	err = service.Project().BlockTask(ctx, req)
 	if err != nil {
