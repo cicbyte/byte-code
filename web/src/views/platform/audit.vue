@@ -27,7 +27,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th>操作</th>
+              <th class="col-idx">#</th>
+            <th>操作</th>
               <th>目标类型</th>
               <th>目标名称</th>
               <th>变更内容</th>
@@ -36,8 +37,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in logList" :key="item.id">
-              <td>
+            <tr v-for="(item, __ix) in logList" :key="item.id">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td>
                 <n-tag size="small">{{ actionLabel(item.action) }}</n-tag>
               </td>
               <td>{{ item.targetType }}</td>

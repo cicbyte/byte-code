@@ -40,7 +40,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th>标题</th>
+              <th class="col-idx">#</th>
+            <th>标题</th>
               <th>分类</th>
               <th>模块</th>
               <th>优先级</th>
@@ -51,8 +52,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in caseList" :key="item.id">
-              <td>{{ item.title }}</td>
+            <tr v-for="(item, __ix) in caseList" :key="item.id">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td>{{ item.title }}</td>
               <td>{{ categoryLabel(item.category) }}</td>
               <td>{{ item.module }}</td>
               <td>

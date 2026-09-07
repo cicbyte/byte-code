@@ -15,7 +15,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th style="width: 34%">标题</th>
+              <th class="col-idx">#</th>
+            <th style="width: 34%">标题</th>
               <th>提交人</th>
               <th>优先级</th>
               <th>完成时间</th>
@@ -23,8 +24,9 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="t in pending" :key="t.id">
+            <template v-for="(t, __ix) in pending" :key="t.id">
               <tr>
+                <td class="col-idx">{{ __ix + 1 }}</td>
                 <td>
                   <n-button text type="info" @click="toggle(t.id)">
                     {{ expanded === t.id ? '▾' : '▸' }} {{ t.title }}

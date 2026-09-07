@@ -66,3 +66,12 @@ body {
 ::selection {
   background: rgba(22, 163, 74, 0.18);
 }
+
+/* 表格序号列：统一窄列 + 次要色 + 等宽数字（全站列表页） */
+td.col-idx, th.col-idx {
+  width: 48px;
+  color: var(--n-text-color-3, #9aa1ab);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  text-align: center;
+}

@@ -10,7 +10,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th>名称</th>
+              <th class="col-idx">#</th>
+            <th>名称</th>
               <th>描述</th>
               <th>目标日期</th>
               <th>状态</th>
@@ -18,8 +19,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in milestones" :key="item.id">
-              <td>{{ item.name }}</td>
+            <tr v-for="(item, __ix) in milestones" :key="item.id">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td>{{ item.name }}</td>
               <td>{{ item.description || '-' }}</td>
               <td>{{ item.targetDate || '-' }}</td>
               <td>

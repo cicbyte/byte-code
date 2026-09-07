@@ -13,7 +13,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th>用户名</th>
+              <th class="col-idx">#</th>
+            <th>用户名</th>
               <th>姓名</th>
               <th>角色</th>
               <th>加入时间</th>
@@ -21,8 +22,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="member in memberList" :key="`${member.userType}-${member.id}`">
-              <td>
+            <tr v-for="(member, __ix) in memberList" :key="`${member.userType}-${member.id}`">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td>
                 <n-space :size="4" align="center">
                   <span>{{ member.username }}</span>
                   <n-tag v-if="member.userType === 'ai'" size="tiny" :bordered="false" type="info">Agent</n-tag>

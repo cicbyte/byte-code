@@ -10,7 +10,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
             <thead>
             <tr>
-              <th>名称</th>
+              <th class="col-idx">#</th>
+            <th>名称</th>
               <th>目标</th>
               <th>开始日期</th>
               <th>结束日期</th>
@@ -19,8 +20,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="sprint in sprints" :key="sprint.id">
-              <td>{{ sprint.name }}</td>
+            <tr v-for="(sprint, __ix) in sprints" :key="sprint.id">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td>{{ sprint.name }}</td>
               <td>{{ sprint.goal }}</td>
               <td>{{ sprint.startDate }}</td>
               <td>{{ sprint.endDate }}</td>

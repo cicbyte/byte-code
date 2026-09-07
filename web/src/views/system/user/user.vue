@@ -23,7 +23,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th>用户名</th>
+              <th class="col-idx">#</th>
+            <th>用户名</th>
               <th>姓名</th>
               <th>邮箱</th>
               <th>状态</th>
@@ -32,8 +33,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in users" :key="item.id">
-              <td class="font-medium">{{ item.username }}</td>
+            <tr v-for="(item, __ix) in users" :key="item.id">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td class="font-medium">{{ item.username }}</td>
               <td>{{ item.realName || '-' }}</td>
               <td>{{ item.email || '-' }}</td>
               <td>

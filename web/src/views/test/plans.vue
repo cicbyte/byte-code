@@ -15,7 +15,8 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
-              <th>名称</th>
+              <th class="col-idx">#</th>
+            <th>名称</th>
               <th>描述</th>
               <th>状态</th>
               <th>创建人</th>
@@ -24,8 +25,9 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in planList" :key="item.id">
-              <td>
+            <tr v-for="(item, __ix) in planList" :key="item.id">
+              <td class="col-idx">{{ __ix + 1 }}</td>
+            <td>
                 <n-button text type="info" @click="openPlanDetail(item)">{{ item.name }}</n-button>
               </td>
               <td>{{ item.description }}</td>

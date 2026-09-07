@@ -43,6 +43,7 @@
       <n-table :bordered="false" :single-line="false" size="small">
         <thead>
           <tr>
+            <th class="col-idx">#</th>
             <th>标题</th>
             <th>类型</th>
             <th>优先级</th>
@@ -55,7 +56,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="task in taskList" :key="task.id">
+          <tr v-for="(task, __ix) in taskList" :key="task.id">
+            <td class="col-idx">{{ __ix + 1 }}</td>
             <td>
               <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
             </td>
