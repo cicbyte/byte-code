@@ -28,6 +28,8 @@ const routes: Array<RouteRecordRaw> = [
         name: 'setting-system',
         meta: {
           title: '系统设置',
+          // 系统配置接口在管理组（MiddlewareAdminAuth），菜单同步设门槛
+          menuKey: 'setting_system',
         },
         component: () => import('@/views/setting/system/system.vue'),
       },
@@ -36,6 +38,8 @@ const routes: Array<RouteRecordRaw> = [
         name: 'setting-global-memory',
         meta: {
           title: '全局记忆',
+          // 记忆写操作接口在管理组，读全员；页面含管理动作，按管理入口设门槛
+          menuKey: 'setting_global_memory',
         },
         component: () => import('@/views/setting/memory/global-memory.vue'),
       },

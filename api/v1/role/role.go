@@ -24,6 +24,7 @@ type RoleItem struct {
 	Name        string   `json:"name"`
 	Explain     string   `json:"explain"`
 	IsDefault   bool     `json:"isDefault"`
+	MenuIds     []int    `json:"menu_ids"`
 	MenuKeys    []string `json:"menu_keys"`
 	CreateDate  string   `json:"create_date"`
 	Status      string   `json:"status"`

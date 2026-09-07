@@ -87,6 +87,7 @@ func buildMenuListTree(menus []dbMenu, parentId int) []api.MenuListItem {
 			continue
 		}
 		item := api.MenuListItem{
+			Id:       m.Id,
 			Label:    m.Title,
 			Key:      m.Name,
 			Type:     m.Type,

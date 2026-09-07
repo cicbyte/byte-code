@@ -168,10 +168,18 @@ func (s *sAuth) getUserPermissions(ctx context.Context, userId int) []api.Permis
 		Where("m.status", 1).
 		Fields("DISTINCT m.name").
 		Scan(&rows)
-	if err != nil || len(rows) == 0 {
-		rows = []nameRow{
-			{"dashboard_console"}, {"dashboard_monitor"}, {"dashboard_workplace"},
-			{"basic_list"}, {"basic_list_delete"},
+	// 兜底集只属于「完全没有角色绑定」的账号；绑定了角色但菜单为空 = 真实空权限
+	// （角色权限页清空菜单应生效，而不是悄悄回落到基础集）
+	if err != nil {
+		rows = nil
+	}
+	if len(rows) == 0 {
+		roleCnt, _ := g.DB().Model("sys_user_roles").Where("user_id", userId).Count()
+		if roleCnt == 0 {
+			rows = []nameRow{
+				{"dashboard_console"}, {"dashboard_monitor"}, {"dashboard_workplace"},
+				{"basic_list"}, {"basic_list_delete"},
+			}
 		}
 	}
 	permissions := make([]api.PermissionItem, 0, len(rows))

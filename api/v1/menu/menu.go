@@ -39,6 +39,7 @@ type MenuListRes struct {
 }
 
 type MenuListItem struct {
+	Id       int            `json:"id"`
 	Label    string         `json:"label"`
 	Key      string         `json:"key"`
 	Type     int            `json:"type"`

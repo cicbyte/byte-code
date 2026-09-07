@@ -55,12 +55,13 @@ func (s *sRole) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 
 		list := make([]api.RoleItem, 0, len(roles))
 		for _, r := range roles {
-			menuKeys := s.getRoleMenuKeys(ctx, r.Id)
+			menuKeys, menuIds := s.getRoleMenus(ctx, r.Id)
 			list = append(list, api.RoleItem{
 				Id:         strconv.Itoa(r.Id),
 				Name:       r.Name,
 				Explain:    r.Explain,
 				IsDefault:  r.IsDefault == 1,
+				MenuIds:    menuIds,
 				MenuKeys:   menuKeys,
 				CreateDate: r.CreatedAt,
 				Status:     r.Status,
@@ -75,33 +76,35 @@ func (s *sRole) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 	return
 }
 
-func (s *sRole) getRoleMenuKeys(ctx context.Context, roleId int) []string {
-	type nameRow struct {
+// getRoleMenus 取角色绑定的菜单（names 供展示，ids 供权限树回显）
+func (s *sRole) getRoleMenus(ctx context.Context, roleId int) ([]string, []int) {
+	type row struct {
+		Id   int
 		Name string
 	}
-	var rows []nameRow
+	var rows []row
 	err := g.DB().Model("sys_menus m").
 		InnerJoin("sys_role_menus rm", "m.id = rm.menu_id").
 		Where("rm.role_id", roleId).
-		Fields("m.name").
+		Fields("m.id, m.name").
+		Order("m.id ASC").
 		Scan(&rows)
 	if err != nil || len(rows) == 0 {
-		return []string{}
+		return []string{}, []int{}
 	}
 	keys := make([]string, 0, len(rows))
-	for _, row := range rows {
-		keys = append(keys, row.Name)
+	ids := make([]int, 0, len(rows))
+	for _, r := range rows {
+		keys = append(keys, r.Name)
+		ids = append(ids, r.Id)
 	}
-	return keys
+	return keys, ids
 }
 
 func (s *sRole) Create(ctx context.Context, req *api.CreateReq) (id int, err error) {
 	// 角色名查重（唯一约束在迁移 41 已加，这里给友好提示）
 	if cnt, _ := g.DB().Model("sys_roles").Where("name", req.Name).Count(); cnt > 0 {
 		return 0, fmt.Errorf("角色名已存在")
-	}
-	if len(req.MenuIds) == 0 {
-		return 0, fmt.Errorf("请至少分配一个菜单权限")
 	}
 
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
@@ -132,6 +135,10 @@ func (s *sRole) Update(ctx context.Context, req *api.UpdateReq) (err error) {
 	// 内置角色（id=1 超管、id=2 普通用户）不可改名/禁用
 	if req.Id <= 2 && req.Name != nil {
 		return fmt.Errorf("内置角色不可修改名称")
+	}
+	// 超管角色的菜单是权限体系兜底（system_menu/system_role 直通），禁改防自锁
+	if req.Id == 1 && req.MenuIds != nil {
+		return fmt.Errorf("内置超管角色的菜单不可变更")
 	}
 
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
@@ -192,6 +199,9 @@ func (s *sRole) Delete(ctx context.Context, id int) (err error) {
 }
 
 func (s *sRole) UpdateMenus(ctx context.Context, id int, menuIds []int) (err error) {
+	if id == 1 {
+		return fmt.Errorf("内置超管角色的菜单不可变更")
+	}
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Exec("DELETE FROM sys_role_menus WHERE role_id = ?", id); err != nil {
 			return err
