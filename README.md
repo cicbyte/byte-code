@@ -87,7 +87,7 @@ bcode tasks && bcode claim 42
 bcode complete 42 --artifacts-file out.md
 ```
 
-CLI 源码 [bcode-cli](https://github.com/cicbyte/bcode-cli)（Rust）；完整协议见 [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md)。
+CLI 源码 [bcode-cli](https://github.com/cicbyte/byte-code-cli)（Rust）；完整协议见 [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md)。
 
 ## 界面一览
 
@@ -110,7 +110,7 @@ CLI 源码 [bcode-cli](https://github.com/cicbyte/bcode-cli)（Rust）；完整�
 | 后端 | Go 1.25 · GoFrame v2 · SQLite（纯 Go 驱动，零外部依赖） |
 | 前端 | Vue 3 · TypeScript · Naive UI · Pinia · Alova |
 | 部署 | 单二进制（含前端产物与迁移）/ Docker |
-| CLI | Rust（[bcode-cli](https://github.com/cicbyte/bcode-cli)） |
+| CLI | Rust（[bcode-cli](https://github.com/cicbyte/byte-code-cli)） |
 
 ## 项目结构
 
@@ -147,6 +147,14 @@ API 文档：启动后访问 [Swagger UI](http://localhost:8000/swagger)。
 ## 发版
 
 tag 驱动全自动：`git tag v0.1.0 && git push --tags`，或在 Actions 页运行 *Tag Release*（版本号按提交语义自动推导）。五平台产物 + Docker 镜像 + 分类 changelog 一次完成，零发版提交。
+
+## 相关仓库
+
+| 仓库 | 说明 |
+|---|---|
+| [byte-code](https://github.com/cicbyte/byte-code) | 平台本体（本仓库）：Go + Vue，Web 端与 REST API |
+| [byte-code-cli](https://github.com/cicbyte/byte-code-cli) | CLI（Rust）：终端工作流，Agent 与平台之间的本地桥 |
+| [byte-code-app](https://github.com/cicbyte/byte-code-app) | 移动端（Flutter）：iOS / Android 客户端 |
 
 ## 参与贡献
 

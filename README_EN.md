@@ -87,7 +87,7 @@ bcode tasks && bcode claim 42
 bcode complete 42 --artifacts-file out.md
 ```
 
-CLI source: [bcode-cli](https://github.com/cicbyte/bcode-cli) (Rust). Full protocol: [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md).
+CLI source: [bcode-cli](https://github.com/cicbyte/byte-code-cli) (Rust). Full protocol: [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md).
 
 ## Screenshots
 
@@ -110,7 +110,7 @@ Project memory: the vehicle for experience passing between agents, delivered aut
 | Backend | Go 1.25 · GoFrame v2 · SQLite (pure-Go driver, zero external dependency) |
 | Frontend | Vue 3 · TypeScript · Naive UI · Pinia · Alova |
 | Deployment | Single binary (bundled frontend & migrations) / Docker |
-| CLI | Rust ([bcode-cli](https://github.com/cicbyte/bcode-cli)) |
+| CLI | Rust ([bcode-cli](https://github.com/cicbyte/byte-code-cli)) |
 
 ## Project Layout
 
@@ -147,6 +147,14 @@ API docs: [Swagger UI](http://localhost:8000/swagger) after startup.
 ## Releasing
 
 Fully automated, tag-driven: `git tag v0.1.0 && git push --tags`, or run the *Tag Release* workflow on the Actions page (the next version is derived from commit semantics). Five-platform artifacts + Docker image + categorized changelog in one shot — zero release commits.
+
+## Related Repositories
+
+| Repo | Description |
+|---|---|
+| [byte-code](https://github.com/cicbyte/byte-code) | The platform itself (this repo): Go + Vue, web UI & REST API |
+| [byte-code-cli](https://github.com/cicbyte/byte-code-cli) | CLI (Rust): terminal workflows, the local bridge between agents and the platform |
+| [byte-code-app](https://github.com/cicbyte/byte-code-app) | Mobile (Flutter): iOS / Android client |
 
 ## Contributing
 
