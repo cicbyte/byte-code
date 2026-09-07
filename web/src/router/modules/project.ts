@@ -74,6 +74,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/reviews.vue'),
           },
           {
+            // 专题（long-task）：长时间自动执行的工程，与日常任务分池
+            path: 'topics',
+            name: `${routeName}_topics`,
+            meta: {
+              title: '专题',
+              group: '任务',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/topics.vue'),
+          },
+          {
             // 跨项目反馈收件箱：对方项目投递的线索，分析后转任务或忽略
             path: 'feedbacks',
             name: `${routeName}_feedbacks`,

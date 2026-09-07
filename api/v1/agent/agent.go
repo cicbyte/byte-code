@@ -67,10 +67,11 @@ type SessionCreateRes struct {
 	SessionId string       `json:"sessionId"`
 	Project   ProjectBrief `json:"project"`
 	// 开工包：全局+项目记忆（conventions.* 优先），与 kb_get_conventions 同口径
-	Conventions    []ConventionItem `json:"conventions"`
-	MyTasks        []TaskBrief      `json:"myTasks"`
-	PendingReviews []TaskBrief      `json:"pendingReviews"`
-	PendingFeedbacks []FeedbackBrief `json:"pendingFeedbacks" dc:"待分析跨项目反馈（阅读后 convert 建任务或 dismiss 忽略）"`
+	Conventions      []ConventionItem `json:"conventions"`
+	MyTasks          []TaskBrief      `json:"myTasks"`
+	PendingReviews   []TaskBrief      `json:"pendingReviews"`
+	PendingFeedbacks []FeedbackBrief  `json:"pendingFeedbacks" dc:"待分析跨项目反馈（阅读后 convert 建任务或 dismiss 忽略）"`
+	ActiveTopics     []TopicBrief     `json:"activeTopics" dc:"分配给本 agent 的进行中专题（bcode topic work 推进）"`
 }
 
 type ProjectBrief struct {
@@ -107,9 +108,19 @@ type AgentTasksRes struct {
 }
 
 type FeedbackBrief struct {
-	Id      int    `json:"id"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Id                int    `json:"id"`
+	Title             string `json:"title"`
+	Content           string `json:"content"`
 	SourceProjectName string `json:"sourceProjectName"`
-	SourceTaskId int    `json:"sourceTaskId"`
+	SourceTaskId      int    `json:"sourceTaskId"`
+}
+
+type TopicBrief struct {
+	Id          int    `json:"id"`
+	Title       string `json:"title"`
+	Goal        string `json:"goal"`
+	DocPath     string `json:"docPath"`
+	PhaseTotal  int    `json:"phaseTotal"`
+	PhaseDone   int    `json:"phaseDone"`
+	LastHandoff string `json:"lastHandoff"`
 }

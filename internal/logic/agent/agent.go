@@ -367,6 +367,27 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 			})
 		}
 	}
+	// 分配给本 agent 的进行中专题（长任务工作流入口）
+	res.ActiveTopics = []api.TopicBrief{}
+	tpRows, terr := g.DB().Model("topics t").Ctx(ctx).
+		Where("t.project_id", projectId).Where("t.status", "active").
+		Where("t.assignee_id", agentId).Order("t.id ASC").Limit(10).All()
+	if terr == nil {
+		for _, r := range tpRows {
+			brief := api.TopicBrief{
+				Id: r["id"].Int(), Title: r["title"].String(),
+				Goal: r["goal"].String(), DocPath: r["doc_path"].String(),
+			}
+			if ph, _ := g.DB().Model("topic_phases").Ctx(ctx).Where("topic_id", brief.Id).Fields("COUNT(*) AS c, SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) AS d").One(); !ph.IsEmpty() {
+				brief.PhaseTotal = ph["c"].Int()
+				brief.PhaseDone = ph["d"].Int()
+			}
+			if hv, _ := g.DB().Model("ai_execution_logs").Ctx(ctx).Where("topic_id", brief.Id).Where("action", "handoff").Order("id DESC").Fields("detail").Value(); hv != nil {
+				brief.LastHandoff = hv.String()
+			}
+			res.ActiveTopics = append(res.ActiveTopics, brief)
+		}
+	}
 	return res, nil
 }
 

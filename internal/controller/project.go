@@ -177,6 +177,86 @@ func (c *projectController) DismissFeedback(ctx context.Context, req *api.Feedba
 	return &api.FeedbackDismissRes{}, nil
 }
 
+func (c *projectController) CreateTopic(ctx context.Context, req *api.TopicCreateReq) (res *api.TopicCreateRes, err error) {
+	id, err := service.Project().CreateTopic(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicCreateRes{Id: id}, nil
+}
+
+func (c *projectController) ListTopics(ctx context.Context, req *api.TopicListReq) (res *api.TopicListRes, err error) {
+	return service.Project().ListTopics(ctx, req)
+}
+
+func (c *projectController) GetTopic(ctx context.Context, req *api.TopicDetailReq) (res *api.TopicDetailRes, err error) {
+	return service.Project().GetTopic(ctx, req.ProjectId, req.Id)
+}
+
+func (c *projectController) UpsertTopicPhases(ctx context.Context, req *api.TopicPhaseUpsertReq) (res *api.TopicPhaseUpsertRes, err error) {
+	err = service.Project().UpsertTopicPhases(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicPhaseUpsertRes{}, nil
+}
+
+func (c *projectController) AppendTopicPhase(ctx context.Context, req *api.TopicPhaseAddReq) (res *api.TopicPhaseAddRes, err error) {
+	id, err := service.Project().AppendTopicPhase(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicPhaseAddRes{Id: id}, nil
+}
+
+func (c *projectController) UpdateTopicPhase(ctx context.Context, req *api.TopicPhaseUpdateReq) (res *api.TopicPhaseUpdateRes, err error) {
+	err = service.Project().UpdateTopicPhase(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicPhaseUpdateRes{}, nil
+}
+
+func (c *projectController) DeleteTopicPhase(ctx context.Context, req *api.TopicPhaseDeleteReq) (res *api.TopicPhaseDeleteRes, err error) {
+	err = service.Project().DeleteTopicPhase(ctx, req.ProjectId, req.TopicId, req.PhaseId)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicPhaseDeleteRes{}, nil
+}
+
+func (c *projectController) ToggleTopicPhase(ctx context.Context, req *api.TopicPhaseToggleReq) (res *api.TopicPhaseToggleRes, err error) {
+	err = service.Project().ToggleTopicPhase(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicPhaseToggleRes{}, nil
+}
+
+func (c *projectController) ConvertTopicPhase(ctx context.Context, req *api.TopicPhaseConvertReq) (res *api.TopicPhaseConvertRes, err error) {
+	taskId, err := service.Project().ConvertTopicPhase(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicPhaseConvertRes{TaskId: taskId}, nil
+}
+
+func (c *projectController) LogTopic(ctx context.Context, req *api.TopicLogReq) (res *api.TopicLogRes, err error) {
+	err = service.Project().LogTopic(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicLogRes{}, nil
+}
+
+func (c *projectController) FinishTopic(ctx context.Context, req *api.TopicFinishReq) (res *api.TopicFinishRes, err error) {
+	err = service.Project().FinishTopic(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.TopicFinishRes{}, nil
+}
+
 func (c *projectController) BlockTask(ctx context.Context, req *api.TaskBlockReq) (res *api.TaskBlockRes, err error) {
 	err = service.Project().BlockTask(ctx, req)
 	if err != nil {

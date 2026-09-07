@@ -370,6 +370,84 @@ export function removeMember(projectId: number, userId: number) {
   return Alova.Delete(`/v1/projects/${projectId}/members/${userId}`);
 }
 
+// ==================== 专题（long-task） ====================
+
+export interface TopicPhase {
+  id: number;
+  title: string;
+  detail: string;
+  status: string;
+  assigneeId: number;
+  assigneeName: string;
+  artifacts: string;
+  taskId: number;
+  taskTitle?: string;
+  taskStatus?: string;
+  taskAssignee?: string;
+  sortOrder: number;
+}
+
+export interface TopicItem {
+  id: number;
+  title: string;
+  goal: string;
+  acceptance: string;
+  docPath: string;
+  assigneeId: number;
+  assigneeName: string;
+  status: string;
+  createdAt: string;
+  phases: TopicPhase[];
+  phaseTotal: number;
+  phaseDone: number;
+  lastHandoff: string;
+}
+
+export function getTopics(projectId: number, params?: { status?: string }) {
+  return Alova.Get<{ list: TopicItem[] }>(`/v1/projects/${projectId}/topics`, { params });
+}
+
+export function createTopic(projectId: number, data: {
+  title: string; goal?: string; acceptance?: string; docPath?: string; assigneeId?: number;
+}) {
+  return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/topics`, data);
+}
+
+export function upsertTopicPhases(projectId: number, topicId: number, phases: Array<{ title: string; detail?: string }>) {
+  return Alova.Post(`/v1/projects/${projectId}/topics/${topicId}/phases`, { phases });
+}
+
+export function updateTopicPhase(
+  projectId: number, topicId: number, phaseId: number,
+  data: { title?: string; detail?: string; assigneeId?: number; artifacts?: string },
+) {
+  return Alova.Put(`/v1/projects/${projectId}/topics/${topicId}/phases/${phaseId}`, data);
+}
+
+export function deleteTopicPhase(projectId: number, topicId: number, phaseId: number) {
+  return Alova.Delete(`/v1/projects/${projectId}/topics/${topicId}/phases/${phaseId}`);
+}
+
+export function appendTopicPhase(projectId: number, topicId: number, title: string, detail?: string) {
+  return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/topics/${topicId}/phases/add`, { title, detail });
+}
+
+export function toggleTopicPhase(projectId: number, topicId: number, phaseId: number, status: string) {
+  return Alova.Post(`/v1/projects/${projectId}/topics/${topicId}/phases/${phaseId}/toggle`, { status });
+}
+
+export function convertTopicPhase(projectId: number, topicId: number, phaseId: number) {
+  return Alova.Post<{ taskId: number }>(`/v1/projects/${projectId}/topics/${topicId}/phases/${phaseId}/convert`, {});
+}
+
+export function logTopic(projectId: number, topicId: number, action: 'progress' | 'handoff', detail: string) {
+  return Alova.Post(`/v1/projects/${projectId}/topics/${topicId}/log`, { action, detail });
+}
+
+export function finishTopic(projectId: number, topicId: number, result: 'completed' | 'abandoned') {
+  return Alova.Post(`/v1/projects/${projectId}/topics/${topicId}/finish`, { result });
+}
+
 // ==================== 跨项目反馈 ====================
 
 export interface FeedbackItem {
