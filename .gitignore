@@ -185,3 +185,6 @@ rewrite.json
 .zcode/
 backup/
 avatars/
+
+# 本机 dev 覆盖配置（优先级高于 manifest/config；产品默认端口等勿改那里）
+/config.yaml
