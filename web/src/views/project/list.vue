@@ -38,6 +38,7 @@
             <n-card hoverable size="small" @click="handleDetail(item)" style="cursor: pointer">
               <template #header>
                 <span class="font-medium">{{ item.name }}</span>
+                <n-tag size="tiny" :bordered="false" class="ml-2" style="font-family: monospace">{{ item.code }}</n-tag>
               </template>
               <template #header-extra>
                 <n-tag :type="item.status === 1 ? 'success' : 'default'" size="small">

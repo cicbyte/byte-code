@@ -52,6 +52,7 @@ type ProjectListRes struct {
 
 type ProjectItem struct {
 	Id          int    `json:"id"`
+	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	CreatedBy   int    `json:"createdBy"`

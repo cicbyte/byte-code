@@ -42,6 +42,7 @@ type JoinReq struct {
 type JoinRes struct {
 	g.Meta      `mime:"application/json"`
 	ProjectId   int    `json:"projectId"`
+	ProjectCode string `json:"projectCode" dc:"项目短码（.bc/project 用它指向，跨环境稳定）"`
 	ProjectName string `json:"projectName"`
 }
 
@@ -58,8 +59,10 @@ type AgentRemoveRes struct {
 // ==================== 工作会话 ====================
 
 type SessionCreateReq struct {
-	g.Meta    `path:"/agent/sessions" method:"post" tags:"Agent接入" summary:"建立工作会话（开工包；键=agent+project，复用续期）"`
-	ProjectId int `json:"projectId" v:"required#项目ID不能为空" dc:"来自 join 返回或 .bc/project 指向"`
+	g.Meta `path:"/agent/sessions" method:"post" tags:"Agent接入" summary:"建立工作会话（开工包；键=agent+project，复用续期）"`
+	// 标识项目二选一：code 优先（跨环境稳定），id 兼容旧客户端
+	ProjectCode string `json:"projectCode" dc:"项目短码（推荐：.bc/project 的 code 指向）"`
+	ProjectId   int    `json:"projectId" dc:"项目数字 id（兼容旧客户端；与 projectCode 二选一）"`
 }
 
 type SessionCreateRes struct {
@@ -76,6 +79,7 @@ type SessionCreateRes struct {
 
 type ProjectBrief struct {
 	Id   int    `json:"id"`
+	Code string `json:"code"`
 	Name string `json:"name"`
 }
 

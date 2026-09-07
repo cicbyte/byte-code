@@ -2,6 +2,8 @@ package project
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
@@ -27,6 +29,23 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 		return 0, fmt.Errorf("项目名称已存在")
 	}
 
+	// 生成项目短码（8 位小写十六进制，UNIQUE 冲突重试）
+	code := ""
+	for i := 0; i < 5; i++ {
+		b := make([]byte, 4)
+		if _, e := rand.Read(b); e != nil {
+			return 0, fmt.Errorf("生成项目 code 失败")
+		}
+		candidate := hex.EncodeToString(b)
+		if cnt, _ := g.DB().Model("projects").Ctx(ctx).Where("code", candidate).Count(); cnt == 0 {
+			code = candidate
+			break
+		}
+	}
+	if code == "" {
+		return 0, fmt.Errorf("项目 code 生成冲突，请重试")
+	}
+
 	// 开启事务
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// 创建项目
@@ -35,6 +54,7 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 			"description": req.Description,
 			"created_by":  uid,
 			"status":      1,
+			"code":        code,
 		})
 		if err != nil {
 			return liberr.WrapDb(ctx, err, "创建项目失败")
@@ -153,7 +173,7 @@ func (s *sProject) GetProject(ctx context.Context, id int) (res *api.ProjectDeta
 	var item api.ProjectItem
 	err = g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
-		Fields("p.id, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at").
+		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at").
 		Where("p.id", id).
 		Scan(&item)
 	if err != nil {
@@ -198,7 +218,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	// 数据查询
 	m := g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
-		Fields("p.id, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
+		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
 	if memberOnly {
 		m = m.Where(
 			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)

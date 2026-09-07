@@ -5,6 +5,7 @@ import { Alova } from '@/utils/http/alova/index';
 /** 项目 */
 export interface ProjectItem {
   id: number;
+  code: string;
   name: string;
   description: string;
   createdBy: number;

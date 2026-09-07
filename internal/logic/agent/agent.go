@@ -235,15 +235,27 @@ func Join(ctx context.Context, code string) (*api.JoinRes, error) {
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "加入项目失败")
 	}
-	pname, _ := g.DB().Model("projects").Ctx(ctx).Where("id", projectId).Value("name")
-	return &api.JoinRes{ProjectId: projectId, ProjectName: pname.String()}, nil
+	prow, _ := g.DB().Model("projects").Ctx(ctx).Where("id", projectId).Fields("name, code").One()
+	return &api.JoinRes{ProjectId: projectId, ProjectCode: prow["code"].String(), ProjectName: prow["name"].String()}, nil
 }
 
 // ==================== 工作会话 ====================
 
-// SessionCreate 建立/复用会话（键=agent+project）并返回开工包
+// SessionCreate 建立/复用会话（键=agent+project）并返回开工包。
+// 项目标识：code 优先（跨环境稳定），数字 id 兼容
 func SessionCreate(ctx context.Context, req *api.SessionCreateReq) (*api.SessionCreateRes, error) {
 	agentId := perm.UserId(ctx)
+	// 解析项目：code → id
+	if req.ProjectCode != "" {
+		v, err := g.DB().Model("projects").Ctx(ctx).Where("code", req.ProjectCode).Fields("id").Value()
+		if err != nil || v == nil {
+			return nil, fmt.Errorf("项目 code 不存在：%s", req.ProjectCode)
+		}
+		req.ProjectId = v.Int()
+	}
+	if req.ProjectId <= 0 {
+		return nil, fmt.Errorf("projectId 或 projectCode 必须提供一个")
+	}
 
 	// 准入校验（不经会话实时判定）
 	bound, err := g.DB().Model("agent_project_bindings").Ctx(ctx).
@@ -291,12 +303,14 @@ func SessionCreate(ctx context.Context, req *api.SessionCreateReq) (*api.Session
 
 // buildContextPack 开工包：项目 + 全局/项目约定 + 我的任务 + 我提交的待审
 func buildContextPack(ctx context.Context, agentId, projectId int) (*api.SessionCreateRes, error) {
-	pname, err := g.DB().Model("projects").Ctx(ctx).Where("id", projectId).Value("name")
-	if err != nil {
-		return nil, liberr.WrapDb(ctx, err, "查询项目失败")
+	prow, perr := g.DB().Model("projects").Ctx(ctx).Where("id", projectId).Fields("name, code").One()
+	if perr != nil || prow.IsEmpty() {
+		return nil, fmt.Errorf("查询项目失败")
 	}
+	pname := prow["name"].String()
+	pcode := prow["code"].String()
 	res := &api.SessionCreateRes{
-		Project: api.ProjectBrief{Id: projectId, Name: pname.String()},
+		Project: api.ProjectBrief{Id: projectId, Code: pcode, Name: pname},
 	}
 
 	// 约定：全局 conventions.* + 项目全部记忆（与 kb_get_conventions 同口径，
