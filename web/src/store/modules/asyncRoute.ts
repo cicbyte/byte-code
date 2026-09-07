@@ -53,14 +53,21 @@ export const useAsyncRouteStore = defineStore({
         (userStore.permissions || []).map((p: any) => p?.value || p)
       );
       // 超管（拥有 system_menu 或 system_role 权限）看全部；
-      // 普通用户按 meta.menuKey 过滤；无 menuKey 的路由（项目工作台等）始终可见
+      // 普通用户按 meta.menuKey 过滤（顶级与子级同规则）；无 menuKey 的路由始终可见
       const isAdmin = perms.has('system_menu') || perms.has('system_role');
+      const hasPerm = (meta: any) => {
+        const key = meta?.menuKey as string | undefined;
+        return !key || perms.has(key);
+      };
       const visible = isAdmin
         ? asyncRoutes
-        : asyncRoutes.filter((route) => {
-            const key = route.meta?.menuKey as string | undefined;
-            return !key || perms.has(key);
-          });
+        : asyncRoutes
+            .filter((route) => hasPerm(route.meta))
+            .map((route) => {
+              if (!route.children?.length) return route;
+              const children = route.children.filter((c) => hasPerm(c.meta));
+              return { ...route, children };
+            });
       this.setRouters(visible);
       this.setMenus(visible);
       return toRaw(visible);

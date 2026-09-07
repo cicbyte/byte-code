@@ -16,34 +16,34 @@
           <thead>
             <tr>
               <th class="col-idx">#</th>
-            <th>用户名</th>
-              <th>姓名</th>
-              <th>能力</th>
-              <th>接入项目</th>
-              <th>状态</th>
-              <th>创建时间</th>
-              <th>操作</th>
+            <th>账号</th>
+            <th>名称</th>
+            <th>能力描述</th>
+            <th>接入项目</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(item, __ix) in userList" :key="item.id">
               <td class="col-idx">{{ __ix + 1 }}</td>
-            <td>{{ item.username }}</td>
-              <td>{{ item.realName || '-' }}</td>
-              <td>{{ item.capabilities || '-' }}</td>
-              <td>
+            <td><span class="agent-account">{{ item.username }}</span></td>
+            <td>{{ item.realName || '-' }}</td>
+            <td>{{ item.capabilities || '-' }}</td>
+            <td>
                 <n-space :size="4">
                   <n-tag v-for="pn in item.projects || []" :key="pn" size="small" :bordered="false">{{ pn }}</n-tag>
                   <span v-if="!(item.projects || []).length" class="text-gray-400">-</span>
                 </n-space>
               </td>
-              <td>
+            <td>
                 <n-tag :type="USER_STATUS.tagType(item.status)" size="small">
                   {{ USER_STATUS.label(item.status) }}
                 </n-tag>
               </td>
-              <td>{{ item.createdAt }}</td>
-              <td>
+            <td>{{ item.createdAt }}</td>
+            <td>
                 <n-space size="small">
                   <n-button text type="info" @click="handleEdit(item)">编辑</n-button>
                   <n-button text type="warning" @click="handleResetKey(item)">重置 Key</n-button>
@@ -60,18 +60,18 @@
     <n-modal
       v-model:show="showModal"
       preset="dialog"
-      :title="isEdit ? '编辑 AI 用户' : '创建 Agent'"
+      :title="isEdit ? '编辑 Agent' : '创建 Agent'"
       positive-text="确定"
       negative-text="取消"
       @positive-click="handleSubmit"
       style="width: 520px"
     >
       <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="left" :label-width="80" class="py-4">
-        <n-form-item label="用户名" path="username">
-          <n-input v-model:value="formData.username" placeholder="请输入用户名" :disabled="isEdit" />
+        <n-form-item label="账号" path="username">
+          <n-input v-model:value="formData.username" placeholder="请输入账号（如 agent-zcode）" :disabled="isEdit" />
         </n-form-item>
-        <n-form-item label="姓名" path="realName">
-          <n-input v-model:value="formData.realName" placeholder="请输入姓名" />
+        <n-form-item label="名称" path="realName">
+          <n-input v-model:value="formData.realName" placeholder="请输入名称" />
         </n-form-item>
         <n-form-item label="能力描述" path="capabilities">
           <n-input v-model:value="formData.capabilities" type="textarea" placeholder="请输入能力描述" :rows="3" />
@@ -123,7 +123,7 @@
 
   const formData = reactive({ username: '', realName: '', capabilities: '' });
   const formRules = {
-    username: { required: true, message: '请输入用户名', trigger: 'blur' },
+    username: { required: true, message: '请输入账号', trigger: 'blur' },
   };
 
   async function loadData() {
@@ -241,3 +241,11 @@
     loadData();
   });
 </script>
+
+<style lang="less" scoped>
+  // 账号列走等宽字体：与项目 code 徽章同思路，标识类字段更易读
+  .agent-account {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 13px;
+  }
+</style>

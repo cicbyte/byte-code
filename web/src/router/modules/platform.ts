@@ -47,10 +47,28 @@ const routes: Array<RouteRecordRaw> = [
         name: `${routeName}_audit`,
         meta: {
           title: '审计日志',
+          // 审计接口在管理组（MiddlewareAdminAuth），菜单同步设门槛
+          menuKey: 'platform_audit',
         },
         component: () => import('@/views/platform/audit.vue'),
       },
+      {
+        // Agent 账号（bc_ Key 外部代理）：平台级管理入口，接口在管理组
+        path: 'agents',
+        name: `${routeName}_agents`,
+        meta: {
+          title: 'Agent 账号',
+          menuKey: 'ai_users',
+        },
+        component: () => import('@/views/platform/agents.vue'),
+      },
     ],
+  },
+  // 兼容旧地址 /ai-manage/users -> /platform/agents
+  {
+    path: '/ai-manage/:pathMatch(.*)',
+    redirect: '/platform/agents',
+    meta: { hideInMenu: true, title: 'Agent 账号' },
   },
 ];
 

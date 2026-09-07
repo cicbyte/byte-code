@@ -2,7 +2,7 @@ import { Alova } from '@/utils/http/alova/index';
 
 // ==================== 类型定义 ====================
 
-/** AI 用户 */
+/** Agent 账号 */
 export interface AiUserItem {
   id: number;
   username: string;
@@ -40,24 +40,24 @@ export interface AiLoginData {
   apiKey: string;
 }
 
-// ==================== AI 用户 API ====================
+// ==================== Agent 账号 API ====================
 
-/** AI 用户列表 */
+/** Agent 账号列表 */
 export function getAiUsers(params?: AiUserListParams) {
   return Alova.Get<AiUserListResult>('/v1/ai-users', { params });
 }
 
-/** 创建 AI 用户 */
+/** 创建 Agent */
 export function createAiUser(data: AiUserCreateData) {
   return Alova.Post<{ id: number; apiKey: string }>('/v1/ai-users', data);
 }
 
-/** 更新 AI 用户 */
+/** 更新 Agent */
 export function updateAiUser(id: number, data: AiUserUpdateData) {
   return Alova.Put(`/v1/ai-users/${id}`, data);
 }
 
-/** 删除 AI 用户 */
+/** 删除 Agent */
 export function deleteAiUser(id: number) {
   return Alova.Delete(`/v1/ai-users/${id}`);
 }
@@ -67,5 +67,5 @@ export function resetAiUserKey(id: number) {
   return Alova.Post<{ apiKey: string }>(`/v1/ai-users/${id}/reset-key`);
 }
 
-// ==================== AI 认证 API ====================
+// ==================== Agent 认证 API ====================
 
