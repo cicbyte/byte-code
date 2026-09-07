@@ -58,6 +58,12 @@ func (s *sUser) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 		return nil, liberr.WrapDb(ctx, err, "获取用户列表失败")
 	}
 
+	ids := make([]int, 0, len(users))
+	for _, u := range users {
+		ids = append(ids, u.Id)
+	}
+	roleMap := s.loadUserRoles(ctx, ids)
+
 	for _, u := range users {
 		res.List = append(res.List, api.Item{
 			Id:        u.Id,
@@ -66,10 +72,38 @@ func (s *sUser) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 			Email:     u.Email,
 			Type:      u.Type,
 			Status:    u.Status,
+			Roles:     roleMap[u.Id],
 			CreatedAt: u.CreatedAt,
 		})
 	}
 	return res, nil
+}
+
+// loadUserRoles 批量取用户的角色绑定（避免逐行 N+1；无绑定时返回空 map，
+// Item.Roles 序列化为 null，前端按 '-' 兜底）
+func (s *sUser) loadUserRoles(ctx context.Context, userIds []int) map[int][]api.RoleBrief {
+	roleMap := make(map[int][]api.RoleBrief)
+	if len(userIds) == 0 {
+		return roleMap
+	}
+	var rows []struct {
+		UserId int
+		Id     int
+		Name   string
+	}
+	err := g.DB().Model("sys_user_roles ur").Ctx(ctx).
+		InnerJoin("sys_roles r", "r.id = ur.role_id").
+		Where("ur.user_id IN (?)", userIds).
+		Fields("ur.user_id, r.id, r.name").
+		Order("r.id ASC").
+		Scan(&rows)
+	if err != nil {
+		return roleMap
+	}
+	for _, row := range rows {
+		roleMap[row.UserId] = append(roleMap[row.UserId], api.RoleBrief{Id: row.Id, Name: row.Name})
+	}
+	return roleMap
 }
 
 func (s *sUser) Create(ctx context.Context, req *api.CreateReq) (id int, err error) {
@@ -87,6 +121,11 @@ func (s *sUser) Create(ctx context.Context, req *api.CreateReq) (id int, err err
 		return 0, fmt.Errorf("密码加密失败")
 	}
 
+	roleIds, err := s.normalizeRoleIds(ctx, req.RoleIds)
+	if err != nil {
+		return 0, err
+	}
+
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		result, err := tx.Exec(
 			"INSERT INTO sys_users (username, password, real_name, email, type, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'human', 1, ?, ?)",
@@ -100,7 +139,7 @@ func (s *sUser) Create(ctx context.Context, req *api.CreateReq) (id int, err err
 		id = int(lastId)
 
 		// 绑定角色
-		for _, roleId := range req.RoleIds {
+		for _, roleId := range roleIds {
 			if _, err := tx.Exec("INSERT INTO sys_user_roles (user_id, role_id) VALUES (?, ?)", id, roleId); err != nil {
 				return err
 			}
@@ -117,6 +156,18 @@ func (s *sUser) Update(ctx context.Context, req *api.UpdateReq) (err error) {
 	// 不能禁用/删除 id=1 的超管
 	if req.Id == 1 && req.Status != nil && *req.Status == 0 {
 		return fmt.Errorf("不能禁用内置管理员账号")
+	}
+	// 内置管理员是权限体系的兜底出口，角色绑定不允许变更（防止误操作自锁）
+	if req.Id == 1 && req.RoleIds != nil {
+		return fmt.Errorf("内置管理员的角色不可变更")
+	}
+
+	var roleIds []int
+	if req.RoleIds != nil {
+		roleIds, err = s.normalizeRoleIds(ctx, req.RoleIds)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
@@ -139,7 +190,7 @@ func (s *sUser) Update(ctx context.Context, req *api.UpdateReq) (err error) {
 			if _, err := tx.Exec("DELETE FROM sys_user_roles WHERE user_id = ?", req.Id); err != nil {
 				return err
 			}
-			for _, roleId := range req.RoleIds {
+			for _, roleId := range roleIds {
 				if _, err := tx.Exec("INSERT INTO sys_user_roles (user_id, role_id) VALUES (?, ?)", req.Id, roleId); err != nil {
 					return err
 				}
@@ -151,6 +202,33 @@ func (s *sUser) Update(ctx context.Context, req *api.UpdateReq) (err error) {
 		return liberr.WrapDb(ctx, err, "更新用户失败")
 	}
 	return nil
+}
+
+// normalizeRoleIds 校验并去重角色 id（绑定前把关，避免脏 id 进关联表）
+func (s *sUser) normalizeRoleIds(ctx context.Context, roleIds []int) ([]int, error) {
+	if len(roleIds) == 0 {
+		return nil, nil
+	}
+	seen := make(map[int]bool, len(roleIds))
+	uniq := make([]int, 0, len(roleIds))
+	for _, id := range roleIds {
+		if id <= 0 || seen[id] {
+			continue
+		}
+		seen[id] = true
+		uniq = append(uniq, id)
+	}
+	if len(uniq) == 0 {
+		return nil, nil
+	}
+	cnt, err := g.DB().Model("sys_roles").Ctx(ctx).Where("id IN (?)", uniq).Count()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询角色失败")
+	}
+	if int(cnt) != len(uniq) {
+		return nil, fmt.Errorf("包含不存在的角色")
+	}
+	return uniq, nil
 }
 
 func (s *sUser) ResetPassword(ctx context.Context, req *api.ResetPasswordReq) (err error) {

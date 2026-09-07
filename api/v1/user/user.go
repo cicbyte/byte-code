@@ -18,14 +18,21 @@ type ListRes struct {
 	Size  int    `json:"size"`
 }
 
+// RoleBrief 用户列表内嵌的角色摘要（角色分配入口用）
+type RoleBrief struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
 type Item struct {
-	Id        int    `json:"id"`
-	Username  string `json:"username"`
-	RealName  string `json:"realName"`
-	Email     string `json:"email"`
-	Type      string `json:"type"`
-	Status    int    `json:"status"`
-	CreatedAt string `json:"createdAt"`
+	Id        int         `json:"id"`
+	Username  string      `json:"username"`
+	RealName  string      `json:"realName"`
+	Email     string      `json:"email"`
+	Type      string      `json:"type"`
+	Status    int         `json:"status"`
+	Roles     []RoleBrief `json:"roles"`
+	CreatedAt string      `json:"createdAt"`
 }
 
 type CreateReq struct {

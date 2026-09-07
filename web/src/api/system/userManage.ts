@@ -2,6 +2,11 @@ import { Alova } from '@/utils/http/alova/index';
 
 // ==================== 类型定义 ====================
 
+export interface UserRoleBrief {
+  id: number;
+  name: string;
+}
+
 export interface UserItem {
   id: number;
   username: string;
@@ -9,6 +14,7 @@ export interface UserItem {
   email: string;
   type: string;
   status: number;
+  roles?: UserRoleBrief[];
   createdAt: string;
 }
 

@@ -25,19 +25,26 @@
             <tr>
               <th class="col-idx">#</th>
             <th>用户名</th>
-              <th>姓名</th>
-              <th>邮箱</th>
-              <th>状态</th>
-              <th>创建时间</th>
-              <th style="width: 160px">操作</th>
-            </tr>
+            <th>姓名</th>
+            <th>邮箱</th>
+            <th>角色</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th style="width: 160px">操作</th>
+          </tr>
           </thead>
           <tbody>
             <tr v-for="(item, __ix) in users" :key="item.id">
               <td class="col-idx">{{ __ix + 1 }}</td>
-            <td class="font-medium">{{ item.username }}</td>
+              <td class="font-medium">{{ item.username }}</td>
               <td>{{ item.realName || '-' }}</td>
               <td>{{ item.email || '-' }}</td>
+              <td>
+                <n-space :size="4" v-if="(item.roles || []).length">
+                  <n-tag v-for="r in item.roles" :key="r.id" size="small" :bordered="false" type="info">{{ r.name }}</n-tag>
+                </n-space>
+                <span v-else class="text-gray-400">-</span>
+              </td>
               <td>
                 <n-tag :type="USER_STATUS.tagType(item.status)" size="small">
                   {{ USER_STATUS.label(item.status) }}
@@ -103,6 +110,16 @@
         <n-form-item label="邮箱" path="email">
           <n-input v-model:value="form.email" placeholder="请输入邮箱" />
         </n-form-item>
+        <n-form-item label="角色" path="roleIds">
+          <n-select
+            v-model:value="form.roleIds"
+            multiple
+            clearable
+            :options="roleOptions"
+            placeholder="选择角色（决定可见菜单，可多选）"
+            :disabled="isEdit && editId === 1"
+          />
+        </n-form-item>
       </n-form>
       <template #action>
         <n-space>
@@ -152,6 +169,7 @@
     deleteUser,
   } from '@/api/system/userManage';
   import type { UserItem } from '@/api/system/userManage';
+  import { getRoleList } from '@/api/system/role';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -167,7 +185,20 @@
   const isEdit = ref(false);
   const editId = ref<number | null>(null);
   const formRef = ref();
-  const form = ref({ username: '', password: '', realName: '', email: '' });
+  const form = ref({ username: '', password: '', realName: '', email: '', roleIds: [] as number[] });
+  // 打开编辑时的初始角色快照：只在变更时提交 roleIds，避免无关保存触发全量重绑
+  const initialRoleIds = ref<number[]>([]);
+  // 角色选项（含禁用角色也列出：已绑用户可正常回显，避免保存时静默丢角色）
+  const roleOptions = ref<{ label: string; value: number }[]>([]);
+
+  async function loadRoleOptions() {
+    try {
+      const res = await getRoleList({ pageNum: 1, pageSize: 100 });
+      roleOptions.value = (res?.list || []).map((r: any) => ({ label: r.name, value: Number(r.id) }));
+    } catch {
+      // 选项加载失败不阻塞页面；提交时 roleIds 仅在变更且已回显基础上发送
+    }
+  }
 
   const showResetPwd = ref(false);
   const resetPwdId = ref<number | null>(null);
@@ -220,7 +251,8 @@
   function openCreate() {
     isEdit.value = false;
     editId.value = null;
-    form.value = { username: '', password: '', realName: '', email: '' };
+    form.value = { username: '', password: '', realName: '', email: '', roleIds: [] };
+    initialRoleIds.value = [];
     showModal.value = true;
   }
 
@@ -232,8 +264,16 @@
       password: '',
       realName: item.realName || '',
       email: item.email || '',
+      roleIds: (item.roles || []).map((r) => r.id),
     };
+    initialRoleIds.value = [...form.value.roleIds];
     showModal.value = true;
+  }
+
+  function rolesChanged() {
+    const a = [...initialRoleIds.value].sort();
+    const b = [...form.value.roleIds].sort();
+    return a.length !== b.length || a.some((v, i) => v !== b[i]);
   }
 
   async function handleSubmit() {
@@ -247,9 +287,10 @@
     submitting.value = true;
     try {
       if (isEdit.value && editId.value) {
-        const data: Record<string, string> = {};
+        const data: Record<string, unknown> = {};
         if (form.value.realName !== '') data.realName = form.value.realName;
         if (form.value.email !== '') data.email = form.value.email;
+        if (editId.value !== 1 && rolesChanged()) data.roleIds = form.value.roleIds;
         await updateUser(editId.value, data);
         message.success('更新成功');
       } else {
@@ -258,6 +299,7 @@
           password: form.value.password,
           realName: form.value.realName || undefined,
           email: form.value.email || undefined,
+          roleIds: form.value.roleIds,
         });
         message.success('创建成功');
       }
@@ -322,5 +364,8 @@
     });
   }
 
-  onMounted(loadUsers);
+  onMounted(() => {
+    loadUsers();
+    loadRoleOptions();
+  });
 </script>
