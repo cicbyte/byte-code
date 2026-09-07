@@ -176,7 +176,7 @@ func (s *sProject) GetProject(ctx context.Context, id int) (res *api.ProjectDeta
 		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at").
 		Where("p.id", id).
 		Scan(&item)
-	if err != nil {
+	if err != nil && !isNoRows(err) {
 		return nil, liberr.WrapDb(ctx, err, "查询项目失败")
 	}
 	if item.Id == 0 {

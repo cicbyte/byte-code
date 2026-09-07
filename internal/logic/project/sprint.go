@@ -103,7 +103,7 @@ func (s *sProject) GetSprint(ctx context.Context, id int) (res *api.SprintDetail
 	err = g.DB().Model("sprints").Ctx(ctx).
 		Where("id", id).
 		Scan(&item)
-	if err != nil {
+	if err != nil && !isNoRows(err) {
 		return nil, liberr.WrapDb(ctx, err, "查询Sprint失败")
 	}
 	if item.Id == 0 {

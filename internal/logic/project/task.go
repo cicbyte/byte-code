@@ -280,11 +280,11 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
 		Where("t.id", id).
 		Scan(&item)
-	if err != nil {
+	if err != nil && !isNoRows(err) {
 		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
 	}
 	if item.Id == 0 {
-		return nil, fmt.Errorf("任务不存在")
+		return nil, fmt.Errorf("任务不存在（可能已被删除）")
 	}
 	// 标签回填（与列表口径一致）
 	item.Tags = taskTagNames(ctx, id)

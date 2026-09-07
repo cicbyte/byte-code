@@ -110,7 +110,7 @@ func (s *sProject) GetRequirement(ctx context.Context, id int) (res *api.Require
 		Fields("r.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
 		Where("r.id", id).
 		Scan(&item)
-	if err != nil {
+	if err != nil && !isNoRows(err) {
 		return nil, liberr.WrapDb(ctx, err, "查询需求失败")
 	}
 	if item.Id == 0 {
