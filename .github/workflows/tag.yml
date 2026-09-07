@@ -1,13 +1,15 @@
 name: Tag Release
 
-# 一键发版入口：无需本地查 tag/打 tag——版本号由 git-cliff 按提交语义
-# 自动推导（有 feat → minor，仅 fix/chore → patch），也支持显式指定。
-# tag 推送后自动触发 release.yml 与 docker-image.yml 完成构建发布。
+# 一键发版入口：版本号由 git-cliff 按提交语义自动推导（feat→minor，仅
+# fix/chore→patch），也支持显式指定。
+# ⚠ GITHUB_TOKEN 推送的 tag 不会触发 on:push:tags 工作流（GitHub 防递归，
+# bcode-cli v0.1.0 实测踩坑）——因此本工作流在打完 tag 后用 gh 显式
+# dispatch release.yml 与 docker-image.yml，不依赖 tag push 触发。
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号：留空=自动推导；或填 patch/minor/major 强制档位；或直接给完整版本号如 1.2.0（不带 v）'
+        description: '版本号：留空=自动推导；或填 patch/minor/major 强制档位；或完整版本号如 1.2.0（不带 v）'
         required: false
         default: ''
 
@@ -16,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write  # 显式 dispatch 其他工作流必需（403: Resource not accessible by integration）
 
     steps:
       - uses: actions/checkout@v6
@@ -33,17 +36,17 @@ jobs:
         run: |
           INPUT="${{ github.event.inputs.version }}"
           if [ -z "$INPUT" ]; then
-            # 按提交语义自动推导
             V=$(git-cliff --bumped-version 2>/dev/null | tr -d '[:space:]')
           elif echo "$INPUT" | grep -qE '^(patch|minor|major)$'; then
             V=$(git-cliff --bump "$INPUT" --bumped-version | tr -d '[:space:]')
           else
             V="$INPUT"
           fi
+          # 部分版本 git-cliff 输出带 v 前缀，统一剥掉防拼出 vv*（bcode-cli 实测坑）
+          V=${V#v}
           if [ -z "$V" ]; then
             echo "无法确定版本号（可能是首个 tag，请显式填写 version）" && exit 1
           fi
-          # 防 dedup：目标 tag 已存在则拒绝
           if git rev-parse "v$V" >/dev/null 2>&1; then
             echo "tag v$V 已存在，拒绝重复发版" && exit 1
           fi
@@ -56,3 +59,18 @@ jobs:
           git config user.email "release-bot@users.noreply.github.com"
           git tag -a "v${{ steps.ver.outputs.VERSION }}" -m "release v${{ steps.ver.outputs.VERSION }}"
           git push origin "v${{ steps.ver.outputs.VERSION }}"
+
+      # GITHUB_TOKEN 的 tag push 不触发下游工作流，显式 dispatch 接续发版链
+      - name: Trigger Release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 5  # 等 tag 推送传播
+          gh workflow run release.yml --ref master -f tag="v${{ steps.ver.outputs.VERSION }}"
+
+      - name: Trigger Docker workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 3
+          gh workflow run docker-image.yml --ref master -f tag="v${{ steps.ver.outputs.VERSION }}"
