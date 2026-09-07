@@ -18,6 +18,8 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			group.Bind(
 				controller.Auth.Login,
 				controller.AiUserCtrl.AiLogin,
+				// 头像文件直读（<img> 无法携带认证头；头像属非敏感展示数据）
+				controller.Setting.Avatar,
 			)
 			// Agent 自助注册（纯身份零权限；公开是有意的——权限由项目接入码把关）
 			group.Group("/v1", func(group *ghttp.RouterGroup) {
@@ -40,6 +42,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			controller.DashboardCtrl.Console,
 			controller.Setting.GetProfile,
 			controller.Setting.UpdateProfile,
+			controller.Setting.UpdateAvatar,
 			controller.Setting.ChangePassword,
 		)
 

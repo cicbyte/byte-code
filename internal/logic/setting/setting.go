@@ -3,7 +3,13 @@ package setting
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
+	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/setting"
 	aiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
@@ -57,6 +63,104 @@ func (s *sSetting) UpdateProfile(ctx context.Context, req *api.UpdateProfileReq)
 	if err != nil {
 		return fmt.Errorf("更新失败")
 	}
+	return nil
+}
+
+// ==================== 头像 ====================
+
+// 头像落盘目录（与 jwt.secret 同属 resource/data，属运行期数据不进 git）
+const avatarDir = "resource/data/avatars"
+
+// avatarExts 允许的图片扩展名 -> Content-Type（白名单同时防目录穿越：文件名由此拼出）
+var avatarExts = map[string]string{
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".webp": "image/webp",
+}
+
+// avatarNameRe 合法头像文件名：{userId}_{unix秒}.{ext}——读取端据此校验，
+// 拒绝任何路径片段，天然免疫 ../ 穿越
+var avatarNameRe = regexp.MustCompile(`^[1-9]\d*_\d+\.(png|jpg|jpeg|gif|webp)$`)
+
+const avatarMaxSize = 2 << 20 // 2MB
+
+func (s *sSetting) UpdateAvatar(ctx context.Context, req *api.UpdateAvatarReq) (res *api.UpdateAvatarRes, err error) {
+	userId := ctx.Value("userId")
+	if userId == nil {
+		return nil, fmt.Errorf("未获取到用户信息")
+	}
+	uid, _ := strconv.Atoi(fmt.Sprintf("%v", userId))
+	if uid <= 0 {
+		return nil, fmt.Errorf("未获取到用户信息")
+	}
+	f := req.File
+	if f == nil {
+		return nil, fmt.Errorf("请选择头像图片")
+	}
+	ext := strings.ToLower(filepath.Ext(f.Filename))
+	if _, ok := avatarExts[ext]; !ok {
+		return nil, fmt.Errorf("仅支持 png/jpg/jpeg/gif/webp 格式")
+	}
+	if f.Size > avatarMaxSize {
+		return nil, fmt.Errorf("头像不能超过 2MB")
+	}
+
+	if err := os.MkdirAll(avatarDir, 0o755); err != nil {
+		return nil, fmt.Errorf("创建头像目录失败")
+	}
+	name := fmt.Sprintf("%d_%d%s", uid, time.Now().UnixNano(), ext)
+	dst := filepath.Join(avatarDir, name)
+	// 不用 UploadFile.Save：gf 会把不存在的目标路径当目录建出来（实测生成
+	// "1_x.png/me.png"），手动读流落盘路径完全可控
+	src, err := f.Open()
+	if err != nil {
+		return nil, fmt.Errorf("读取上传文件失败")
+	}
+	defer src.Close()
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return nil, fmt.Errorf("读取上传文件失败")
+	}
+	if err := os.WriteFile(dst, data, 0o644); err != nil {
+		return nil, fmt.Errorf("保存头像失败")
+	}
+	// 同用户旧头像文件清理（前缀精确到 "{uid}_"，不误删他人）
+	if entries, err := os.ReadDir(avatarDir); err == nil {
+		prefix := fmt.Sprintf("%d_", uid)
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), prefix) && e.Name() != name {
+				_ = os.Remove(filepath.Join(avatarDir, e.Name()))
+			}
+		}
+	}
+	url := fmt.Sprintf("/api/account/avatar/%d/%s", uid, name)
+	if _, err := g.DB().Model("sys_users").Where("id", uid).Data("avatar", url).Update(); err != nil {
+		return nil, fmt.Errorf("更新头像失败")
+	}
+	return &api.UpdateAvatarRes{Avatar: url}, nil
+}
+
+// ServeAvatar 头像文件直出。URL 含时间戳版本号（同 URL 内容不变），
+// 可放心长缓存；换头像生成新 URL，浏览器自然破缓存
+func (s *sSetting) ServeAvatar(ctx context.Context, userId int, name string) (err error) {
+	if userId <= 0 || !avatarNameRe.MatchString(name) {
+		return fmt.Errorf("头像不存在")
+	}
+	// 文件名中的 uid 段必须与路径 id 一致，防止读他人目录之外的拼造名
+	if !strings.HasPrefix(name, fmt.Sprintf("%d_", userId)) {
+		return fmt.Errorf("头像不存在")
+	}
+	ext := strings.ToLower(filepath.Ext(name))
+	data, err := os.ReadFile(filepath.Join(avatarDir, name))
+	if err != nil {
+		return fmt.Errorf("头像不存在")
+	}
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", avatarExts[ext])
+	r.Response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	r.Response.Write(data)
 	return nil
 }
 

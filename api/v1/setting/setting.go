@@ -2,6 +2,7 @@ package setting
 
 import (
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 // GetProfileReq 获取个人信息
@@ -15,6 +16,30 @@ type GetProfileRes struct {
 	Phone    string `json:"phone"`
 	Address  string `json:"address"`
 	Avatar   string `json:"avatar"`
+}
+
+// UpdateAvatarReq 上传头像（multipart 图片，存 resource/data/avatars，
+// URL 带时间戳版本号：同名内容不可变，可长缓存且换图天然破缓存）
+type UpdateAvatarReq struct {
+	g.Meta `path:"/account/avatar" method:"put" mime:"multipart/form-data" tags:"个人设置" summary:"上传头像"`
+	File   *ghttp.UploadFile `json:"file" v:"required#请选择头像图片"`
+}
+
+type UpdateAvatarRes struct {
+	g.Meta  `mime:"application/json"`
+	Avatar  string `json:"avatar"`
+}
+
+// AvatarReq 头像文件读取。公开读是有意的：<img> 标签无法携带认证头，
+// 头像属非敏感展示数据（与业界惯例一致）
+type AvatarReq struct {
+	g.Meta `path:"/account/avatar/{id}/{name}" method:"get" tags:"个人设置" summary:"用户头像文件"`
+	Id     int    `json:"id" v:"required" in:"path"`
+	Name   string `json:"name" in:"path"`
+}
+
+type AvatarRes struct {
+	g.Meta `mime:"image/*"`
 }
 
 // UpdateProfileReq 更新个人信息

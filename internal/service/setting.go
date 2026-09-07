@@ -9,6 +9,8 @@ import (
 type ISetting interface {
 	GetProfile(ctx context.Context) (res *api.GetProfileRes, err error)
 	UpdateProfile(ctx context.Context, req *api.UpdateProfileReq) (err error)
+	UpdateAvatar(ctx context.Context, req *api.UpdateAvatarReq) (res *api.UpdateAvatarRes, err error)
+	ServeAvatar(ctx context.Context, userId int, name string) (err error)
 	ChangePassword(ctx context.Context, req *api.ChangePasswordReq) (err error)
 	GetSystemConfig(ctx context.Context) (res *api.GetSystemConfigRes, err error)
 	UpdateSystemConfig(ctx context.Context, req *api.UpdateSystemConfigReq) (err error)

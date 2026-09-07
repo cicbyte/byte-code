@@ -84,7 +84,7 @@
       <div class="layout-header-trigger layout-header-trigger-min">
         <n-dropdown trigger="hover" @select="avatarSelect" :options="avatarOptions">
           <div class="avatar">
-            <n-avatar :src="websiteConfig.logo">
+            <n-avatar round :size="28" :src="userAvatar || undefined">
               <template #icon>
                 <UserOutlined />
               </template>
@@ -161,6 +161,9 @@
         headerSetting,
         crumbsSetting,
       });
+
+      // 头像走 computed 跟踪 store：上传后即时刷新（username 快照只在挂载时取值）
+      const userAvatar = computed(() => userStore?.info?.avatar || '');
 
       const getInverted = computed(() => {
         return ['light', 'header-dark'].includes(unref(navTheme))
@@ -357,6 +360,7 @@
         websiteConfig,
         entityContext,
         RedirectName,
+        userAvatar,
       };
     },
   });
