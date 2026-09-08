@@ -31,8 +31,10 @@ COPY --from=backend /build/resource/sql /app/resource/sql
 COPY --from=frontend /web/dist /app/resource/public
 COPY manifest/config/config.yaml /app/config.yaml
 # 开发配置的 SQLite 是相对路径（./resource/data/app.db）；容器内重定向到
-# /data 卷（升级镜像数据不丢）。backup/projects 等数据面同样收口到 /data
-RUN sed -i 's|./resource/data/app.db|/data/app.db|' /app/config.yaml &&     mkdir -p /data
+# /data 卷（升级镜像数据不丢）。backup/projects 等数据面同样收口到 /data。
+# 生产镜像同时关闭 OpenAPI/Swagger 暴露（挂载自定义 config 覆盖者不受影响）
+RUN sed -i 's|./resource/data/app.db|/data/app.db|; s|openapiPath: "/api.json"|openapiPath: ""|; s|swaggerPath: "/swagger"|swaggerPath: ""|' /app/config.yaml && \
+    mkdir -p /data
 
 # SQLite 库与备份默认落 /data
 ENV TZ=Asia/Shanghai

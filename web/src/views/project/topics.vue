@@ -4,7 +4,7 @@
       <template #header>专题 <n-text depth="3" style="font-size: 12px; font-weight: 400">长时间自动执行的工程，与日常任务分池</n-text></template>
       <template #header-extra>
         <n-space :size="8">
-          <n-radio-group v-model:value="statusFilter" size="small" @update:value="load">
+          <n-radio-group v-model:value="statusFilter" size="small" @update:value="onFilterChange">
             <n-radio-button value="active">进行中</n-radio-button>
             <n-radio-button value="completed">已完成</n-radio-button>
             <n-radio-button value="abandoned">已放弃</n-radio-button>
@@ -89,6 +89,14 @@
               <n-button v-if="t.status === 'active'" size="tiny" type="success" @click="finish(t, 'completed')">验收通过</n-button>
             </div>
           </div>
+        </div>
+        <div v-if="total > pagination.size" class="mt-4 flex justify-end">
+          <n-pagination
+            v-model:page="pagination.page"
+            :page-size="pagination.size"
+            :item-count="total"
+            @update:page="load"
+          />
         </div>
       </n-spin>
     </n-card>
@@ -203,6 +211,13 @@
   const loading = ref(false);
   const list = ref<TopicItem[]>([]);
   const statusFilter = ref('active');
+  const pagination = reactive({ page: 1, size: 20 });
+  const total = ref(0);
+
+  function onFilterChange() {
+    pagination.page = 1;
+    load();
+  }
   const expanded = ref<number | null>(null);
 
   function statusLabel(s: string): string {
@@ -229,8 +244,9 @@
   async function load() {
     loading.value = true;
     try {
-      const res = await getTopics(projectId.value, { status: statusFilter.value });
+      const res = await getTopics(projectId.value, { status: statusFilter.value, page: pagination.page, size: pagination.size });
       list.value = res?.list || [];
+      total.value = res?.total || 0;
     } catch {
       message.error('加载专题失败');
     } finally {
@@ -339,7 +355,7 @@
     try {
       // 状态与字段一起保存（状态走 toggle 端点，字段走 update）
       const t = currentTopic.value, pid = currentPhase.value.id;
-      const d = await getTopics(projectId.value, { status: 'all' });
+      const d = await getTopics(projectId.value, { status: 'all', page: 1, size: 100 });
       const fresh = (d?.list || []).find((x) => x.id === t.id)?.phases.find((x) => x.id === pid);
       if (fresh && fresh.status !== editForm.status) {
         await toggleTopicPhase(projectId.value, t.id, pid, editForm.status);

@@ -10,6 +10,8 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/auth"
 	service "github.com/cicbyte/byte-code/internal/service"
 	"github.com/gogf/gf/v2/frame/g"
+
+	"github.com/cicbyte/byte-code/utility/auditwriter"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -26,48 +28,77 @@ type sAuth struct{}
 // ==================== 登录防爆破 ====================
 
 const (
-	loginMaxFailures  = 5                // 同一用户名连续失败阈值
-	loginLockDuration = 15 * time.Minute // 达到阈值后的锁定时长
+	loginMaxFailures   = 5                // 同一用户名连续失败阈值
+	loginIPMaxFailures = 30               // 同一来源 IP 连续失败阈值（防密码喷洒：每用户名只试一两次永不触用户名锁）
+	loginLockDuration  = 15 * time.Minute // 达到阈值后的锁定时长
 )
 
 type loginFailRecord struct {
 	count       int
+	lastFail    time.Time
 	lockedUntil time.Time
 }
 
-// 进程内失败计数：锁定按输入的用户名计（无论账号是否存在，防止借此枚举探测）
+// 进程内失败计数：用户名维度（无论账号是否存在，防止借此枚举探测）+
+// IP 维度（对齐 bc_ key 侧 aiKeyGuard 的双维度口径，阻断跨用户名喷洒）。
+// GetClientIp 信任 XFF，伪造可绕 IP 锁但触不破用户名锁，且惰性清扫限制内存膨胀
 var loginGuard = struct {
 	sync.Mutex
-	failures map[string]*loginFailRecord
-}{failures: make(map[string]*loginFailRecord)}
+	failures   map[string]*loginFailRecord
+	ipFailures map[string]*loginFailRecord
+}{failures: make(map[string]*loginFailRecord), ipFailures: make(map[string]*loginFailRecord)}
+
+// loginSweepStale 惰性清扫：超过容量上限时删除 1 小时无新失败的记录
+func loginSweepStale(m map[string]*loginFailRecord) {
+	if len(m) < 4096 {
+		return
+	}
+	cutoff := time.Now().Add(-time.Hour)
+	for k, rec := range m {
+		if rec.lastFail.Before(cutoff) {
+			delete(m, k)
+		}
+	}
+}
 
 // loginDummyHash 用户不存在时也执行一次同代价的 bcrypt 比较，消除通过响应时间差枚举用户名
 var loginDummyHash, _ = bcrypt.GenerateFromPassword([]byte("byte-code-dummy-password"), 10)
 
-func loginLockCheck(username string) error {
+func loginLockCheck(username, clientIP string) error {
 	loginGuard.Lock()
 	defer loginGuard.Unlock()
-	rec := loginGuard.failures[username]
-	if rec != nil && !rec.lockedUntil.IsZero() && time.Now().Before(rec.lockedUntil) {
-		minutes := int(time.Until(rec.lockedUntil).Minutes()) + 1
-		return fmt.Errorf("失败次数过多，请约%d分钟后再试", minutes)
+	now := time.Now()
+	for _, rec := range []*loginFailRecord{loginGuard.failures[username], loginGuard.ipFailures[clientIP]} {
+		if rec != nil && !rec.lockedUntil.IsZero() && now.Before(rec.lockedUntil) {
+			minutes := int(time.Until(rec.lockedUntil).Minutes()) + 1
+			return fmt.Errorf("失败次数过多，请约%d分钟后再试", minutes)
+		}
 	}
 	return nil
 }
 
-func loginRecordFailure(username string) {
+func loginRecordFailure(username, clientIP string) {
 	loginGuard.Lock()
 	defer loginGuard.Unlock()
-	rec := loginGuard.failures[username]
-	if rec == nil {
-		rec = &loginFailRecord{}
-		loginGuard.failures[username] = rec
+	bump := func(m map[string]*loginFailRecord, key string, max int) {
+		rec := m[key]
+		if rec == nil {
+			rec = &loginFailRecord{}
+			m[key] = rec
+		}
+		rec.count++
+		rec.lastFail = time.Now()
+		if rec.count >= max {
+			rec.lockedUntil = time.Now().Add(loginLockDuration)
+			rec.count = 0
+		}
 	}
-	rec.count++
-	if rec.count >= loginMaxFailures {
-		rec.lockedUntil = time.Now().Add(loginLockDuration)
-		rec.count = 0
+	bump(loginGuard.failures, username, loginMaxFailures)
+	if clientIP != "" {
+		bump(loginGuard.ipFailures, clientIP, loginIPMaxFailures)
 	}
+	loginSweepStale(loginGuard.failures)
+	loginSweepStale(loginGuard.ipFailures)
 }
 
 func loginResetFailures(username string) {
@@ -76,9 +107,27 @@ func loginResetFailures(username string) {
 	delete(loginGuard.failures, username)
 }
 
+// loginAudit 登录事件审计（非阻塞尽力而为；公开组不走审计中间件，这里单独记）
+func loginAudit(ctx context.Context, uid int, username, ip, action string) {
+	ua := ""
+	if r := g.RequestFromCtx(ctx); r != nil {
+		ua = r.UserAgent()
+	}
+	auditwriter.Record(auditwriter.Entry{
+		ActorID: uid, ActorType: "human", Action: action,
+		TargetType: "auth", TargetName: username,
+		IpAddress: ip, UserAgent: ua,
+	})
+}
+
 func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes, err error) {
-	// 连续失败锁定期内直接拒绝
-	if err = loginLockCheck(req.Username); err != nil {
+	// 登录事件入审计（成功/失败均记，含来源 IP——防爆破事后可追溯）
+	clientIP := ""
+	if r := g.RequestFromCtx(ctx); r != nil {
+		clientIP = r.GetClientIp()
+	}
+	// 连续失败锁定期内直接拒绝（用户名 + 来源 IP 双维度）
+	if err = loginLockCheck(req.Username, clientIP); err != nil {
 		return nil, err
 	}
 	var user struct {
@@ -93,12 +142,14 @@ func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes
 	// 一律按"用户名或密码错误"处理，避免借此区分用户名是否存在
 	if err != nil || user.Id == 0 {
 		_ = bcrypt.CompareHashAndPassword(loginDummyHash, []byte(req.Password))
-		loginRecordFailure(req.Username)
+		loginRecordFailure(req.Username, clientIP)
+		loginAudit(ctx, 0, req.Username, clientIP, "login_failed")
 		return nil, fmt.Errorf("用户名或密码错误")
 	}
 	// 先验证密码再判断禁用状态，否则无需密码即可确认某用户名存在
 	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		loginRecordFailure(req.Username)
+		loginRecordFailure(req.Username, clientIP)
+		loginAudit(ctx, 0, req.Username, clientIP, "login_failed")
 		return nil, fmt.Errorf("用户名或密码错误")
 	}
 	if user.Status != 1 {
@@ -117,6 +168,7 @@ func (s *sAuth) Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes
 		return nil, fmt.Errorf("保存token失败")
 	}
 	loginResetFailures(req.Username)
+	loginAudit(ctx, user.Id, req.Username, clientIP, "login")
 	return &api.LoginRes{
 		Token:              token,
 		MustChangePassword: user.MustChangePassword == 1,

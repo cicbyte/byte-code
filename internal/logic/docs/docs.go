@@ -379,9 +379,28 @@ func (s *sVault) CreateFolder(ctx context.Context, projectId int64, rel string) 
 	return nil
 }
 
+// vault 上传限制：与附件接口同口径（防磁盘耗尽 DoS 与无类型约束的文件托管）
+const vaultMaxSize = 20 << 20
+
+var vaultExtAllowed = map[string]bool{
+	".md": true, ".markdown": true, ".mdx": true, ".txt": true, ".log": true,
+	".json": true, ".csv": true, ".yml": true, ".yaml": true, ".toml": true,
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".bmp": true, ".svg": true,
+	".pdf": true, ".docx": true, ".xlsx": true, ".pptx": true,
+	".zip": true, ".tar": true, ".gz": true, ".7z": true,
+	".go": true, ".rs": true, ".py": true, ".ts": true, ".js": true, ".sql": true, ".sh": true,
+}
+
 func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *ghttp.UploadFile) (*api.VaultUploadRes, error) {
 	if file == nil {
 		return nil, gerror.New("文件不能为空")
+	}
+	if file.Size > vaultMaxSize {
+		return nil, gerror.New("单文件上限 20MB")
+	}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if !vaultExtAllowed[ext] {
+		return nil, gerror.Newf("不支持的文件类型 %s（文档/图片/表格/压缩包/代码白名单）", ext)
 	}
 	name := sanitizeFileName(file.Filename)
 	if dir == "" {

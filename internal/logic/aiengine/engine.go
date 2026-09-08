@@ -3,6 +3,7 @@ package aiengine
 import (
 	"context"
 	"fmt"
+	"github.com/cicbyte/byte-code/utility/dbutil"
 	"sync"
 	"time"
 
@@ -96,11 +97,8 @@ func persistEnabled(ctx context.Context, on bool) {
 	if on {
 		val = "1"
 	}
-	cnt, _ := g.DB().Model("sys_config").Ctx(ctx).Where("key", enabledConfigKey).Count()
-	if cnt > 0 {
-		_, _ = g.DB().Model("sys_config").Ctx(ctx).Where("key", enabledConfigKey).Data("value", val).Update()
-	} else {
-		_, _ = g.DB().Model("sys_config").Ctx(ctx).Data(g.Map{"key": enabledConfigKey, "value": val}).Insert()
+	if err := dbutil.UpsertConfig(ctx, enabledConfigKey, val); err != nil {
+		g.Log().Warningf(ctx, "persist engine enabled failed: %v", err)
 	}
 }
 
@@ -278,9 +276,9 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 			Where("id", task.Id).
 			Where("status", "in_progress").
 			Data(g.Map{
-				"status":              "open",
-				"ai_attempts":         attempts,
-				"ai_next_attempt_at":  time.Now().Add(backoff).Format("2006-01-02 15:04:05"),
+				"status":             "open",
+				"ai_attempts":        attempts,
+				"ai_next_attempt_at": time.Now().Add(backoff).Format("2006-01-02 15:04:05"),
 			}).Update()
 		return
 	}

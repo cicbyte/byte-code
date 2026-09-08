@@ -154,19 +154,132 @@ func (s *sProject) fillTopic(ctx context.Context, m gdb.Record) api.TopicItem {
 }
 
 func (s *sProject) ListTopics(ctx context.Context, req *api.TopicListReq) (res *api.TopicListRes, err error) {
-	res = &api.TopicListRes{List: []api.TopicItem{}}
+	res = &api.TopicListRes{List: []api.TopicItem{}, Page: req.Page, Size: req.Size}
 	m := g.DB().Model("topics").Ctx(ctx).Where("project_id", req.ProjectId)
 	if req.Status != "all" {
 		m = m.Where("status", req.Status)
 	}
-	rows, err := m.Order("id DESC").All()
+	total, err := m.Count()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询专题数量失败")
+	}
+	res.Total = total
+	rows, err := m.Order("id DESC").Page(req.Page, req.Size).All()
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询专题失败")
 	}
-	for _, r := range rows {
-		res.List = append(res.List, s.fillTopic(ctx, r))
-	}
+	res.List = s.fillTopics(ctx, rows)
 	return res, nil
+}
+
+// fillTopics 列表批量填充：固定 5 个查询覆盖 N 个专题（专题/阶段/用户名/
+// 转出任务实况/最近 handoff），替代 fillTopic 的每专题 3+每阶段 1 次——
+// 阶段数十个的长工程列表曾是全站最大慢查询点。详情页单专题仍走 fillTopic
+func (s *sProject) fillTopics(ctx context.Context, rows gdb.Result) []api.TopicItem {
+	topicIds := g.Slice{}
+	assigneeIds := g.Slice{}
+	seen := map[int]bool{}
+	collectUser := func(id int) {
+		if id > 0 && !seen[id] {
+			seen[id] = true
+			assigneeIds = append(assigneeIds, id)
+		}
+	}
+	for _, m := range rows {
+		topicIds = append(topicIds, m["id"].Int())
+		collectUser(m["assignee_id"].Int())
+	}
+	// Q1 阶段一次取齐
+	phaseRows, _ := g.DB().Model("topic_phases").Ctx(ctx).
+		Where("topic_id IN (?)", topicIds).Order("topic_id ASC, sort_order ASC, id ASC").All()
+	phasesByTopic := map[int][]gdb.Record{}
+	taskIds := g.Slice{}
+	seenTask := map[int]bool{}
+	for _, p := range phaseRows {
+		tid := p["topic_id"].Int()
+		phasesByTopic[tid] = append(phasesByTopic[tid], p)
+		collectUser(p["assignee_id"].Int())
+		if t := p["task_id"].Int(); t > 0 && !seenTask[t] {
+			seenTask[t] = true
+			taskIds = append(taskIds, t)
+		}
+	}
+	// Q2 转出任务实况一次取齐
+	type taskLive struct {
+		title, status string
+		assignee      int
+	}
+	taskMap := map[int]taskLive{}
+	if len(taskIds) > 0 {
+		if tRows, _ := g.DB().Model("tasks").Ctx(ctx).WhereIn("id", taskIds).
+			Fields("id, title, status, assignee_id").All(); tRows != nil {
+			for _, tr := range tRows {
+				taskMap[tr["id"].Int()] = taskLive{tr["title"].String(), tr["status"].String(), tr["assignee_id"].Int()}
+				collectUser(tr["assignee_id"].Int())
+			}
+		}
+	}
+	// Q3 用户名一次取齐（专题负责人 + 阶段负责人 + 任务负责人共用）
+	nameMap := map[int]string{}
+	if len(assigneeIds) > 0 {
+		if uRows, _ := g.DB().Model("sys_users").Ctx(ctx).WhereIn("id", assigneeIds).
+			Fields("id, username, real_name").All(); uRows != nil {
+			for _, ur := range uRows {
+				n := ur["real_name"].String()
+				if n == "" {
+					n = ur["username"].String()
+				}
+				nameMap[ur["id"].Int()] = n
+			}
+		}
+	}
+	// Q4 每专题最近一次 handoff：升序全扫保留各专题最后一条（LIMIT 兜底防
+	// 极端量；正常项目 handoff 密度远低于日志总量）
+	handoffMap := map[int]string{}
+	if len(topicIds) > 0 {
+		if hRows, _ := g.DB().Model("ai_execution_logs").Ctx(ctx).
+			Where("topic_id IN (?)", topicIds).Where("action", "handoff").
+			Order("id ASC").Limit(1000).Fields("topic_id, detail").All(); hRows != nil {
+			for _, hr := range hRows {
+				handoffMap[hr["topic_id"].Int()] = hr["detail"].String()
+			}
+		}
+	}
+	out := make([]api.TopicItem, 0, len(rows))
+	for _, m := range rows {
+		item := api.TopicItem{
+			Id: m["id"].Int(), Title: m["title"].String(),
+			Goal: m["goal"].String(), Acceptance: m["acceptance"].String(),
+			DocPath:    m["doc_path"].String(),
+			AssigneeId: m["assignee_id"].Int(), Status: m["status"].String(),
+			CreatedAt: m["created_at"].String(), CompletedAt: m["completed_at"].String(),
+			Phases:      []api.TopicPhaseBrief{},
+			LastHandoff: handoffMap[m["id"].Int()],
+		}
+		item.AssigneeName = nameMap[item.AssigneeId]
+		for _, p := range phasesByTopic[m["id"].Int()] {
+			brief := api.TopicPhaseBrief{
+				Id: p["id"].Int(), Title: p["title"].String(), Detail: p["detail"].String(),
+				Status: p["status"].String(), TaskId: p["task_id"].Int(), SortOrder: p["sort_order"].Int(),
+				AssigneeId: p["assignee_id"].Int(), Artifacts: p["artifacts"].String(),
+				AssigneeName: nameMap[p["assignee_id"].Int()],
+			}
+			if brief.TaskId > 0 {
+				if tl, ok := taskMap[brief.TaskId]; ok {
+					brief.TaskTitle = tl.title
+					brief.TaskStatus = tl.status
+					brief.TaskAssignee = nameMap[tl.assignee]
+				}
+			}
+			item.Phases = append(item.Phases, brief)
+			if p["status"].String() == "done" {
+				item.PhaseDone++
+			}
+		}
+		item.PhaseTotal = len(item.Phases)
+		out = append(out, item)
+	}
+	return out
 }
 
 func (s *sProject) GetTopic(ctx context.Context, projectId, id int) (res *api.TopicDetailRes, err error) {

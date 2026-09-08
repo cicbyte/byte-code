@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"github.com/cicbyte/byte-code/internal/version"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
 	logicAiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
@@ -36,8 +38,8 @@ var (
 			// 记忆/文档中枢：存量一次性导出 + 索引首扫 + 记忆物化全部异步首跑——
 			// vault 很大时同步前置会让 HTTP 迟迟不监听（健康检查/容器编排判死）。
 			// 迁移必须同步（schema 就绪），其余失败只告警不阻塞
-			go func() {
-				bgCtx := context.Background()
+			// 裸 goroutine 不受 gcron 的 panic recover 保护，走 safeGo（见文件尾）
+			safeGo(func(bgCtx context.Context) {
 				if err := docs.ExportLegacyDocs(bgCtx); err != nil {
 					g.Log().Warningf(bgCtx, "legacy docs export failed: %v", err)
 				}
@@ -46,7 +48,7 @@ var (
 				if err := project.ScanDueTasks(bgCtx); err != nil {
 					g.Log().Warningf(bgCtx, "task due scan failed: %v", err)
 				}
-			}()
+			})
 			// 任务租约释放：每小时扫一次失联 agent 的认领（2h 无进展回 open）
 			if _, err := gcron.AddSingleton(ctx, "0 0 * * * *", func(ctx context.Context) {
 				if err := project.ReleaseStaleClaims(ctx); err != nil {
@@ -81,15 +83,19 @@ var (
 				{"mem materialize", func(c context.Context) error { return service.Docs().MemMaterialize(c) }},
 				{"db backup", func(c context.Context) error { dbbackup.Run(c); return nil }},
 			}
+			// 每步限时：串行链任一步卡死会把后续步骤（尤其备份）无限推迟且无
+			// 告警；超时告警后放行下一步
 			runMaintenance := func(c context.Context) {
 				for _, step := range maintenance {
-					if err := step.run(c); err != nil {
-						g.Log().Warningf(c, "maintenance %s failed: %v", step.name, err)
+					stepCtx, cancel := context.WithTimeout(c, 30*time.Minute)
+					if err := step.run(stepCtx); err != nil {
+						g.Log().Warningf(stepCtx, "maintenance %s failed: %v", step.name, err)
 					}
+					cancel()
 				}
 			}
-			// 启动即跑一次（错过夜间窗口的补执行）
-			go runMaintenance(context.Background())
+			// 启动即跑一次（错过夜间窗口的补执行）；gcron 的 recover 罩不到裸 goroutine
+			safeGo(runMaintenance)
 			if _, err := gcron.AddSingleton(ctx, "0 0 3 * * *", runMaintenance); err != nil {
 				g.Log().Warningf(ctx, "schedule maintenance failed: %v", err)
 			}
@@ -140,3 +146,16 @@ var (
 		},
 	}
 )
+
+// safeGo 带 recover 的后台 goroutine：gcron 内置 panic 恢复，但裸 go 出去的
+// 任务（启动补跑/维护链首跑）无人兜底——任一 panic 会直接崩掉整个进程
+func safeGo(fn func(ctx context.Context)) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				g.Log().Errorf(context.Background(), "background goroutine panicked: %v, stack: %s", r, debug.Stack())
+			}
+		}()
+		fn(context.Background())
+	}()
+}

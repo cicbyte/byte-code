@@ -148,6 +148,9 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 }
 
 func (s *sAttachment) Get(ctx context.Context, id int) (res *api.AttachmentGetRes, err error) {
+	if !attachmentByIdAccessible(ctx, perm.UserId(ctx), id) {
+		return nil, fmt.Errorf("无权访问该附件")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		res = &api.AttachmentGetRes{}
 		err := g.DB().Model("attachments a").Ctx(ctx).
@@ -256,6 +259,9 @@ func (s *sAttachment) Delete(ctx context.Context, id int) (err error) {
 }
 
 func (s *sAttachment) List(ctx context.Context, req *api.AttachmentListReq) (list []api.AttachmentItem, err error) {
+	if !attachmentEntityAccessible(ctx, perm.UserId(ctx), req.EntityType, req.EntityId) {
+		return nil, fmt.Errorf("无权访问该实体的附件")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		err := g.DB().Model("attachments a").Ctx(ctx).
 			LeftJoin("sys_users u", "a.uploader_id = u.id").
@@ -270,6 +276,9 @@ func (s *sAttachment) List(ctx context.Context, req *api.AttachmentListReq) (lis
 }
 
 func (s *sAttachment) Update(ctx context.Context, req *api.AttachmentUpdateReq) (err error) {
+	if !attachmentByIdAccessible(ctx, perm.UserId(ctx), req.Id) {
+		return fmt.Errorf("无权操作该附件")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		_, err := g.DB().Model("attachments").Ctx(ctx).WherePri(req.Id).Update(g.Map{
 			"description": req.Description,

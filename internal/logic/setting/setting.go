@@ -14,6 +14,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/setting"
 	aiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
 	"github.com/cicbyte/byte-code/internal/service"
+	"github.com/cicbyte/byte-code/utility/dbutil"
 	"github.com/gogf/gf/v2/frame/g"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -271,14 +272,12 @@ func (s *sSetting) UpdateSystemConfig(ctx context.Context, req *api.UpdateSystem
 		configs["smtp_pass"] = req.SmtpPass
 	}
 	for k, v := range configs {
-		_, err = g.DB().Model("sys_config").Data(g.Map{"value": v}).Where("key", k).Update()
-		if err != nil {
+		if err := dbutil.UpsertConfig(ctx, k, v); err != nil {
 			return fmt.Errorf("更新配置失败")
 		}
 	}
 	return nil
 }
-
 
 // ==================== AI 引擎管理 ====================
 
@@ -311,11 +310,8 @@ func (s *sSetting) UpdateAiEngineConfig(ctx context.Context, req *api.AiEngineCo
 		items["ai_engine_api_key"] = req.ApiKey
 	}
 	for key, value := range items {
-		cnt, _ := g.DB().Model("sys_config").Ctx(ctx).Where("key", key).Count()
-		if cnt > 0 {
-			g.DB().Model("sys_config").Ctx(ctx).Where("key", key).Data("value", value).Update()
-		} else {
-			g.DB().Model("sys_config").Ctx(ctx).Data(g.Map{"key": key, "value": value}).Insert()
+		if err := dbutil.UpsertConfig(ctx, key, value); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -110,6 +110,7 @@
               placeholder="Markdown 内容（首部可带 frontmatter 元数据）"
               :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
               :footers="[]"
+              :sanitize="safeHtml"
             />
             <template v-else>
               <!-- docx：mammoth 转 HTML 只读预览 -->
@@ -226,6 +227,7 @@
   import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
   import { useRoute, onBeforeRouteLeave } from 'vue-router';
   import { MdEditor } from 'md-editor-v3';
+  import DOMPurify from 'dompurify';
   import 'md-editor-v3/lib/style.css';
   import { useMessage, useDialog } from 'naive-ui';
   import { SearchOutlined, FileTextOutlined } from '@vicons/antd';
@@ -665,6 +667,12 @@
     const parents: string[] = [];
     for (let i = 1; i < parts.length; i++) parents.push(parts.slice(0, i).join('/'));
     expandedKeys.value = [...new Set([...expandedKeys.value, ...parents])];
+  }
+
+  // md-editor-v3 默认 html:true 不消毒；vault 写入方含外部 agent（AI 产出不可信），
+  // 编辑器实时预览与 TaskDetailModal 等四处渲染同口径必须过 DOMPurify
+  function safeHtml(html: string) {
+    return DOMPurify.sanitize(html);
   }
 
   onMounted(async () => {

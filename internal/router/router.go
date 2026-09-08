@@ -48,8 +48,10 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 
 		// v1 版本 API（需要认证）
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
+			// 分类读侧全员（写侧在下方管理组——全局共享数据不开放给普通成员/agent）
 			group.Bind(
-				controller.Categories,
+				controller.Categories.List,
+				controller.Categories.Get,
 				controller.Health,
 			)
 
@@ -103,11 +105,9 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AttachmentCtrl.AttachmentUpdate,
 			)
 
-			// 平台功能（标签、活动流、通知、搜索、统计；审计日志在管理组）
+			// 平台功能（活动流、通知、搜索、统计；审计日志在管理组）。
+			// 标签仅读/挂/摘在认证组——标签定义（建/改/删）属全局数据，在管理组
 			group.Bind(
-				controller.PlatformCtrl.CreateTag,
-				controller.PlatformCtrl.UpdateTag,
-				controller.PlatformCtrl.DeleteTag,
 				controller.PlatformCtrl.ListTags,
 				controller.PlatformCtrl.AttachTag,
 				controller.PlatformCtrl.DetachTag,
@@ -147,6 +147,17 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		)
 
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
+			// 全局共享数据写操作：分类/标签定义（影响所有项目，仅管理员）
+			group.Bind(
+				controller.Categories.Add,
+				controller.Categories.Edit,
+				controller.Categories.Delete,
+				controller.Categories.BatchDelete,
+				controller.PlatformCtrl.CreateTag,
+				controller.PlatformCtrl.UpdateTag,
+				controller.PlatformCtrl.DeleteTag,
+			)
+
 			// 全局记忆写操作（影响所有项目的 AI 上下文，仅管理员）
 			group.Bind(
 				controller.GlobalMemories.Set,

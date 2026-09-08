@@ -433,7 +433,7 @@ export interface TopicItem {
   lastHandoff: string;
 }
 
-export function getTopics(projectId: number, params?: { status?: string }) {
+export function getTopics(projectId: number, params?: { status?: string; page?: number; size?: number }) {
   return Alova.Get<{ list: TopicItem[] }>(`/v1/projects/${projectId}/topics`, { params });
 }
 

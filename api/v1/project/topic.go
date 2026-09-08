@@ -22,6 +22,8 @@ type TopicListReq struct {
 	g.Meta    `path:"/projects/{projectId}/topics" method:"get" tags:"专题" summary:"专题列表（默认 active；all=全部）"`
 	ProjectId int    `json:"projectId" v:"required" in:"path"`
 	Status    string `json:"status" in:"query" d:"active"`
+	Page      int    `json:"page" in:"query" d:"1"`
+	Size      int    `json:"size" in:"query" d:"20" v:"max:100#单页上限100"`
 }
 
 type TopicPhaseBrief struct {
@@ -61,6 +63,9 @@ type TopicItem struct {
 type TopicListRes struct {
 	g.Meta `mime:"application/json"`
 	List   []TopicItem `json:"list"`
+	Total  int         `json:"total"`
+	Page   int         `json:"page"`
+	Size   int         `json:"size"`
 }
 
 type TopicDetailReq struct {

@@ -84,6 +84,11 @@ func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq)
 }
 
 func (s *sProject) UpdateProject(ctx context.Context, req *api.ProjectUpdateReq) (err error) {
+	// 项目元数据属管理级操作，与 Delete 同口径仅 owner/超管（此前普通成员与
+	// 绑定 agent 均可改名/改状态，中间件只到成员级）
+	if !perm.IsProjectOwner(ctx, perm.UserId(ctx), req.Id) {
+		return fmt.Errorf("仅项目管理员可修改项目信息")
+	}
 	data := g.Map{}
 	if req.Name != nil {
 		data["name"] = *req.Name
