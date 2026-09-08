@@ -68,7 +68,19 @@
                 <n-tag v-for="t in task.tags || []" :key="t" size="small" round :bordered="false">{{ t }}</n-tag>
               </n-space>
             </td>
-            <td><n-tag size="small" :type="statusTagType(task.status)">{{ statusLabel(task.status) }}</n-tag></td>
+            <td>
+              <n-popselect
+                v-model:value="task.status"
+                :options="statusFlowOptions(task.status)"
+                trigger="click"
+                @update:value="(v: string) => quickStatus(task, v)"
+              >
+                <n-tag size="small" :type="statusTagType(task.status)" class="cursor-pointer">
+                  {{ statusLabel(task.status) }}
+                  <span class="status-flow-hint">▾</span>
+                </n-tag>
+              </n-popselect>
+            </td>
             <td>{{ task.assigneeName }}</td>
             <td>
               <n-tag
@@ -189,6 +201,32 @@
   const editingId = ref<number | null>(null);
   const formRef = ref<any>(null);
   const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null, tagId: null as number | null });
+
+  // ==================== 状态快捷流转（人类通道；agent 走 claim/complete 专用端点） ====================
+  // 与看板拖拽同权限口径（PUT 对人类放行）；入审在后端自动置人审标记
+  const STATUS_FLOW: Record<string, string[]> = {
+    open: ['in_progress', 'closed'],
+    in_progress: ['open', 'blocked', 'review'],
+    blocked: ['in_progress', 'open'],
+    review: ['in_progress'],
+    done: ['closed'],
+    closed: ['open'],
+  };
+
+  function statusFlowOptions(cur: string) {
+    return (STATUS_FLOW[cur] || []).map((v) => ({ label: statusLabel(v), value: v }));
+  }
+
+  async function quickStatus(task: any, status: string) {
+    try {
+      await updateTask(task.id, { status });
+      message.success(`已流转到「${statusLabel(status)}」`);
+      loadTasks();
+    } catch (e: any) {
+      message.error(e?.message || '状态流转失败');
+      loadTasks(); // 失败回显真实状态
+    }
+  }
   // 标签筛选选项（平台级标签）
   const tagOptions = ref<Array<{ label: string; value: number }>>([]);
   async function loadTagOptions() {
@@ -346,3 +384,15 @@
     }
   });
 </script>
+
+<style lang="less" scoped>
+  .status-flow-hint {
+    margin-left: 2px;
+    font-size: 10px;
+    opacity: 0.6;
+  }
+
+  .cursor-pointer {
+    cursor: pointer;
+  }
+</style>

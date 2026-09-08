@@ -26,7 +26,14 @@ func (s *sProject) CreateFeedback(ctx context.Context, req *api.FeedbackCreateRe
 	// 人类看 project_members，agent 只有 bindings 无成员行（bcode-cli 实测
 	// 盲点：agent 不带 --task 投递恒报"无法确定来源项目"），两侧都要兜
 	sourceProject := 0
-	if req.SourceTaskId > 0 {
+	// 显式指定优先于一切推导（多项目 agent 推导链取最早一条可能不准）
+	if req.SourceProjectId > 0 {
+		if cnt, _ := g.DB().Model("projects").Ctx(ctx).Where("id", req.SourceProjectId).Count(); cnt == 0 {
+			return 0, fmt.Errorf("指定的来源项目不存在")
+		}
+		sourceProject = req.SourceProjectId
+	}
+	if sourceProject == 0 && req.SourceTaskId > 0 {
 		sourceProject = perm.EntityProjectId(ctx, "tasks", req.SourceTaskId)
 	}
 	if sourceProject == 0 {

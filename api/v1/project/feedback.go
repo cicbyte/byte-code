@@ -8,7 +8,10 @@ type FeedbackCreateReq struct {
 	ProjectId    int    `json:"projectId" v:"required" in:"path" dc:"目标（接收方）项目 id"`
 	Title        string `json:"title" v:"required|max-length:255#反馈标题不能为空|上限255字"`
 	Content      string `json:"content" dc:"markdown：现象/线索/怀疑点"`
-	SourceTaskId int    `json:"sourceTaskId" dc:"来源任务 id（可空，血缘可溯）"`
+	SourceTaskId int `json:"sourceTaskId" dc:"来源任务 id（可空，血缘可溯）"`
+	// 显式来源项目（可空）：多项目 agent 场景下推导链取最早一条 binding
+	// 可能不准，显式指定优先于一切推导（bcode-cli 反馈建议）
+	SourceProjectId int `json:"sourceProjectId" dc:"显式来源项目 id（可空；优先于任务/成员/bindings 推导）"`
 }
 
 type FeedbackCreateRes struct {

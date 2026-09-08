@@ -141,7 +141,15 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur == nil || cur.String() == "" {
 				data["completed_at"] = time.Now().Format("2006-01-02 15:04:05")
 			}
-		case consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusBlocked, consts.TaskStatusReview:
+		case consts.TaskStatusReview:
+			// 直改入审（看板拖拽/列表快捷）与 complete 同语义：置人审标记。
+			// 否则详情弹窗无审核按钮（rh 条件渲染）、审核端点也拒（rh=1 校验）
+			data["requires_human_review"] = 1
+			data["human_review_status"] = "pending"
+			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur != nil && cur.String() != "" {
+				data["completed_at"] = ""
+			}
+		case consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusBlocked:
 			// 从完成态切回非完成态时才清空（重开）；首次设定非完成态不误清
 			if cur, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.Id).Fields("completed_at").Value(); cur != nil && cur.String() != "" {
 				data["completed_at"] = ""
