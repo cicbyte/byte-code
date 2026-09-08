@@ -146,13 +146,14 @@ func (s *sProject) ListComments(ctx context.Context, taskId int) (res *api.Comme
 	res = &api.CommentListRes{}
 	var list []api.CommentItem
 	// 详情弹窗一次性渲染：封顶防长任务评论无界。内层 DESC 取【最新】500 条，
-	// 外层回 ASC 保持时间正序展示——直接 ASC+Limit 取到的是最旧的 500 条
+	// 外层回 ASC 保持时间正序展示——直接 ASC+Limit 取到的是最旧的 500 条。
+	// LIMIT 子查询须再包一层派生表：MySQL 不支持 IN 子查询内 LIMIT（1235），
+	// SQLite 两种写法都接受
 	err = g.DB().Model("comments c").Ctx(ctx).
 		LeftJoin("sys_users u", "c.user_id = u.id").
 		Fields("c.id, c.task_id, c.user_id, u.username, COALESCE(u.real_name, '') as real_name, c.content, c.user_type, c.created_at").
 		Where("c.task_id", taskId).
-		Where("c.id IN (?)", g.DB().Model("comments").Ctx(ctx).
-			Fields("id").Where("task_id", taskId).Order("id DESC").Limit(500)).
+		Where("c.id IN (SELECT id FROM (SELECT id FROM comments WHERE task_id = ? ORDER BY id DESC LIMIT 500) t)", taskId).
 		Order("c.id ASC").
 		Scan(&list)
 	if err != nil {

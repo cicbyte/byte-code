@@ -93,7 +93,7 @@ func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.Mem
 			FROM agent_project_bindings b LEFT JOIN sys_users u ON b.agent_id = u.id
 			WHERE b.project_id = ?
 			  AND b.agent_id NOT IN (SELECT user_id FROM project_members WHERE project_id = ?)
-		) ORDER BY user_type ASC, id ASC`, projectId, projectId, projectId).
+			) t ORDER BY user_type ASC, id ASC`, projectId, projectId, projectId).
 		Scan(&list)
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询成员列表失败")
