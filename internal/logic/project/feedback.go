@@ -22,13 +22,20 @@ func (s *sProject) CreateFeedback(ctx context.Context, req *api.FeedbackCreateRe
 	// 唯一口子——已有目标准入的人直接建任务即可，无需反馈。故不再要求发起人
 	// 可访问目标项目，防任意投递由唯一条件承担：目标项目必须已关联来源项目
 	// （B 的 owner 有意识地开放了反馈面）。
-	// 来源项目：来源任务所属项目；无来源任务时取发起人的成员项目
+	// 来源项目：来源任务所属项目；无来源任务时取发起人的成员项目——
+	// 人类看 project_members，agent 只有 bindings 无成员行（bcode-cli 实测
+	// 盲点：agent 不带 --task 投递恒报"无法确定来源项目"），两侧都要兜
 	sourceProject := 0
 	if req.SourceTaskId > 0 {
 		sourceProject = perm.EntityProjectId(ctx, "tasks", req.SourceTaskId)
 	}
 	if sourceProject == 0 {
 		if v, _ := g.DB().Model("project_members").Ctx(ctx).Where("user_id", uid).Order("id ASC").Value("project_id"); v != nil {
+			sourceProject = v.Int()
+		}
+	}
+	if sourceProject == 0 {
+		if v, _ := g.DB().Model("agent_project_bindings").Ctx(ctx).Where("agent_id", uid).Order("id ASC").Value("project_id"); v != nil {
 			sourceProject = v.Int()
 		}
 	}
