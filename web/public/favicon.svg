@@ -1,10 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ByteCode favicon：位块 B（点阵字模，byte=比特块）· 纯几何无字体依赖 -->
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2d8cf0"/>
-      <stop offset="100%" stop-color="#0066cc"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#15803d"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <text x="32" y="44" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="bold" fill="white" text-anchor="middle">B</text>
+  <g fill="#fff">
+    <!-- 顶横 -->
+    <rect x="12" y="10" width="9" height="9" rx="2"/>
+    <rect x="21" y="10" width="9" height="9" rx="2"/>
+    <rect x="30" y="10" width="9" height="9" rx="2"/>
+    <!-- 左竖 -->
+    <rect x="12" y="19" width="9" height="9" rx="2"/>
+    <rect x="12" y="37" width="9" height="9" rx="2"/>
+    <!-- 中横 -->
+    <rect x="12" y="28" width="9" height="9" rx="2"/>
+    <rect x="21" y="28" width="9" height="9" rx="2"/>
+    <rect x="30" y="28" width="9" height="9" rx="2"/>
+    <rect x="39" y="28" width="9" height="9" rx="2"/>
+    <!-- 右侧 -->
+    <rect x="39" y="19" width="9" height="9" rx="2"/>
+    <rect x="39" y="46" width="9" height="9" rx="2"/>
+    <!-- 底横 -->
+    <rect x="12" y="46" width="9" height="9" rx="2"/>
+    <rect x="21" y="46" width="9" height="9" rx="2"/>
+    <rect x="30" y="46" width="9" height="9" rx="2"/>
+  </g>
 </svg>
