@@ -37,6 +37,31 @@ func (s *sProject) ListMilestones(ctx context.Context, projectId int) (res *api.
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询里程碑列表失败")
 	}
+	// 进度聚合：单查询 GROUP BY 回填（此前里程碑纯 CRUD 孤岛，需求关联字段
+	// 早已存在但零呈现——审计挂账项）
+	type aggRow struct {
+		MilestoneId int
+		Total       int
+		Done        int
+	}
+	var aggs []aggRow
+	if aerr := g.DB().Model("requirements r").Ctx(ctx).
+		Where("r.project_id", projectId).
+		Where("r.milestone_id > 0").
+		Fields("r.milestone_id, COUNT(*) AS total, SUM(CASE WHEN r.status IN ('implemented','confirmed') THEN 1 ELSE 0 END) AS done").
+		Group("r.milestone_id").
+		Scan(&aggs); aerr == nil {
+		aggMap := make(map[int]*aggRow, len(aggs))
+		for i := range aggs {
+			aggMap[aggs[i].MilestoneId] = &aggs[i]
+		}
+		for i := range list {
+			if a := aggMap[list[i].Id]; a != nil {
+				list[i].ReqTotal = a.Total
+				list[i].ReqDone = a.Done
+			}
+		}
+	}
 	res.List = list
 	return res, nil
 }

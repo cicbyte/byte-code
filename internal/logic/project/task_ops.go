@@ -116,6 +116,9 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 		"human_review_status":   "pending",
 	}
 	if req.Artifacts != "" {
+		// 旧产出归档到执行日志（artifacts 直覆盖丢历史——审计挂账项；
+		// 无新表，AI 日志时间线可查可回滚）
+		archiveArtifacts(ctx, req.Id, "complete 覆盖前归档")
 		data["artifacts"] = req.Artifacts
 	}
 
@@ -391,5 +394,22 @@ func (s *sProject) mapReqTypeToTaskType(reqType string) string {
 		return "chore"
 	default:
 		return "feature"
+	}
+}
+
+// archiveArtifacts 把任务当前 artifacts 值归档到 ai_execution_logs。
+// action=artifacts_archive 使其在 AI 日志时间线可见；失败仅告警不阻断
+// （归档是尽力而为的留痕，主流程写入优先）
+func archiveArtifacts(ctx context.Context, taskId int, reason string) {
+	v, err := g.DB().Model("tasks").Ctx(ctx).Where("id", taskId).Fields("artifacts").Value()
+	if err != nil || v == nil || v.String() == "" {
+		return
+	}
+	uid := perm.UserId(ctx)
+	if _, err := g.DB().Model("ai_execution_logs").Ctx(ctx).Insert(g.Map{
+		"task_id": taskId, "ai_user_id": uid,
+		"action": "artifacts_archive", "detail": v.String(), "status": "success",
+	}); err != nil {
+		g.Log().Warningf(ctx, "artifacts archive failed (task %d): %v", taskId, err)
 	}
 }

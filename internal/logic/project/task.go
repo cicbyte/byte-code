@@ -296,7 +296,18 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 	}
 	// 标签回填（与列表口径一致）
 	item.Tags = taskTagNames(ctx, id)
-	return &api.TaskDetailRes{TaskItem: item}, nil
+	res = &api.TaskDetailRes{TaskItem: item}
+	// 直接子任务回填（一级）：父子血缘此前仅导入时写入、UI 零呈现（审计挂账项）
+	var subs []api.TaskItem
+	if serr := g.DB().Model("tasks t").Ctx(ctx).
+		LeftJoin("sys_users au", "t.assignee_id = au.id").
+		Fields("t.id, t.title, t.status, t.priority, t.assignee_id, COALESCE(au.real_name, au.username) as assignee_name, t.parent_task_id").
+		Where("t.parent_task_id", id).
+		Order("t.priority DESC, t.id ASC").Limit(50).
+		Scan(&subs); serr == nil {
+		res.SubTasks = subs
+	}
+	return res, nil
 }
 
 // taskTagNames 查单个任务的标签名列表

@@ -52,6 +52,31 @@ func (c *agentController) AgentProjects(ctx context.Context, req *api.AgentProje
 	return agent.AgentProjects(ctx, ctxUserId(ctx))
 }
 
+func (c *agentController) AgentDocsTree(ctx context.Context, req *api.AgentDocsTreeReq) (*api.AgentDocsTreeRes, error) {
+	return agent.AgentDocsTree(ctx, g.RequestFromCtx(ctx).Header.Get("X-Session"), req.Space)
+}
+
+func (c *agentController) AgentDocsFile(ctx context.Context, req *api.AgentDocsFileReq) (*api.AgentDocsFileRes, error) {
+	res, err := agent.AgentDocsFile(ctx, g.RequestFromCtx(ctx).Header.Get("X-Session"), req.Path)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	// 透传 vault 读取结果（结构复用 VaultFileGetRes）
+	return &api.AgentDocsFileRes{VaultFileGetRes: res}, nil
+}
+
+func (c *agentController) AgentDocsWrite(ctx context.Context, req *api.AgentDocsWriteReq) (*api.AgentDocsWriteRes, error) {
+	_, err := agent.AgentDocsWrite(ctx, g.RequestFromCtx(ctx).Header.Get("X-Session"), req.Path, req.Content)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.AgentDocsWriteRes{}, nil
+}
+
+func (c *agentController) AgentDocsSearch(ctx context.Context, req *api.AgentDocsSearchReq) (*api.AgentDocsSearchRes, error) {
+	return agent.AgentDocsSearch(ctx, g.RequestFromCtx(ctx).Header.Get("X-Session"), req.Keyword, req.Space)
+}
+
 func (c *agentController) AgentTasks(ctx context.Context, req *api.AgentTasksReq) (*api.AgentTasksRes, error) {
 	if !isAgentCtx(ctx) {
 		return nil, gerror.New("仅 Agent（bc key）可调用")

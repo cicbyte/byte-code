@@ -10,6 +10,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	docsApi "github.com/cicbyte/byte-code/api/v1/docs"
+	"github.com/cicbyte/byte-code/internal/service"
 	"sort"
 	"strings"
 	"sync"
@@ -530,6 +532,59 @@ func AgentProjects(ctx context.Context, agentId int) (res *api.AgentProjectsRes,
 		})
 	}
 	return res, nil
+}
+
+// agentDocsProject 会话推导项目 id（四个 docs 免参别名共用）
+func agentDocsProject(ctx context.Context, session string) (int64, error) {
+	agentId := 0
+	if uid := ctx.Value("userId"); uid != nil {
+		agentId = uid.(int)
+	}
+	pid, err := ResolveSession(ctx, session, agentId)
+	if err != nil {
+		return 0, err
+	}
+	return int64(pid), nil
+}
+
+func AgentDocsTree(ctx context.Context, session, space string) (*api.AgentDocsTreeRes, error) {
+	pid, err := agentDocsProject(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	list, err := service.Docs().Tree(ctx, pid, space)
+	if err != nil {
+		return nil, err
+	}
+	return &api.AgentDocsTreeRes{List: list}, nil
+}
+
+func AgentDocsFile(ctx context.Context, session, path string) (*docsApi.VaultFileGetRes, error) {
+	pid, err := agentDocsProject(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	return service.Docs().ReadFile(ctx, pid, path)
+}
+
+func AgentDocsWrite(ctx context.Context, session, path, content string) (*docsApi.VaultFileWriteRes, error) {
+	pid, err := agentDocsProject(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	return service.Docs().WriteFile(ctx, pid, path, content)
+}
+
+func AgentDocsSearch(ctx context.Context, session, keyword, space string) (*api.AgentDocsSearchRes, error) {
+	pid, err := agentDocsProject(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	list, err := service.Docs().Search(ctx, pid, keyword, space)
+	if err != nil {
+		return nil, err
+	}
+	return &api.AgentDocsSearchRes{List: list}, nil
 }
 
 func AgentTasks(ctx context.Context, agentId int, session, status, keyword string) (*api.AgentTasksRes, error) {

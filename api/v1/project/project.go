@@ -247,6 +247,8 @@ type TaskDetailReq struct {
 
 type TaskDetailRes struct {
 	TaskItem
+	// 直接子任务（一级）：详情弹窗展示与跳转用，不递归（树形展示按需逐级拉）
+	SubTasks []TaskItem `json:"subTasks"`
 }
 
 // ==================== 任务特殊操作 ====================
@@ -668,6 +670,9 @@ type MilestoneItem struct {
 	TargetDate  string `json:"targetDate"`
 	Status      string `json:"status"`
 	CreatedAt   string `json:"createdAt"`
+	// 进度聚合（列表回填）：关联需求总数与已完成数（implemented/confirmed 计完成）
+	ReqTotal int `json:"reqTotal"`
+	ReqDone  int `json:"reqDone"`
 }
 
 type MilestoneListRes struct {

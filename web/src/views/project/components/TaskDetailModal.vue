@@ -232,6 +232,15 @@
           />
         </n-card>
 
+        <!-- 子任务：需求导入的父子血缘（详情回填一级），点行打开对应详情 -->
+        <n-card v-if="(task.subTasks || []).length" title="子任务" size="small" class="mb-4" :bordered="true">
+          <div v-for="st in task.subTasks" :key="st.id" class="subtask-row" @click="openTask(st.id)">
+            <n-tag size="small" :type="statusTagType(st.status)">{{ statusLabel(st.status) }}</n-tag>
+            <span class="subtask-title">#{{ st.id }} {{ st.title }}</span>
+            <span class="subtask-assignee">{{ st.assigneeName || '未指派' }}</span>
+          </div>
+        </n-card>
+
         <!-- 阻塞操作：in_progress 可上报（等信息/环境问题），blocked 可解除。
              显示从宽（后端门禁把关 assignee/owner），阻塞原因在下方 Agent
              执行日志时间线留痕可见 -->
@@ -658,6 +667,12 @@
     } finally {
       loading.value = false;
     }
+  }
+
+  // 子任务跳转：关闭自身，广播给宿主（tasks 列表页监听 open-task 后调 openModal）
+  function openTask(id: number) {
+    visible.value = false;
+    window.dispatchEvent(new CustomEvent('bc-open-task', { detail: id }));
   }
 
   // ==================== 附件 ====================
@@ -1278,4 +1293,31 @@
 :global(.task-detail-drawer .n-drawer-body-content-wrapper) {
   padding-bottom: 8px;
 }
+
+  .subtask-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--hover-bg);
+    }
+
+    .subtask-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .subtask-assignee {
+      flex: none;
+      color: var(--text-3, #8b949e);
+      font-size: 12px;
+    }
+  }
 </style>

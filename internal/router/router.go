@@ -13,21 +13,21 @@ type Router struct{}
 
 func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGroup) {
 	// 公开 API（无需认证）
-		group.Group("/api", func(group *ghttp.RouterGroup) {
-			group.Middleware(service.Middleware().MiddlewareCORS)
+	group.Group("/api", func(group *ghttp.RouterGroup) {
+		group.Middleware(service.Middleware().MiddlewareCORS)
+		group.Bind(
+			controller.Auth.Login,
+			controller.AiUserCtrl.AiLogin,
+			// 头像文件直读（<img> 无法携带认证头；头像属非敏感展示数据）
+			controller.Setting.Avatar,
+		)
+		// Agent 自助注册（纯身份零权限；公开是有意的——权限由项目接入码把关）
+		group.Group("/v1", func(group *ghttp.RouterGroup) {
 			group.Bind(
-				controller.Auth.Login,
-				controller.AiUserCtrl.AiLogin,
-				// 头像文件直读（<img> 无法携带认证头；头像属非敏感展示数据）
-				controller.Setting.Avatar,
+				controller.AgentCtl.Register,
 			)
-			// Agent 自助注册（纯身份零权限；公开是有意的——权限由项目接入码把关）
-			group.Group("/v1", func(group *ghttp.RouterGroup) {
-				group.Bind(
-					controller.AgentCtl.Register,
-				)
-			})
 		})
+	})
 
 	// 需要 Token 认证的 API（所有登录用户）
 	group.Group("/api", func(group *ghttp.RouterGroup) {
@@ -62,8 +62,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			// 项目导出单独绑（同控制器整绑也行，但导出是重接口，显式列出便于审计路由表）
 
 			// 数据库模型管理
-			group.Bind(
-			)
+			group.Bind()
 
 			// 测试管理
 			group.Bind(
@@ -89,6 +88,10 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AgentCtl.SessionCreate,
 				controller.AgentCtl.AgentProjects,
 				controller.AgentCtl.AgentTasks,
+				controller.AgentCtl.AgentDocsTree,
+				controller.AgentCtl.AgentDocsFile,
+				controller.AgentCtl.AgentDocsWrite,
+				controller.AgentCtl.AgentDocsSearch,
 				controller.AgentCtl.JoinCodeCreate,
 				controller.AgentCtl.AgentRemoveProject,
 			)

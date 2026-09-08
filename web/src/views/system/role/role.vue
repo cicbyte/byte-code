@@ -43,7 +43,7 @@
                 </n-space>
                 <span v-else class="text-gray-400">无（仅个人可见页面）</span>
               </td>
-              <td class="text-xs text-gray-400">{{ (item.create_date || item.createDate || '').slice(0, 10) }}</td>
+              <td class="text-xs text-gray-400">{{ (item.createDate || '').slice(0, 10) }}</td>
               <td>
                 <n-space size="small">
                   <n-button v-if="Number(item.id) !== 1" text type="info" size="small" @click="openMenuAuth(item)">
@@ -219,7 +219,7 @@
 
   // 权限范围列：只展示叶子菜单标题（父节点随子级级联，单独列出是噪音）
   function scopeTitles(item: RoleItem): string[] {
-    return (item.menu_ids || [])
+    return (item.menuIds || [])
       .filter((id) => leafIds.value.has(id))
       .map((id) => idTitle.value.get(id) || `#${id}`);
   }
@@ -275,7 +275,7 @@
     }
     currentRole.value = item;
     // 回显只放叶子 id：父节点由级联推导，直接放父 id 会把未选的兄弟子级一起勾上
-    checkedKeys.value = (item.menu_ids || [])
+    checkedKeys.value = (item.menuIds || [])
       .filter((id) => leafIds.value.has(id))
       .map((id) => String(id));
     expandedKeys.value = menuTree.value.map((n) => n.key);

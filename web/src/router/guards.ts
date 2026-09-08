@@ -3,6 +3,7 @@ import { ErrorPageRoute } from '@/router/base';
 import { useAsyncRoute } from '@/store/modules/asyncRoute';
 import { useUser } from '@/store/modules/user';
 import { ACCESS_TOKEN } from '@/store/mutation-types';
+import { isSessionExpiredRedirecting } from '@/utils/http/alova/index';
 import { storage } from '@/utils/Storage';
 import type { RouteRecordRaw } from 'vue-router';
 import { isNavigationFailure, Router } from 'vue-router';
@@ -61,10 +62,15 @@ export function createRouterGuards(router: Router) {
     try {
       userInfo = await userStore.getInfo();
     } catch (e) {
-      // token 失效，清除并跳转登录页
-      storage.remove(ACCESS_TOKEN);
-      userStore.setToken('');
-      next({ path: LOGIN_PATH, replace: true });
+      // 401/912（会话失效）：alova 层已统一 logout + 整页跳转登录页——
+      // 这里历史上一律清 token，把网络抖动/后端 5xx 也误杀成登出
+      if (isSessionExpiredRedirecting()) {
+        next(false);
+        return;
+      }
+      // 网络/服务异常：凭证仍有效，保留（刷新即重试），不清不跳
+      window.$message?.error('获取用户信息失败，请检查网络后刷新重试');
+      next(false);
       return;
     }
 

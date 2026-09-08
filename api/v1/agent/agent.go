@@ -3,6 +3,7 @@
 package agent
 
 import (
+	docsApi "github.com/cicbyte/byte-code/api/v1/docs"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -113,6 +114,51 @@ type AgentProjectsReq struct {
 type AgentProjectsRes struct {
 	g.Meta `mime:"application/json"`
 	List   []ProjectBrief `json:"list"`
+}
+
+// ==================== docs 免参别名（X-Session 推导 project；协议 §七第 4 项） ====================
+// 高频四操作：目录树/读/写/搜索。低频操作（upload/patch/move/delete/meta/refresh）
+// 仍走 /v1/projects/{id}/docs/*（agent 有 bindings 即可访问）
+
+type AgentDocsTreeReq struct {
+	g.Meta `path:"/agent/docs/tree" method:"get" tags:"Agent接入" summary:"vault 目录树（免参）"`
+	Space  string `json:"space" in:"query"`
+}
+
+type AgentDocsTreeRes struct {
+	g.Meta `mime:"application/json"`
+	List   []docsApi.VaultTreeNode `json:"list"`
+}
+
+type AgentDocsFileReq struct {
+	g.Meta `path:"/agent/docs/file" method:"get" tags:"Agent接入" summary:"读取文件（免参）"`
+	Path   string `json:"path" in:"query" v:"required#路径不能为空"`
+}
+
+type AgentDocsFileRes struct {
+	g.Meta `mime:"application/json"`
+	*docsApi.VaultFileGetRes
+}
+
+type AgentDocsWriteReq struct {
+	g.Meta  `path:"/agent/docs/file" method:"put" tags:"Agent接入" summary:"写入文件（免参；写前自动 .history 快照）"`
+	Path    string `json:"path" v:"required#路径不能为空"`
+	Content string `json:"content"`
+}
+
+type AgentDocsWriteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type AgentDocsSearchReq struct {
+	g.Meta  `path:"/agent/docs/search" method:"get" tags:"Agent接入" summary:"搜索文档（免参）"`
+	Keyword string `json:"keyword" in:"query" v:"required#关键词不能为空"`
+	Space   string `json:"space" in:"query"`
+}
+
+type AgentDocsSearchRes struct {
+	g.Meta `mime:"application/json"`
+	List   []docsApi.VaultSearchItem `json:"list"`
 }
 
 type AgentTasksReq struct {

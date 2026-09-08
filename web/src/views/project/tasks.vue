@@ -375,7 +375,11 @@
   }
 
   // 通知跳转入口：?task=<id> 自动打开详情抽屉（读完即清，防刷新重复弹）
+  // 详情弹窗内点子任务/引用任务后转发打开（弹窗单例，经 window 事件免层层透传）
   onMounted(() => {
+    const onOpenTask = (e: Event) => taskDetailRef.value?.openModal((e as CustomEvent).detail);
+    window.addEventListener('bc-open-task', onOpenTask);
+    onUnmounted(() => window.removeEventListener('bc-open-task', onOpenTask));
     loadTasks();
     const q = Number(route.query.task);
     if (q > 0) {

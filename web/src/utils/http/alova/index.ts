@@ -14,6 +14,12 @@ const { apiUrl, urlPrefix } = useGlobSetting();
 // 会话过期跳转中标记：并发多个 401 时只清理/跳转一次（整页跳转会自动重置）
 let sessionExpiredRedirecting = false;
 
+// 供路由守卫区分错误类别：true = 401/912 已由本层统一处理（logout+整页跳转），
+// 守卫不应再清 token；false = 网络/服务异常，本地凭证仍有效须保留
+export function isSessionExpiredRedirecting() {
+  return sessionExpiredRedirecting;
+}
+
 function handleSessionExpired(message?: string) {
   const Message = window.$message;
   Message?.error(message || '登录已过期，请重新登录');

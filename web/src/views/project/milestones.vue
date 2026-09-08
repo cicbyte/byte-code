@@ -15,6 +15,7 @@
               <th>描述</th>
               <th>目标日期</th>
               <th>状态</th>
+              <th>进度</th>
               <th style="width: 100px">操作</th>
             </tr>
           </thead>
@@ -26,6 +27,17 @@
               <td>{{ item.targetDate || '-' }}</td>
               <td>
                 <n-tag size="small" :type="statusType(item.status)">{{ statusLabel(item.status) }}</n-tag>
+              </td>
+              <td>
+                <n-progress
+                  type="line"
+                  :percentage="item.reqTotal ? Math.round((item.reqDone / item.reqTotal) * 100) : 0"
+                  :height="8"
+                  :show-indicator="false"
+                  :color="item.reqDone >= item.reqTotal && item.reqTotal > 0 ? '#18a058' : undefined"
+                  style="width: 90px; display: inline-block; vertical-align: middle; margin-right: 6px"
+                />
+                <span class="text-xs text-gray-400">{{ item.reqDone }}/{{ item.reqTotal }}</span>
               </td>
               <td>
                 <n-space size="small">
