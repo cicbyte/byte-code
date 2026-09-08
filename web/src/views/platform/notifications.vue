@@ -138,6 +138,10 @@
         const { getTask } = await import('@/api/project/index');
         const t = await getTask(item.sourceId);
         if (t?.projectId) router.push(`/project/${t.projectId}/tasks?task=${item.sourceId}`);
+      } else if (item.sourceType === 'feedback' && item.sourceId) {
+        // sourceId 是 projectId：反馈通知直达收件箱（原来跳概览，用户反馈导航断链）
+        popoverShow.value = false;
+        router.push(`/project/${item.sourceId}/feedbacks`);
       } else if (item.sourceType === 'project' && item.sourceId) {
         router.push(`/project/${item.sourceId}/overview`);
       }

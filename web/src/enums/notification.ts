@@ -18,6 +18,7 @@ export const NOTICE_TYPE_TAG: Record<string, 'info' | 'success' | 'warning' | 'e
 export const NOTICE_SOURCE_LABELS: Record<string, string> = {
   task: '任务',
   project: '项目',
+  feedback: '反馈',
 };
 
 export function noticeTypeLabel(t: string): string {

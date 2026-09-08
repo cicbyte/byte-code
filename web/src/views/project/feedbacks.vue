@@ -90,7 +90,7 @@
 
 <script lang="ts" setup>
   import { ref, computed, reactive, onMounted } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { useMessage } from 'naive-ui';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import {
@@ -106,6 +106,23 @@
   const route = useRoute();
   const message = useMessage();
   const projectId = computed(() => Number(route.params.projectId));
+
+  // 数据链接导航：来源项目/来源任务/转出任务三个断链点修复
+  const router = useRouter();
+  function gotoSourceProject(fb: any) {
+    if (fb.sourceProjectId) router.push(`/project/${fb.sourceProjectId}/overview`);
+  }
+  async function gotoSourceTask(fb: any) {
+    if (!fb.sourceTaskId) return;
+    try {
+      const { getTask } = await import('@/api/project/index');
+      const t = await getTask(fb.sourceTaskId);
+      if (t?.projectId) router.push(`/project/${t.projectId}/tasks?task=${fb.sourceTaskId}`);
+    } catch { /* 无权或已删 */ }
+  }
+  function gotoConvertedTask(fb: any) {
+    if (fb.convertedTaskId) router.push(`/project/${projectId.value}/tasks?task=${fb.convertedTaskId}`);
+  }
 
   const loading = ref(false);
   const list = ref<FeedbackItem[]>([]);

@@ -42,7 +42,7 @@ type QaListRes struct {
 }
 
 type QaHitReq struct {
-	g.Meta    `path:"/projects/{projectId}/qas/{id}/hit" method:"post" tags:"QA库" summary="命中计数（agent/人查阅时调用；开工包排序依据）"`
+	g.Meta    `path:"/projects/{projectId}/qas/{id}/hit" method:"post" tags:"QA库" summary:"命中计数(agent/人查阅时调用; 开工包排序依据)"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`
 	Id        int `json:"id" v:"required" in:"path"`
 }
@@ -52,7 +52,7 @@ type QaHitRes struct {
 }
 
 type QaArchiveReq struct {
-	g.Meta    `path:"/projects/{projectId}/qas/{id}/archive" method:"post" tags:"QA库" summary="归档（过期/失效的 QA）"`
+	g.Meta    `path:"/projects/{projectId}/qas/{id}/archive" method:"post" tags:"QA库" summary:"归档(过期/失效的 QA)"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`
 	Id        int `json:"id" v:"required" in:"path"`
 }

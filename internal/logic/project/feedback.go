@@ -70,14 +70,14 @@ func (s *sProject) CreateFeedback(ctx context.Context, req *api.FeedbackCreateRe
 		Fields("pm.user_id").Where("pm.project_id", req.ProjectId).All()
 	for _, r := range rows {
 		notify.Send(ctx, r["user_id"].Int(), "收到跨项目反馈",
-			fmt.Sprintf("「%s」请分析是否建立任务", req.Title), "info", "project", req.ProjectId)
+			fmt.Sprintf("「%s」请分析是否建立任务", req.Title), "info", "feedback", req.ProjectId)
 	}
 	agentRows, _ := g.DB().Model("agent_project_bindings b").Ctx(ctx).
 		Fields("b.agent_id").Where("b.project_id", req.ProjectId).All()
 	for _, r := range agentRows {
 		notify.Send(ctx, r["agent_id"].Int(), "收到跨项目反馈",
 			fmt.Sprintf("「%s」请阅读分析（feedback %d），决定是否建任务", req.Title, int(lastId)),
-			"info", "project", req.ProjectId)
+			"info", "feedback", req.ProjectId)
 	}
 	return int(lastId), nil
 }
@@ -178,7 +178,7 @@ func (s *sProject) DismissFeedback(ctx context.Context, req *api.FeedbackDismiss
 		return liberr.WrapDb(ctx, err, "反馈状态更新失败")
 	}
 	notify.Send(ctx, fb["created_by"].Int(), "反馈被忽略",
-		fmt.Sprintf("你的反馈「%s」未被采纳：%s", fb["title"].String(), req.Reason), "warning", "project", req.ProjectId)
+		fmt.Sprintf("你的反馈「%s」未被采纳：%s", fb["title"].String(), req.Reason), "warning", "feedback", req.ProjectId)
 	s.recordActivity(ctx, uid, "feedback.dismissed", "feedback", req.Id, fb["title"].String(), req.ProjectId, req.Reason)
 	return nil
 }
