@@ -67,7 +67,7 @@
           v-model:page="pagination.page"
           :page-size="pagination.size"
           :item-count="total"
-          @update:page="load"
+          @update:page="onPageChange"
         />
       </div>
     </n-card>
@@ -79,17 +79,14 @@
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
   import { getNotifications, readNotification, readAllNotifications, getUnreadCount } from '@/api/platform/index';
+  import { usePagedList } from '@/composables/usePagedList';
   import type { NotificationItem } from '@/api/platform/index';
   import { NOTICE_TYPE_LABELS, NOTICE_TYPE_TAG, NOTICE_SOURCE_LABELS, noticeTypeOptions } from '@/enums/notification';
   import { useRouter } from 'vue-router';
 
   const message = useMessage();
   const router = useRouter();
-  const loading = ref(false);
-  const list = ref<NotificationItem[]>([]);
-  const total = ref(0);
   const unread = ref(0);
-  const pagination = reactive({ page: 1, size: 20 });
   const readFilter = ref('0');
   const typeFilter = ref<string | null>(null);
 
@@ -108,24 +105,18 @@
     return d === t ? hm : `${d.slice(5)} ${hm}`;
   }
 
-  async function load() {
-    loading.value = true;
-    try {
-      const res: any = await getNotifications({
-        unread: Number(readFilter.value) || undefined,
-        type: typeFilter.value || undefined,
-        page: pagination.page,
-        size: pagination.size,
-      });
-      const rows: NotificationItem[] = (res && res.list) || [];
-      list.value = rows;
-      total.value = (res && res.total) || 0;
-    } catch {
-      // http 层统一提示
-    } finally {
-      loading.value = false;
-    }
-  }
+  // usePagedList 统一四件套（含筛选重置页码/末页删空回退；已读批量后刷新走 load）
+  const {
+    loading, list, total, pagination,
+    load, onFilterChange, onPageChange,
+  } = usePagedList<any>((page: number, size: number) =>
+    getNotifications({
+      unread: Number(readFilter.value) || undefined,
+      type: typeFilter.value || undefined,
+      page,
+      size,
+    })
+  );
 
   async function loadUnread() {
     try {
@@ -136,10 +127,7 @@
     }
   }
 
-  function onFilterChange() {
-    pagination.page = 1;
-    load();
-  }
+
 
   // 行点击=已读+跳转源实体（与铃铛同款；"标为已读"按钮只读不跳）
   async function openSource(item: NotificationItem) {

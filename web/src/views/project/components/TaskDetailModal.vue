@@ -423,6 +423,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import { useTaskComments } from '../composables/useTaskComments';
   import DOMPurify from 'dompurify';
   import { MdPreview } from 'md-editor-v3';
   import 'md-editor-v3/lib/preview.css';
@@ -481,7 +482,6 @@
   const loading = ref(false);
   const submitting = ref(false);
   const task = ref<TaskItem | null>(null);
-  const comments = ref<CommentItem[]>([]);
 
   // 标签管理：attach 选择（含新建：tag 模式回车创建后挂载）
   const attachTagId = ref<number | null>(null);
@@ -753,30 +753,12 @@
     if (chatListRef.value) chatListRef.value.scrollTop = chatListRef.value.scrollHeight;
   }
 
-  // SSE 联动：任务新评论通知到达时，若抽屉正开着且是当前任务则静默刷新评论
-  function onLiveNotification(e: Event) {
-    const detail = (e as CustomEvent).detail || {};
-    if (!visible.value || !task.value) return;
-    if (detail.sourceType === 'task' && Number(detail.sourceId) === task.value.id) {
-      if (detail.title === '任务新评论' || detail.title === '评论被回复' || detail.title === '评论提及了你') {
-        refreshComments(true);
-      }
-    }
-  }
-
-  async function refreshComments(silent = false) {
-    if (!task.value) return;
-    try {
-      const res = await getComments(task.value.id);
-      comments.value = res?.list || [];
-      if (silent) scrollChatBottom();
-    } catch {
-      // ignore
-    }
-  }
-
-  onMounted(() => window.addEventListener('bc-notification', onLiveNotification));
-  onUnmounted(() => window.removeEventListener('bc-notification', onLiveNotification));
+  // 评论区加载与 SSE 实时刷新已抽至 useTaskComments composable（含已知
+  // 脆弱点注释：通知标题精确匹配，平台换结构化字段时只改 composable 一处）
+  const { comments, refreshComments } = useTaskComments(
+    () => (visible.value && task.value ? task.value.id : 0),
+    () => scrollChatBottom()
+  );
 
   // ==================== 评论编辑/删除（仅作者本人） ====================
   const myUsername = computed(() => userStore.getUserInfo?.username || userStore.username || '');

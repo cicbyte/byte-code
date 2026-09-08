@@ -109,7 +109,7 @@
           v-model:page="pagination.page"
           :page-size="pagination.size"
           :item-count="total"
-          @update:page="loadTasks"
+          @update:page="onPageChange"
         />
       </div>
     </n-card>
@@ -169,6 +169,7 @@
   import { useMessage, useDialog } from 'naive-ui';
   import { getTags } from '@/api/platform/index';
   import { getTasks, createTask, updateTask, deleteTask, getMembers } from '@/api/project/index';
+  import { usePagedList } from '@/composables/usePagedList';
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
@@ -183,9 +184,6 @@
   const dialog = useDialog();
   const projectId = computed(() => Number(route.params.projectId));
 
-  const taskList = ref<TaskItem[]>([]);
-  const total = ref(0);
-  const pagination = reactive({ page: 1, size: 20 });
   const taskDetailRef = ref();
 
   // 状态/类型/优先级字典统一出口：enums/task.ts
@@ -282,26 +280,22 @@
     showCreateModal.value = true;
   }
 
-  const loading = ref(false);
-
-  async function loadTasks() {
-    loading.value = true;
-    try {
-      const res = await getTasks(projectId.value, {
-        page: pagination.page, size: pagination.size,
-        status: filter.status ?? undefined,
-        type: filter.type ?? undefined,
-        tagId: filter.tagId ?? undefined,
-        keyword: filter.keyword || undefined,
-      });
-      if (res) { taskList.value = res.list || []; total.value = res.total || 0; }
-    } catch { /* ignore */ }
-    finally { loading.value = false; }
-  }
+  // usePagedList 统一分页四件套：筛选重置页码/末页删空回退/过期响应防护
+  const {
+    loading, list: taskList, total, pagination,
+    load: loadTasks, onFilterChange, afterRemove, onPageChange,
+  } = usePagedList((page: number, size: number) =>
+    getTasks(projectId.value, {
+      page, size,
+      status: filter.status ?? undefined,
+      type: filter.type ?? undefined,
+      tagId: filter.tagId ?? undefined,
+      keyword: filter.keyword || undefined,
+    })
+  );
 
   function handleSearch() {
-    pagination.page = 1;
-    loadTasks();
+    onFilterChange();
   }
 
   function handleReset() {
@@ -309,8 +303,7 @@
     filter.status = null;
     filter.type = null;
     filter.tagId = null;
-    pagination.page = 1;
-    loadTasks();
+    onFilterChange();
   }
 
   async function handleSubmit() {
@@ -368,7 +361,7 @@
       positiveText: '确定',
       negativeText: '取消',
       onPositiveClick: async () => {
-        try { await deleteTask(task.id); message.success('删除成功'); loadTasks(); }
+        try { await deleteTask(task.id); message.success('删除成功'); afterRemove(); }
         catch { message.error('删除失败'); }
       },
     });

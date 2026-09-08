@@ -161,6 +161,14 @@ func AutoMigrate(ctx context.Context) error {
 		g.Log().Infof(ctx, "Migration completed: %s", filename)
 	}
 
+	// 时区统一后处理（SQLite 专属；详见 timezone.go——事务内做不了的事
+	// 在这里以 autocommit 收尾）
+	if dialect == "sqlite" {
+		if err := sqlitePostTimezone(ctx); err != nil {
+			return fmt.Errorf("timezone post-process: %w", err)
+		}
+	}
+
 	return nil
 }
 

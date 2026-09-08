@@ -144,10 +144,10 @@ func ScanDueTasks(ctx context.Context) error {
 func ReleaseStaleClaims(ctx context.Context) error {
 	// 阈值 2 小时：claim 后正常执行（读开工包→写代码→complete）远短于此；
 	// 过短会把慢任务误释放，过长则失联任务卡死更久。
-	// 时区口径：tasks.updated_at 由触发器 tr_tasks_updated_at 写
-	// CURRENT_TIMESTAMP（SQLite 恒 UTC，且会覆盖应用层写入），阈值必须
-	// 同为 UTC——本地时间在 UTC+8 下会差 8h>2h，刚认领的任务会被全量误释放
-	threshold := time.Now().UTC().Add(-2 * time.Hour)
+	// 时区口径：迁移 64 起 updated_at 统一本地时间（触发器 datetime('now',
+	// 'localtime') / MySQL 会话时区），阈值同口径取本地——历史 UTC 双轨制
+	// 曾在此差 8h 造成刚认领任务全量误释放（专题#1 时区统一专项）
+	threshold := time.Now().Add(-2 * time.Hour)
 	// 不用 LockUpdate()：SQLite 不支持 FOR UPDATE（实测语法错误，曾导致
 	// 本扫描每小时恒失败）；单写者模型下查询与后续事务的窗口由 UPDATE
 	// 的状态条件兜底（查询候选后任务恰好被 complete 的不会被释放回 open）

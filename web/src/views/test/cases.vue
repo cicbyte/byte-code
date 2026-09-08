@@ -78,12 +78,12 @@
         </n-table>
       </n-spin>
 
-      <div class="mt-4 flex justify-end" v-if="total > pagination.pageSize">
+      <div class="mt-4 flex justify-end" v-if="total > pagination.size">
         <n-pagination
           v-model:page="pagination.page"
-          :page-size="pagination.pageSize"
+          :page-size="pagination.size"
           :item-count="total"
-          @update:page="loadData"
+          @update:page="onPageChange"
         />
       </div>
     </n-card>
@@ -139,6 +139,7 @@
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
+  import { usePagedList } from '@/composables/usePagedList';
   import {
     getTestCases,
     createTestCase,
@@ -149,9 +150,6 @@
 
   const message = useMessage();
   const dialog = useDialog();
-  const loading = ref(false);
-  const caseList = ref<TestCaseItem[]>([]);
-  const total = ref(0);
   const showModal = ref(false);
   const isEdit = ref(false);
   const editId = ref<number | null>(null);
@@ -159,7 +157,6 @@
 
   const route = useRoute();
   const projectId = computed(() => Number(route.params.projectId));
-  const pagination = reactive({ page: 1, pageSize: 10 });
   const filters = reactive({ category: null as string | null, status: null as string | null, keyword: '' });
 
   function categoryLabel(c: string) {
@@ -207,31 +204,21 @@
   }
 
     // 筛选变更从第 1 页重查：第 N 页改筛选会请求空页显示"暂无"
-  function onFilterChange() {
-    pagination.page = 1;
-    loadData();
-  }
 
-async function loadData() {
-    loading.value = true;
-    try {
-      const res = await getTestCases(projectId.value, {
-        category: filters.category ?? undefined,
-        status: filters.status ?? undefined,
-        keyword: filters.keyword || undefined,
-        pageNum: pagination.page,
-        pageSize: pagination.pageSize,
-      });
-      if (res) {
-        caseList.value = res.list || [];
-        total.value = res.total || 0;
-      }
-    } catch (e) {
-      // ignore
-    } finally {
-      loading.value = false;
-    }
-  }
+
+// usePagedList 统一四件套；后端 pageNum/pageSize 差异在 fetcher 内映射
+  const {
+    loading, list: caseList, total, pagination,
+    load: loadData, onFilterChange, afterRemove, onPageChange,
+  } = usePagedList((page: number, size: number) =>
+    getTestCases(projectId.value, {
+      category: filters.category ?? undefined,
+      status: filters.status ?? undefined,
+      keyword: filters.keyword || undefined,
+      pageNum: page,
+      pageSize: size,
+    })
+  );
 
   function handleCreate() {
     resetForm();
@@ -261,7 +248,7 @@ async function loadData() {
         try {
           await deleteTestCase(item.id);
           message.success('删除成功');
-          loadData();
+          afterRemove();
         } catch (e) {
           message.error('删除失败');
         }
