@@ -6,7 +6,11 @@ services:
     ports:
       - '8000:8000'
     volumes:
-      # SQLite 库/备份/项目文档 vault 全部落宿主机，升级镜像数据不丢
+      # 数据面全部落宿主机（对齐生产部署，五路挂载防升级丢数据）
       - ./data:/data
+      - ./data/projects:/app/resource/projects
+      - ./data/jwt.secret:/app/resource/data/jwt.secret
+      - ./data/avatars:/app/resource/data/avatars
+      - ./data/backup:/app/resource/backup
     environment:
       TZ: Asia/Shanghai

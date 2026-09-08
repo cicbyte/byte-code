@@ -69,6 +69,18 @@
   // ==================== SSE 实时通知（fetch 流解析；EventSource 不支持自定义 header） ====================
   let sseAbort: AbortController | null = null;
 
+  let reconnectDelay = 30_000;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      startSSE();
+      reconnectDelay = Math.min(reconnectDelay * 1.5, 300_000);
+    }, reconnectDelay);
+  }
+
   function startSSE() {
     sseAbort = new AbortController();
     // 走 Storage 封装读 token（带 expire 校验，key 不再侥幸匹配裸 localStorage）。
@@ -105,18 +117,21 @@
             }
             fetchUnread();
             if (popoverShow.value) loadList();
+            reconnectDelay = 30_000;
             window.dispatchEvent(new CustomEvent('bc-notification', { detail: payload }));
           }
         }
       })
       .catch(() => {
-        // 连接断开/失败：什么都不做，轮询兜底仍在
+        // 指数退避重连（原静默放弃导致实时通道永久关闭）
+        scheduleReconnect();
       });
   }
 
   function stopSSE() {
     sseAbort?.abort();
     sseAbort = null;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   }
 
   async function fetchUnread() {
@@ -197,7 +212,10 @@
   onMounted(() => {
     fetchUnread();
     startSSE();
-    timer = setInterval(fetchUnread, POLL_INTERVAL);
+    timer = setInterval(() => {
+    fetchUnread();
+    if (popoverShow.value) loadList();
+  }, POLL_INTERVAL);
   });
 
   onUnmounted(() => {

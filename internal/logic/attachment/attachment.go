@@ -405,9 +405,6 @@ func attachmentEntityAccessible(ctx context.Context, userId int, entityType stri
 
 // attachmentByIdAccessible 按附件 id 解析其实体归属再校验
 func attachmentByIdAccessible(ctx context.Context, userId, attachmentId int) bool {
-	v, err := g.DB().Model("attachments").Where("id", attachmentId).Fields("entity_type", "entity_id").Value()
-	_ = v
-	// 取两个字段需用 One
 	rec, err := g.DB().Model("attachments").Where("id", attachmentId).Fields("entity_type, entity_id").One()
 	if err != nil || rec == nil {
 		return false

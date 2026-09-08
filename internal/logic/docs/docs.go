@@ -795,6 +795,11 @@ func (s *sVault) HistoryRestore(ctx context.Context, projectId int64, rel, snaps
 	if !textExt(path.Ext(rel)) {
 		return gerror.New("仅文本文件支持历史恢复")
 	}
+	// 与 WriteFile/PatchFile 同口径持 per-path 锁（审计 M5：绕锁时恢复与并发
+	// 编辑可互相覆盖——后写者盖前写者）
+	mu := lockFile(projectId, rel)
+	mu.Lock()
+	defer mu.Unlock()
 	if err := docs.RestoreHistory(ctx, projectId, rel, snapshot); err != nil {
 		return gerror.New(err.Error())
 	}

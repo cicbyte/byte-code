@@ -55,7 +55,7 @@ func (s *sProject) ListQas(ctx context.Context, req *api.QaListReq) (res *api.Qa
 		m = m.Where("(q.question LIKE ? ESCAPE '|' OR q.answer LIKE ? ESCAPE '|' OR q.tags LIKE ? ESCAPE '|')", kw, kw, kw)
 	}
 	if req.Tag != "" {
-		m = m.Where("q.tags LIKE ?", "%"+escape.Like(req.Tag)+"%")
+		m = m.Where("q.tags LIKE ? ESCAPE '|'", "%"+escape.Like(req.Tag)+"%")
 	}
 	rows, err := m.Order("q.hits DESC, q.id DESC").Limit(req.Size).All()
 	if err != nil {

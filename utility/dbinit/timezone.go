@@ -36,6 +36,8 @@ func sqlitePostTimezone(ctx context.Context) error {
 		return fmt.Errorf("timezone: scan sqlite_master failed: %w", err)
 	}
 	if len(rows) > 0 {
+		// 已知理论风险：PRAGMA 是连接级设置，池 >1 空闲连接时 UPDATE 可能落到
+		// 未设 PRAGMA 的连接。启动路径（HTTP 前、迁移后）池连接极少，实际安全
 		if _, err := g.DB().Exec(ctx, "PRAGMA writable_schema=ON"); err != nil {
 			return fmt.Errorf("timezone: writable_schema on failed: %w", err)
 		}
@@ -57,16 +59,16 @@ func sqlitePostTimezone(ctx context.Context) error {
 		g.Log().Infof(ctx, "timezone: rewrote CURRENT_TIMESTAMP defaults on %d tables", len(rows))
 	}
 
-	// ---- 2. 存量修正（仅租约消费列；条件「无 + 后缀」区分 app 写入的本地值）----
-	for _, col := range []string{"updated_at", "completed_at"} {
-		res, err := g.DB().Exec(ctx, fmt.Sprintf(
-			"UPDATE tasks SET %s = datetime(%s, 'localtime') WHERE %s != '' AND %s NOT LIKE '%%+%%'", col, col, col, col))
-		if err != nil {
-			return fmt.Errorf("timezone: fix tasks.%s failed: %w", col, err)
-		}
-		if n, _ := res.RowsAffected(); n > 0 {
-			g.Log().Infof(ctx, "timezone: shifted %d rows in tasks.%s (UTC → local)", n, col)
-		}
+	// ---- 2. 存量修正（仅 updated_at）----
+	// 只修 updated_at（触发器覆盖，存量确为 UTC）；completed_at 是 Go 显式
+	// 写入的本地纯字符串，NOT LIKE 无法区分（v1 误修审计回归发现）
+	res, err := g.DB().Exec(ctx,
+		"UPDATE tasks SET updated_at = datetime(updated_at, 'localtime') WHERE updated_at != '' AND updated_at NOT LIKE '%+%'")
+	if err != nil {
+		return fmt.Errorf("timezone: fix tasks.updated_at failed: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		g.Log().Infof(ctx, "timezone: shifted %d rows in tasks.updated_at (UTC → local)", n)
 	}
 
 	// ---- 3. 幂等标记（复用 dbutil 的方言 upsert 语义，此处直写避免包依赖环）----

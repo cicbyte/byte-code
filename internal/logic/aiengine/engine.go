@@ -39,12 +39,15 @@ func StartEngine(ctx context.Context) {
 		return
 	}
 	engineCtx, engineCancel = context.WithCancel(context.Background())
-	if _, err := gcron.AddSingleton(engineCtx, engineScanInterval, func(ctx context.Context) {
+	var entry *gcron.Entry
+	entry, err := gcron.AddSingleton(engineCtx, engineScanInterval, func(ctx context.Context) {
 		scanAndExecute(ctx)
-	}); err != nil {
+	})
+	if err != nil {
 		g.Log().Errorf(ctx, "AI 引擎定时任务注册失败: %v", err)
 		return
 	}
+	engineEntry = entry
 	isRunning = true
 	persistEnabled(ctx, true)
 	g.Log().Info(ctx, "AI 执行引擎启动")
@@ -219,7 +222,9 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 		Where("status", "open").
 		Data(g.Map{"status": "in_progress"}).
 		Update()
-	if err != nil {
+		// 善后回写用独立 ctx（StopEngine 取消 engineCtx 后带取消 ctx 的 DB 写静默丢状态）
+	finCtx := context.Background()
+if err != nil {
 		g.Log().Warningf(ctx, "AI 引擎: 认领任务 %d 失败: %v", task.Id, err)
 		return
 	}
@@ -230,7 +235,7 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 	}
 
 	// 记录 AI 执行日志
-	logId := recordAiLog(ctx, task.AssigneeId, task.Id, "claim", fmt.Sprintf("AI 认领任务「%s」", task.Title), "success")
+	logId := recordAiLog(finCtx, task.AssigneeId, task.Id, "claim", fmt.Sprintf("AI 认领任务「%s」", task.Title), "success")
 
 	// 单任务执行超时：挂死的模型端点会永久阻塞 processTask，gcron AddSingleton
 	// 下后续所有轮次被跳过——一个任务拖垮整个引擎
@@ -252,12 +257,12 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 	})
 
 	if err != nil {
-		g.Log().Errorf(ctx, "AI 引擎: 任务 %d 执行失败（第 %d 次）: %v", task.Id, task.Attempts+1, err)
-		recordAiLog(ctx, task.AssigneeId, task.Id, "error", err.Error(), "failed")
+		g.Log().Errorf(finCtx, "AI 引擎: 任务 %d 执行失败（第 %d 次）: %v", task.Id, task.Attempts+1, err)
+		recordAiLog(finCtx, task.AssigneeId, task.Id, "error", err.Error(), "failed")
 		// 失败退避：按次数指数拉开重试间隔，超限进死信（closed），不再无限重试烧 API
 		attempts := task.Attempts + 1
 		if attempts >= aiMaxAttempts {
-			g.DB().Model("tasks").Ctx(ctx).
+			g.DB().Model("tasks").Ctx(finCtx).
 				Where("id", task.Id).
 				Where("status", "in_progress").
 				Data(g.Map{
@@ -265,14 +270,14 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 					"artifacts":    fmt.Sprintf("AI 执行连续失败 %d 次，已自动关闭：\n\n%s", attempts, err.Error()),
 					"completed_at": time.Now().Format("2006-01-02 15:04:05"),
 				}).Update()
-			recordAiLog(ctx, task.AssigneeId, task.Id, "dead", "连续失败超限，任务转入死信", "failed")
+			recordAiLog(finCtx, task.AssigneeId, task.Id, "dead", "连续失败超限，任务转入死信", "failed")
 			return
 		}
 		backoff := aiBackoff[len(aiBackoff)-1]
 		if attempts-1 < len(aiBackoff) {
 			backoff = aiBackoff[attempts-1]
 		}
-		g.DB().Model("tasks").Ctx(ctx).
+		g.DB().Model("tasks").Ctx(finCtx).
 			Where("id", task.Id).
 			Where("status", "in_progress").
 			Data(g.Map{
@@ -284,7 +289,7 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 	}
 
 	// 提交结果
-	g.DB().Model("tasks").Ctx(ctx).
+	g.DB().Model("tasks").Ctx(finCtx).
 		Where("id", task.Id).
 		Data(g.Map{
 			"status":             "review",
@@ -294,8 +299,8 @@ func processTask(ctx context.Context, cfg *EngineConfig, task ClaimableTask) {
 			"ai_next_attempt_at": "",
 		}).Update()
 
-	recordAiLog(ctx, task.AssigneeId, task.Id, "complete", output, "success")
-	g.Log().Infof(ctx, "AI 引擎: 任务 %d 完成，已提交审核", task.Id)
+	recordAiLog(finCtx, task.AssigneeId, task.Id, "complete", output, "success")
+	g.Log().Infof(finCtx, "AI 引擎: 任务 %d 完成，已提交审核", task.Id)
 	_ = logId
 }
 

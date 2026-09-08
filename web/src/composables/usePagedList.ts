@@ -35,9 +35,9 @@ export function usePagedList<T = any>(
         pagination.page -= 1;
         return load();
       }
-    } catch (e) {
+    } catch {
+      // http 层已全局 toast；此处静默清列表即可，rethrow 会变 unhandled rejection
       if (seq === loadSeq) list.value = [];
-      throw e;
     } finally {
       if (seq === loadSeq) loading.value = false;
     }

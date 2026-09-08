@@ -164,7 +164,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted } from 'vue';
+  import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { getTags } from '@/api/platform/index';
