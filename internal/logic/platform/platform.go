@@ -229,12 +229,12 @@ func (s *sPlatform) Search(ctx context.Context, req *api.SearchReq) (res *api.Se
 		table string
 		where string
 	}{
-		"task":        {"tasks", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
-		"requirement": {"requirements", "title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\'"},
-		"doc":         {"project_document_index", "title LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\'"},
-		"test_case":   {"test_cases", "title LIKE ? ESCAPE '\\' OR steps LIKE ? ESCAPE '\\'"},
+		"task":        {"tasks", "title LIKE ? ESCAPE '|' OR description LIKE ? ESCAPE '|'"},
+		"requirement": {"requirements", "title LIKE ? ESCAPE '|' OR description LIKE ? ESCAPE '|'"},
+		"doc":         {"project_document_index", "title LIKE ? ESCAPE '|' OR tags LIKE ? ESCAPE '|'"},
+		"test_case":   {"test_cases", "title LIKE ? ESCAPE '|' OR steps LIKE ? ESCAPE '|'"},
 		// 记忆中枢定位下记忆必须可搜：key 与 value 全文命中
-		"memory":      {"project_memories", "`key` LIKE ? ESCAPE '\\' OR value LIKE ? ESCAPE '\\'"},
+		"memory":      {"project_memories", "`key` LIKE ? ESCAPE '|' OR value LIKE ? ESCAPE '|'"},
 	}
 	modules := []string{"task", "requirement", "doc", "test_case", "memory"}
 	if req.Module != "" {

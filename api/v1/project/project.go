@@ -260,6 +260,17 @@ type TaskClaimRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// TaskReleaseReq 认领人主动释放：回 open + 解除指派（bcode-cli 反馈 B5；
+// 认领错了/依赖阻塞不必等 2h 租约超时，与 lease_expired 同款语义）
+type TaskReleaseReq struct {
+	g.Meta `path:"/tasks/{id}/release" method:"post" tags:"任务管理" summary:"释放任务（认领人放回任务池）"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type TaskReleaseRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 type TaskCompleteReq struct {
 	g.Meta    `path:"/tasks/{id}/complete" method:"post" tags:"任务管理" summary:"AI完成任务"`
 	Id        int    `json:"id" v:"required" in:"path"`
@@ -282,6 +293,18 @@ type TaskUnblockReq struct {
 }
 
 type TaskUnblockRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+// TaskReopenReq 重开终态任务：done/closed 实测发现问题回炉 → open 重新入池。
+// 完成时间清空、指派解除、审核标记复位；原因必填（评论留痕 + 通知原执行者）
+type TaskReopenReq struct {
+	g.Meta `path:"/tasks/{id}/reopen" method:"post" tags:"任务管理" summary:"重开任务（done/closed→open）"`
+	Id     int    `json:"id" v:"required" in:"path"`
+	Reason string `json:"reason" v:"required#重开原因不能为空"`
+}
+
+type TaskReopenRes struct {
 	g.Meta `mime:"application/json"`
 }
 

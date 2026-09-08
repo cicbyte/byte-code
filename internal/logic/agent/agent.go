@@ -344,7 +344,7 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 
 	// 我的任务（assignee=agent，未完成三态）
 	myRows, err := g.DB().Model("tasks").Ctx(ctx).
-		Fields("id, title, status, priority, due_date").
+		Fields("id, title, status, type, priority, due_date, updated_at").
 		Where("assignee_id", agentId).
 		Where("project_id", projectId).
 		Where("status IN (?)", g.Slice{"open", "in_progress", "review"}).
@@ -358,7 +358,7 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 
 	// 我提交的待审（claim 的任务完成进入 review）
 	rvRows, err := g.DB().Model("tasks").Ctx(ctx).
-		Fields("id, title, status, priority, due_date").
+		Fields("id, title, status, type, priority, due_date, updated_at").
 		Where("project_id", projectId).
 		Where("assignee_id", agentId).
 		Where("status", "review").
@@ -369,6 +369,8 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 	for _, r := range rvRows {
 		res.PendingReviews = append(res.PendingReviews, rowToTaskBrief(r))
 	}
+	fillTaskBriefTags(ctx, res.MyTasks)
+	fillTaskBriefTags(ctx, res.PendingReviews)
 
 	// 待分析的跨项目反馈：对方项目投递的线索，由本 agent 阅读后决定
 	// 是否建任务（POST /v1/projects/{pid}/feedbacks/{id}/convert|dismiss）
@@ -428,7 +430,36 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 func rowToTaskBrief(r gdb.Record) api.TaskBrief {
 	return api.TaskBrief{
 		Id: r["id"].Int(), Title: r["title"].String(), Status: r["status"].String(),
-		Priority: r["priority"].Int(), DueDate: r["due_date"].String(),
+		Type: r["type"].String(), Priority: r["priority"].Int(),
+		DueDate: r["due_date"].String(), UpdatedAt: r["updated_at"].String(),
+	}
+}
+
+// fillTaskBriefTags 批量回填任务标签（单条 N+1 在 50 条列表下不可接受）
+func fillTaskBriefTags(ctx context.Context, briefs []api.TaskBrief) {
+	ids := make([]int, 0, len(briefs))
+	for _, b := range briefs {
+		ids = append(ids, b.Id)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	rows, err := g.DB().Model("entity_tags et").Ctx(ctx).
+		InnerJoin("tags t", "t.id = et.tag_id").
+		Fields("et.entity_id, t.name").
+		Where("et.entity_type", "task").
+		Where("et.entity_id IN (?)", ids).
+		Order("et.entity_id ASC, t.name ASC").All()
+	if err != nil {
+		return
+	}
+	m := make(map[int][]string)
+	for _, r := range rows {
+		id := r["entity_id"].Int()
+		m[id] = append(m[id], r["name"].String())
+	}
+	for i := range briefs {
+		briefs[i].Tags = m[briefs[i].Id]
 	}
 }
 
@@ -482,6 +513,25 @@ func ResolveSession(ctx context.Context, sessionId string, claimedAgent int) (in
 
 // ==================== 免参任务列表 ====================
 
+// AgentProjects bc key 认证下的已接入项目列表（免参，跨项目全量）
+func AgentProjects(ctx context.Context, agentId int) (res *api.AgentProjectsRes, err error) {
+	res = &api.AgentProjectsRes{List: []api.ProjectBrief{}}
+	rows, qerr := g.DB().Model("agent_project_bindings b").Ctx(ctx).
+		InnerJoin("projects p", "p.id = b.project_id").
+		Fields("p.id, p.code, p.name").
+		Where("b.agent_id", agentId).
+		Order("p.id ASC").All()
+	if qerr != nil {
+		return nil, liberr.WrapDb(ctx, qerr, "查询项目列表失败")
+	}
+	for _, r := range rows {
+		res.List = append(res.List, api.ProjectBrief{
+			Id: r["id"].Int(), Code: r["code"].String(), Name: r["name"].String(),
+		})
+	}
+	return res, nil
+}
+
 func AgentTasks(ctx context.Context, agentId int, session, status, keyword string) (*api.AgentTasksRes, error) {
 	projectId, err := ResolveSession(ctx, session, agentId)
 	if err != nil {
@@ -510,7 +560,7 @@ func AgentTasks(ctx context.Context, agentId int, session, status, keyword strin
 		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
 	}
 	rows, err := base().
-		Fields("id, title, status, priority, due_date").
+		Fields("id, title, status, type, priority, due_date, updated_at").
 		Order("priority DESC, updated_at DESC").Limit(200).All()
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "查询任务失败")
@@ -518,5 +568,6 @@ func AgentTasks(ctx context.Context, agentId int, session, status, keyword strin
 	for _, r := range rows {
 		res.List = append(res.List, rowToTaskBrief(r))
 	}
+	fillTaskBriefTags(ctx, res.List)
 	return res, nil
 }

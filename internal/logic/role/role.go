@@ -38,7 +38,7 @@ func (s *sRole) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 	err = g.Try(ctx, func(ctx context.Context) {
 		m := g.DB().Model("sys_roles")
 		if req.Name != "" {
-			m = m.Where("name like ? ESCAPE '\\'", "%"+escape.Like(req.Name)+"%")
+			m = m.Where("name like ? ESCAPE '|'", "%"+escape.Like(req.Name)+"%")
 		}
 		if req.PageSize == 0 {
 			req.PageSize = 10

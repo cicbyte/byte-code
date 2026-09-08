@@ -121,6 +121,18 @@ func (c *projectController) ClaimTask(ctx context.Context, req *api.TaskClaimReq
 	return &api.TaskClaimRes{}, nil
 }
 
+func (c *projectController) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (res *api.TaskReleaseRes, err error) {
+	err = service.Project().ReleaseTask(ctx, req)
+	res = new(api.TaskReleaseRes)
+	return
+}
+
+func (c *projectController) ReopenTask(ctx context.Context, req *api.TaskReopenReq) (res *api.TaskReopenRes, err error) {
+	err = service.Project().ReopenTask(ctx, req)
+	res = new(api.TaskReopenRes)
+	return
+}
+
 func (c *projectController) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (res *api.TaskCompleteRes, err error) {
 	err = service.Project().CompleteTask(ctx, req)
 	if err != nil {

@@ -18,16 +18,10 @@ import (
 
 func (s *sProject) CreateFeedback(ctx context.Context, req *api.FeedbackCreateReq) (id int, err error) {
 	uid := perm.UserId(ctx)
-	// 投递门槛：目标项目必须**反向关联**了发起方可访问的项目——更简单的
-	// 起步口径：发起人须能同时访问目标项目（CanAccessProject），且目标
-	// 项目存在一条指向发起来源的关联（source task 所属项目，或任一发起人
-	// 可访问项目的关联）。这里取务实最小集：
-	//   1) 发起人对目标项目可访问（能进这个项目的协作面）；
-	//   2) 目标项目必须已建立“至少一条”关联关系（B 的 owner 有意识地
-	//      开放了反馈面）——防任意投递。
-	if !perm.CanAccessProject(ctx, uid, req.ProjectId) {
-		return 0, fmt.Errorf("无权向该项目投递反馈")
-	}
+	// 投递门槛（bcode-cli 反馈 B1 后放宽）：反馈通道的价值正是给无准入方的
+	// 唯一口子——已有目标准入的人直接建任务即可，无需反馈。故不再要求发起人
+	// 可访问目标项目，防任意投递由唯一条件承担：目标项目必须已关联来源项目
+	// （B 的 owner 有意识地开放了反馈面）。
 	// 来源项目：来源任务所属项目；无来源任务时取发起人的成员项目
 	sourceProject := 0
 	if req.SourceTaskId > 0 {

@@ -91,14 +91,29 @@ type ConventionItem struct {
 }
 
 type TaskBrief struct {
-	Id       int    `json:"id"`
-	Title    string `json:"title"`
-	Status   string `json:"status"`
-	Priority int    `json:"priority"`
-	DueDate  string `json:"dueDate,omitempty"`
+	Id     int    `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+	// 批量决策场景（bcode-cli 反馈 B3）：列表粗扫即可判断是否认领，免逐条拉详情
+	Type      string   `json:"type"`
+	Priority  int      `json:"priority"`
+	Tags      []string `json:"tags,omitempty"`
+	DueDate   string   `json:"dueDate,omitempty"`
+	UpdatedAt string   `json:"updatedAt"`
 }
 
 // ==================== 免参别名（X-Session 推导 agent+project） ====================
+
+// AgentProjectsReq 该 agent 已接入的全部项目（bcode-cli 反馈 B6：
+// /v1/projects 对 agent 恒空——非管理员过滤不含 agent_project_bindings）
+type AgentProjectsReq struct {
+	g.Meta `path:"/agent/projects" method:"get" tags:"Agent接入" summary:"我的项目列表（bc key 认证，免参）"`
+}
+
+type AgentProjectsRes struct {
+	g.Meta `mime:"application/json"`
+	List   []ProjectBrief `json:"list"`
+}
 
 type AgentTasksReq struct {
 	g.Meta  `path:"/agent/tasks" method:"get" tags:"Agent接入" summary:"项目任务列表（会话推导，免 projectId）"`

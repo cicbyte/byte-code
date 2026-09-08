@@ -52,7 +52,7 @@ func (s *sProject) ListQas(ctx context.Context, req *api.QaListReq) (res *api.Qa
 		Where("q.status", "active")
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
-		m = m.Where("(q.question LIKE ? ESCAPE '\\' OR q.answer LIKE ? ESCAPE '\\' OR q.tags LIKE ? ESCAPE '\\')", kw, kw, kw)
+		m = m.Where("(q.question LIKE ? ESCAPE '|' OR q.answer LIKE ? ESCAPE '|' OR q.tags LIKE ? ESCAPE '|')", kw, kw, kw)
 	}
 	if req.Tag != "" {
 		m = m.Where("q.tags LIKE ?", "%"+escape.Like(req.Tag)+"%")

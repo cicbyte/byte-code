@@ -329,7 +329,7 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	}
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
-		countM = countM.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
+		countM = countM.Where("(t.title LIKE ? ESCAPE '|' OR t.description LIKE ? ESCAPE '|')", kw, kw)
 	}
 	if req.TagId > 0 {
 		tagCond := "EXISTS (SELECT 1 FROM entity_tags et WHERE et.entity_type = 'task' AND et.entity_id = t.id AND et.tag_id = ?)"
@@ -362,7 +362,7 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	}
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
-		m = m.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
+		m = m.Where("(t.title LIKE ? ESCAPE '|' OR t.description LIKE ? ESCAPE '|')", kw, kw)
 	}
 	if req.TagId > 0 {
 		tagCond := "EXISTS (SELECT 1 FROM entity_tags et WHERE et.entity_type = 'task' AND et.entity_id = t.id AND et.tag_id = ?)"
@@ -436,7 +436,7 @@ func (s *sProject) MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res 
 		}
 		if req.Keyword != "" {
 			kw := "%" + escape.Like(req.Keyword) + "%"
-			m = m.Where("(t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')", kw, kw)
+			m = m.Where("(t.title LIKE ? ESCAPE '|' OR t.description LIKE ? ESCAPE '|')", kw, kw)
 		}
 		return m
 	}

@@ -85,6 +85,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			group.Bind(
 				controller.AgentCtl.Join,
 				controller.AgentCtl.SessionCreate,
+				controller.AgentCtl.AgentProjects,
 				controller.AgentCtl.AgentTasks,
 				controller.AgentCtl.JoinCodeCreate,
 				controller.AgentCtl.AgentRemoveProject,

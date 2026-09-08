@@ -32,7 +32,7 @@ func (s *sUser) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
-		m = m.Where(`(username LIKE ? ESCAPE '\' OR real_name LIKE ? ESCAPE '\')`, kw, kw)
+		m = m.Where(`(username LIKE ? ESCAPE '|' OR real_name LIKE ? ESCAPE '|')`, kw, kw)
 	}
 
 	total, err := m.Count()

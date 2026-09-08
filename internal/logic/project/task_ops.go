@@ -61,6 +61,33 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 	return nil
 }
 
+// ReleaseTask 认领人主动释放：认领错了/依赖阻塞时放回任务池，
+// 不必等 2h 租约超时（lease_expired 的手动对称版，bcode-cli 反馈 B5）
+func (s *sProject) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (err error) {
+	uid := perm.UserId(ctx)
+	// 条件更新防并发：仅当任务仍是本人持有且未终态时生效，
+	// 以影响行数判断成败（期间被 complete/审核的操作不受影响）
+	result, err := g.DB().Model("tasks").Ctx(ctx).
+		Where("id", req.Id).
+		Where("assignee_id", uid).
+		WhereIn("status", g.Slice{consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusBlocked}).
+		Data(g.Map{
+			"status":      consts.TaskStatusOpen,
+			"assignee_id": 0,
+		}).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "释放任务失败")
+	}
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		return fmt.Errorf("仅任务认领人可释放，且任务须处于未完成状态")
+	}
+	// 活动留痕（标题回查用于展示；失败不阻断释放）
+	if task, e := s.GetTask(ctx, req.Id); e == nil {
+		s.recordActivity(ctx, uid, "task.released", "task", req.Id, task.Title, task.ProjectId, "")
+	}
+	return nil
+}
+
 func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (err error) {
 	task, err := s.GetTask(ctx, req.Id)
 	if err != nil {
@@ -172,6 +199,53 @@ func (s *sProject) UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (er
 		fmt.Sprintf("任务「%s」的阻塞已解除，恢复进行中", task.Title),
 		"success", "task", req.Id)
 	s.recordActivity(ctx, perm.UserId(ctx), "task.unblocked", "task", req.Id, task.Title, task.ProjectId, "")
+	return nil
+}
+
+// ReopenTask 重开终态任务：done/closed 实测发现问题回炉。回 open 重新入池
+// （原执行者可重新认领，上下文在评论/执行日志里），完成时间与审核标记复位。
+// 人类专属：agent 不能自审通过，同样不能自行重开审核产物（与 ReviewTask 对称）
+func (s *sProject) ReopenTask(ctx context.Context, req *api.TaskReopenReq) (err error) {
+	isAgent, aerr := actorIsAgent(ctx)
+	if aerr != nil {
+		return aerr
+	}
+	if isAgent {
+		return fmt.Errorf("重开任务仅限人类用户")
+	}
+	task, err := s.GetTask(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+	// 条件更新防并发：仅终态可重开；期间的重开双击由影响行数天然去重
+	result, err := g.DB().Model("tasks").Ctx(ctx).
+		Where("id", req.Id).
+		WhereIn("status", consts.TaskTerminalStatuses).
+		Data(g.Map{
+			"status":              consts.TaskStatusOpen,
+			"assignee_id":         0,
+			"completed_at":        "",
+			"human_review_status": "pending",
+		}).Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "重开任务失败")
+	}
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		return fmt.Errorf("仅已完成或已关闭的任务可重开")
+	}
+	uid := perm.UserId(ctx)
+	// 原因作为评论留痕（后续认领者在对话上下文里可见）
+	if _, e := g.DB().Model("comments").Ctx(ctx).Insert(g.Map{
+		"task_id": req.Id, "user_id": uid, "content": "【重开】" + req.Reason, "user_type": "human",
+	}); e != nil {
+		g.Log().Warningf(ctx, "reopen comment insert failed: %v", e)
+	}
+	if task.AssigneeId > 0 {
+		notify.Send(ctx, task.AssigneeId, "任务被重开",
+			fmt.Sprintf("任务「%s」实测发现问题被重开：%s", task.Title, req.Reason),
+			"warning", "task", req.Id)
+	}
+	s.recordActivity(ctx, uid, "task.reopened", "task", req.Id, task.Title, task.ProjectId, req.Reason)
 	return nil
 }
 

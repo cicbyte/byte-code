@@ -151,6 +151,9 @@ func (s *sMiddleware) MiddlewareAdminAuth(r *ghttp.Request) {
 // projectDirectRe /api/v1/projects/{projectId}/... 路径直接提取项目 id
 var projectDirectRe = regexp.MustCompile(`^/api/v1/projects/(\d+)`)
 
+// feedbackCreateRe 反馈投递端点（见 MiddlewareProjectAuth 内的放行说明）
+var feedbackCreateRe = regexp.MustCompile(`^/api/v1/projects/(\d+)/feedbacks$`)
+
 // projectEntityRules 实体路径前缀 -> 含 project_id 列的表，
 // 用于把 /tasks/{id} 这类顶层实体操作解析回所属项目做成员校验
 var projectEntityRules = []struct {
@@ -208,6 +211,13 @@ func (s *sMiddleware) MiddlewareProjectAuth(r *ghttp.Request) {
 		r.Response.Header().Set("Content-Type", "application/json")
 		r.Response.Write(jsonStr(401, nil, "未登录或登录已过期"))
 		r.ExitAll()
+		return
+	}
+	// 反馈投递（POST /projects/{id}/feedbacks）例外放行：B1 放宽后它是无
+	// 目标准入方的唯一入口，防投递滥用由业务层的关联门槛把关（目标项目
+	// 已关联来源项目才收）。GET 收件箱与 convert/dismiss 不在放行之列
+	if r.Method == "POST" && feedbackCreateRe.MatchString(r.URL.Path) {
+		r.Middleware.Next()
 		return
 	}
 	projectId := resolveProjectId(r.Context(), r.URL.Path)

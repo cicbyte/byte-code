@@ -7,10 +7,12 @@ func TestLike(t *testing.T) {
 		in, want string
 	}{
 		{"plain", "plain"},
-		{"100%", `100\%`},
-		{"a_b", `a\_b`},
-		{`back\slash`, `back\\slash`},
-		{`%_\`, `\%\_\\`},
+		{"100%", `100|%`},
+		{"a_b", `a|_b`},
+		{"pipe|char", `pipe||char`},
+		// 字面量反斜杠不再转义：ESCAPE '|' 下它就是普通字符（双方言一致）
+		{`back\slash`, `back\slash`},
+		{`%_\|`, `|%|_\||`},
 		{"", ""},
 		{"中文关键词", "中文关键词"},
 	}

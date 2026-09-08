@@ -30,6 +30,8 @@ type IProject interface {
 
 	// 任务特殊操作
 	ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err error)
+	ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (err error)
+	ReopenTask(ctx context.Context, req *api.TaskReopenReq) (err error)
 	CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (err error)
 	ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err error)
 	ListRelations(ctx context.Context, projectId int) (res *api.RelationListRes, err error)

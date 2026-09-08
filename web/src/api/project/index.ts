@@ -582,6 +582,11 @@ export function unblockTask(id: number) {
   return Alova.Post(`/v1/tasks/${id}/unblock`, {});
 }
 
+/** 重开任务（done/closed→open 重新入池；原因必填，人类专属） */
+export function reopenTask(id: number, reason: string) {
+  return Alova.Post(`/v1/tasks/${id}/reopen`, { reason });
+}
+
 /** 创建评论 */
 export function createComment(taskId: number, data: CommentCreateData) {
   return Alova.Post<{ id: number }>(`/v1/tasks/${taskId}/comments`, data);

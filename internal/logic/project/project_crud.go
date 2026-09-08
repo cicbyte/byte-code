@@ -206,7 +206,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	}
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
-		countM = countM.Where("(p.name LIKE ? ESCAPE '\\' OR p.description LIKE ? ESCAPE '\\')", kw, kw)
+		countM = countM.Where("(p.name LIKE ? ESCAPE '|' OR p.description LIKE ? ESCAPE '|')", kw, kw)
 	}
 
 	total, err := countM.Count()
@@ -228,7 +228,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	}
 	if req.Keyword != "" {
 		kw := "%" + escape.Like(req.Keyword) + "%"
-		m = m.Where("(p.name LIKE ? ESCAPE '\\' OR p.description LIKE ? ESCAPE '\\')", kw, kw)
+		m = m.Where("(p.name LIKE ? ESCAPE '|' OR p.description LIKE ? ESCAPE '|')", kw, kw)
 	}
 
 	var list []api.ProjectItem

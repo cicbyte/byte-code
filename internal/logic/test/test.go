@@ -177,7 +177,7 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 			countM = countM.Where("test_cases.status", req.Status)
 		}
 		if req.Keyword != "" {
-			countM = countM.Where("test_cases.title LIKE ? ESCAPE '\\'", "%"+escape.Like(req.Keyword)+"%")
+			countM = countM.Where("test_cases.title LIKE ? ESCAPE '|'", "%"+escape.Like(req.Keyword)+"%")
 		}
 
 		total, err = countM.Count()
@@ -200,7 +200,7 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 			m = m.Where("test_cases.status", req.Status)
 		}
 		if req.Keyword != "" {
-			m = m.Where("test_cases.title LIKE ? ESCAPE '\\'", "%"+escape.Like(req.Keyword)+"%")
+			m = m.Where("test_cases.title LIKE ? ESCAPE '|'", "%"+escape.Like(req.Keyword)+"%")
 		}
 
 		pageNum := req.PageNum

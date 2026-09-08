@@ -249,17 +249,20 @@
           </n-space>
         </n-card>
 
-        <!-- 终态操作：done 后可关闭清账 -->
+        <!-- 终态操作：done 可关闭清账；done/closed 实测发现问题均可重开回炉 -->
         <n-card
-          v-if="task.status === 'done'"
+          v-if="task.status === 'done' || task.status === 'closed'"
           title="收尾" size="small" class="mb-4" :bordered="true"
         >
           <n-space>
-            <n-popconfirm @positive-click="handleClose">
+            <n-button size="small" type="error" ghost @click="showReopenModal = true">
+              重新打开
+            </n-button>
+            <n-popconfirm v-if="task.status === 'done'" @positive-click="handleClose">
               <template #trigger>
                 <n-button size="small" type="warning" ghost>关闭任务</n-button>
               </template>
-              关闭后任务转入终态（closed），不再出现在活跃列表；需要时可由项目管理员重新打开。
+              关闭后任务转入终态（closed），不再出现在活跃列表；实测有问题可随时重新打开。
             </n-popconfirm>
           </n-space>
         </n-card>
@@ -369,6 +372,27 @@
     </template>
   </n-modal>
 
+  <!-- 重开任务：原因必填（评论留痕 + 通知原执行者） -->
+  <n-modal v-model:show="showReopenModal" preset="dialog" title="重新打开任务" :show-icon="false">
+    <n-alert type="warning" :bordered="false" class="mb-2">
+      任务将回到「待认领」重新入池，完成时间与审核结果复位；原执行者会收到通知。
+    </n-alert>
+    <n-input
+      v-model:value="reopenReason"
+      type="textarea"
+      placeholder="重开原因（必填）：说明实测发现的问题，将作为评论留痕"
+      :rows="3"
+    />
+    <template #action>
+      <n-space>
+        <n-button size="small" @click="showReopenModal = false">取消</n-button>
+        <n-button size="small" type="error" :disabled="!reopenReason.trim()" :loading="reopening" @click="handleReopen">
+          确认重开
+        </n-button>
+      </n-space>
+    </template>
+  </n-modal>
+
   <!-- 上报阻塞：原因必填，作为通知与执行日志留痕 -->
   <n-modal v-model:show="showBlockModal" preset="dialog" title="上报阻塞" :show-icon="false">
     <n-input
@@ -409,6 +433,7 @@
     reviewTask,
     blockTask,
     unblockTask,
+    reopenTask,
     getAiLogs,
     updateTask,
     getMembers,
@@ -986,6 +1011,31 @@
       message.error(e?.message || '上报阻塞失败');
     } finally {
       blocking.value = false;
+    }
+  }
+
+  // 终态重开：原因必填；回 open 入池，弹窗内就地刷新任务状态
+  const showReopenModal = ref(false);
+  const reopenReason = ref('');
+  const reopening = ref(false);
+
+  async function handleReopen() {
+    if (!task.value || !reopenReason.value.trim()) return;
+    reopening.value = true;
+    try {
+      await reopenTask(task.value.id, reopenReason.value.trim());
+      message.success('任务已重开，回到待认领');
+      showReopenModal.value = false;
+      reopenReason.value = '';
+      const res = await getTask(task.value.id);
+      task.value = res || null;
+      const cr = await getComments(task.value.id);
+      comments.value = cr?.list || [];
+      emit('updated');
+    } catch (e: any) {
+      message.error(e?.message || '重开失败');
+    } finally {
+      reopening.value = false;
     }
   }
 

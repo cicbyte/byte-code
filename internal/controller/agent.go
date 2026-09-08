@@ -45,6 +45,13 @@ func (c *agentController) AgentRemoveProject(ctx context.Context, req *api.Agent
 	return &api.AgentRemoveRes{}, nil
 }
 
+func (c *agentController) AgentProjects(ctx context.Context, req *api.AgentProjectsReq) (*api.AgentProjectsRes, error) {
+	if !isAgentCtx(ctx) {
+		return nil, gerror.New("仅 Agent（bc key）可调用")
+	}
+	return agent.AgentProjects(ctx, ctxUserId(ctx))
+}
+
 func (c *agentController) AgentTasks(ctx context.Context, req *api.AgentTasksReq) (*api.AgentTasksRes, error) {
 	if !isAgentCtx(ctx) {
 		return nil, gerror.New("仅 Agent（bc key）可调用")
