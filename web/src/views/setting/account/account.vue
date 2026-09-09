@@ -1,7 +1,7 @@
 <template>
   <div>
     <n-grid :x-gap="24">
-      <n-grid-item span="6">
+      <n-grid-item span="5">
         <n-card :bordered="false" size="small" class="proCard">
           <n-thing
             class="thing-cell"
@@ -15,7 +15,7 @@
           </n-thing>
         </n-card>
       </n-grid-item>
-      <n-grid-item span="18">
+      <n-grid-item span="19">
         <n-card :bordered="false" size="small" :title="state.typeTitle" class="proCard">
           <BasicSetting v-if="state.type === 1" />
           <SafetySetting v-if="state.type === 2" />

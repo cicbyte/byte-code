@@ -1,46 +1,58 @@
 <template>
-  <n-grid cols="2 s:2 m:2 l:3 xl:3 2xl:3" responsive="screen">
-    <n-grid-item>
-      <n-spin :show="loading">
-        <n-form :label-width="120" :model="formValue" :rules="rules" ref="formRef">
-          <n-form-item label="发件人邮箱" path="smtpFrom">
-            <n-input v-model:value="formValue.smtpFrom" placeholder="请输入发件人邮箱" />
+  <div class="email-setting">
+    <n-spin :show="loading">
+      <n-form ref="formRef" :model="formValue" :rules="rules" label-placement="top" class="setting-form">
+        <!-- 服务器配置 -->
+        <div class="form-section-title">
+          <n-icon size="14" color="var(--primary-color, #16a34a)"><CloudServerOutlined /></n-icon>
+          SMTP 服务器
+        </div>
+        <div class="form-grid">
+          <n-form-item label="服务器地址" path="smtpHost">
+            <n-input v-model:value="formValue.smtpHost" placeholder="如 smtp.example.com" />
           </n-form-item>
-
-          <n-form-item label="SMTP服务器地址" path="smtpHost">
-            <n-input v-model:value="formValue.smtpHost" placeholder="请输入SMTP服务器地址" />
+          <n-form-item label="端口" path="smtpPort">
+            <n-input v-model:value="formValue.smtpPort" placeholder="通常 465（SSL）或 587（TLS）" />
           </n-form-item>
+        </div>
 
-          <n-form-item label="SMTP服务器端口" path="smtpPort">
-            <n-input v-model:value="formValue.smtpPort" placeholder="请输入SMTP服务器端口" />
+        <!-- 认证与发件人 -->
+        <div class="form-section-title mt-6">
+          <n-icon size="14" color="var(--primary-color, #16a34a)"><MailOutlined /></n-icon>
+          认证与发件人
+        </div>
+        <div class="form-grid">
+          <n-form-item label="用户名" path="smtpUser">
+            <n-input v-model:value="formValue.smtpUser" placeholder="SMTP 账号" />
           </n-form-item>
-
-          <n-form-item label="SMTP用户名" path="smtpUser">
-            <n-input v-model:value="formValue.smtpUser" placeholder="请输入SMTP用户名" />
+          <n-form-item label="密码 / 授权码" path="smtpPass">
+            <n-input
+              v-model:value="formValue.smtpPass"
+              type="password"
+              placeholder="不修改请留空"
+              show-password-on="click"
+            />
           </n-form-item>
-
-          <n-form-item label="SMTP密码" path="smtpPass">
-            <n-input type="password" v-model:value="formValue.smtpPass" placeholder="不修改请留空" show-password-on="click" />
+          <n-form-item label="发件人邮箱" path="smtpFrom" :span="2">
+            <n-input v-model:value="formValue.smtpFrom" placeholder="显示在邮件发件人字段" />
           </n-form-item>
+        </div>
 
-          <div>
-            <n-space>
-              <n-button type="primary" @click="formSubmit" :loading="submitting">更新邮件信息</n-button>
-            </n-space>
-          </div>
-        </n-form>
-      </n-spin>
-    </n-grid-item>
-  </n-grid>
+        <div class="form-actions">
+          <n-button type="primary" :loading="submitting" @click="formSubmit">保存邮件配置</n-button>
+        </div>
+      </n-form>
+    </n-spin>
+  </div>
 </template>
 
 <script lang="ts" setup>
   import { ref, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
+  import { CloudServerOutlined, MailOutlined } from '@vicons/antd';
   import { getSystemConfig, updateSystemConfig } from '@/api/setting/system';
 
   const rules = {};
-
   const formRef: any = ref(null);
   const message = useMessage();
   const loading = ref(false);
@@ -67,7 +79,7 @@
           smtpPass: '',
         };
       }
-    } catch (e) {
+    } catch {
       message.error('获取邮件配置失败');
     } finally {
       loading.value = false;
@@ -79,10 +91,54 @@
     try {
       await updateSystemConfig(formValue.value);
       message.success('更新成功');
-    } catch (e) {
+    } catch {
       message.error('更新失败');
     } finally {
       submitting.value = false;
     }
   }
 </script>
+
+<style lang="less" scoped>
+  .email-setting {
+    width: 100%;
+  }
+
+  .form-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1, #1f2328);
+    margin-bottom: 12px;
+
+    &.mt-6 {
+      margin-top: 24px;
+    }
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 20px;
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .setting-form {
+    :deep(.n-form-item-label) {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2, #57606a);
+    }
+  }
+
+  .form-actions {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+  }
+</style>
