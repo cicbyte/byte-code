@@ -148,6 +148,8 @@ type AgentDocsWriteReq struct {
 
 type AgentDocsWriteRes struct {
 	g.Meta `mime:"application/json"`
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
 }
 
 type AgentDocsSearchReq struct {

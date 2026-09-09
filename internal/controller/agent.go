@@ -66,11 +66,12 @@ func (c *agentController) AgentDocsFile(ctx context.Context, req *api.AgentDocsF
 }
 
 func (c *agentController) AgentDocsWrite(ctx context.Context, req *api.AgentDocsWriteReq) (*api.AgentDocsWriteRes, error) {
-	_, err := agent.AgentDocsWrite(ctx, g.RequestFromCtx(ctx).Header.Get("X-Session"), req.Path, req.Content)
+	wr, err := agent.AgentDocsWrite(ctx, g.RequestFromCtx(ctx).Header.Get("X-Session"), req.Path, req.Content)
 	if err != nil {
 		return nil, gerror.New(err.Error())
 	}
-	return &api.AgentDocsWriteRes{}, nil
+	// 透传底层 VaultFileWriteRes 的 Path/Size（与非免参端点对齐；CLI 实测发现空壳）
+	return &api.AgentDocsWriteRes{Path: wr.Path, Size: wr.Size}, nil
 }
 
 func (c *agentController) AgentDocsSearch(ctx context.Context, req *api.AgentDocsSearchReq) (*api.AgentDocsSearchRes, error) {
