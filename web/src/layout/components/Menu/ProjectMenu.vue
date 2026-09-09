@@ -15,7 +15,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, h, ref, watchEffect } from 'vue';
+  import { computed, h, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { NIcon } from 'naive-ui';
   import {
@@ -140,14 +140,20 @@
     return item?.key ?? route.path;
   });
 
-  // 当前路由所在组自动展开（不收拢用户手动展开的其他组）
+  // 当前路由所在组自动展开——用 watch(route.path) 而非 watchEffect：
+  // watchEffect 把 expanded 也作为响应式依赖，用户收起分组后它立即重跑
+  // 又把当前组加回去，导致「点已展开的组收不起」死循环
   const expanded = ref<string[]>([]);
-  watchEffect(() => {
-    const item = flatLeaves.value.find((m) => route.path.startsWith(m.key));
-    if (item?.group && !expanded.value.includes(item.group)) {
-      expanded.value = [...expanded.value, item.group];
-    }
-  });
+  watch(
+    () => route.path,
+    (path) => {
+      const item = flatLeaves.value.find((m) => path.startsWith(m.key));
+      if (item?.group && !expanded.value.includes(item.group)) {
+        expanded.value = [...expanded.value, item.group];
+      }
+    },
+    { immediate: true }
+  );
 
   function handleSelect(key: string) {
     router.push(key);
