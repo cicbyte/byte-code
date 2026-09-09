@@ -123,50 +123,54 @@
       </div>
     </n-card>
 
-    <!-- 新建/编辑任务弹窗（复用：editingId 区分） -->
-    <n-modal
-      v-model:show="showCreateModal"
-      preset="dialog"
-      :title="editingId ? '编辑任务' : '新建任务'"
-      positive-text="确定"
-      negative-text="取消"
-      @positive-click="handleSubmit"
-      style="width: 560px"
-    >
-      <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="left" :label-width="80" class="py-4">
-        <n-form-item label="标题" path="title">
-          <n-input v-model:value="formData.title" placeholder="请输入任务标题" />
-        </n-form-item>
-        <n-form-item label="类型" path="type">
-          <n-select v-model:value="formData.type" :options="typeOptions" placeholder="请选择类型" />
-        </n-form-item>
-        <n-form-item label="优先级" path="priority">
-          <n-input-number v-model:value="formData.priority" :min="1" :max="4" placeholder="1=低 4=紧急" style="width: 100%" />
-        </n-form-item>
-        <n-form-item label="指派人" path="assigneeId">
-          <n-select
-            v-model:value="formData.assigneeId"
-            :options="assigneeOptions"
-            clearable
-            filterable
-            placeholder="缺省不指派（可后续 AI 认领）"
-          />
-        </n-form-item>
-        <n-form-item label="截止日期" path="dueDate">
-          <n-date-picker
-            v-model:formatted-value="formData.dueDate"
-            type="date"
-            value-format="yyyy-MM-dd"
-            clearable
-            placeholder="缺省无截止"
-            style="width: 100%"
-          />
-        </n-form-item>
-        <n-form-item label="描述" path="description">
-          <n-input v-model:value="formData.description" type="textarea" placeholder="请输入描述" :rows="3" />
-        </n-form-item>
-      </n-form>
-    </n-modal>
+    <!-- 新建/编辑任务抽屉（编辑类表单适合抽屉） -->
+    <n-drawer v-model:show="showCreateModal" :width="480" placement="right">
+      <n-drawer-content :title="editingId ? '编辑任务' : '新建任务'" closable>
+        <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="top" class="px-1">
+          <n-form-item label="标题" path="title">
+            <n-input v-model:value="formData.title" placeholder="一句话说清要做什么" />
+          </n-form-item>
+          <div class="task-form-grid">
+            <n-form-item label="类型" path="type">
+              <n-select v-model:value="formData.type" :options="typeOptions" />
+            </n-form-item>
+            <n-form-item label="优先级" path="priority">
+              <n-select v-model:value="formData.priority" :options="priorityOptions" />
+            </n-form-item>
+            <n-form-item label="指派人" path="assigneeId">
+              <n-select
+                v-model:value="formData.assigneeId"
+                :options="assigneeOptions"
+                clearable
+                filterable
+                placeholder="缺省不指派"
+              />
+            </n-form-item>
+            <n-form-item label="截止日期" path="dueDate">
+              <n-date-picker
+                v-model:formatted-value="formData.dueDate"
+                type="date"
+                value-format="yyyy-MM-dd"
+                clearable
+                placeholder="选择日期"
+                style="width: 100%"
+              />
+            </n-form-item>
+          </div>
+          <n-form-item label="描述" path="description">
+            <n-input v-model:value="formData.description" type="textarea" placeholder="补充说明（支持 markdown）" :autosize="{ minRows: 3, maxRows: 8 }" />
+          </n-form-item>
+        </n-form>
+        <template #footer>
+          <n-space>
+            <n-button @click="showCreateModal = false">取消</n-button>
+            <n-button type="primary" :loading="creating" @click="handleSubmit">
+              {{ editingId ? '保存' : '创建' }}
+            </n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <TaskDetailModal ref="taskDetailRef" @updated="loadTasks" />
   </div>
@@ -217,6 +221,13 @@
 
   // 新建/编辑任务（弹窗复用：editingId 为空=新建）
   const showCreateModal = ref(false);
+  const priorityOptions = [
+    { label: 'P4 紧急', value: 4 },
+    { label: 'P3 高', value: 3 },
+    { label: 'P2 中', value: 2 },
+    { label: 'P1 低', value: 1 },
+  ];
+  const creating = ref(false);
   const editingId = ref<number | null>(null);
   const formRef = ref<any>(null);
   const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null, tagId: null as number | null });
@@ -412,5 +423,11 @@
 
   .cursor-pointer {
     cursor: pointer;
+  }
+
+  .task-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
   }
 </style>

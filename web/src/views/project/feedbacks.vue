@@ -49,32 +49,39 @@
       </n-spin>
     </n-card>
 
-    <!-- 投递反馈：目标须是已关联且可访问的项目 -->
-    <n-modal v-model:show="showSend" preset="dialog" title="投递跨项目反馈" :show-icon="false">
-      <n-space vertical :size="10" class="py-2">
-        <n-select
-          v-model:value="sendForm.projectId"
-          :options="sendTargets"
-          placeholder="目标项目（须已建立关联）"
-          size="small"
-        />
-        <n-input v-model:value="sendForm.title" placeholder="反馈标题（一句话说清线索）" size="small" />
-        <n-input
-          v-model:value="sendForm.content"
-          type="textarea"
-          placeholder="现象 / 线索 / 怀疑点（markdown），对方 Agent 将阅读分析是否建任务"
-          :rows="4"
-        />
-      </n-space>
-      <template #action>
-        <n-space>
-          <n-button size="small" @click="showSend = false">取消</n-button>
-          <n-button size="small" type="primary" :disabled="!sendForm.projectId || !sendForm.title.trim()" :loading="sending" @click="handleSend">
-            投递
-          </n-button>
+    <!-- 投递反馈：抽屉 + markdown 编辑器 -->
+    <n-drawer v-model:show="showSend" :width="520" placement="right">
+      <n-drawer-content title="投递跨项目反馈" closable>
+        <n-space vertical :size="12" class="px-1">
+          <n-select
+            v-model:value="sendForm.projectId"
+            :options="sendTargets"
+            placeholder="目标项目（须已建立关联或同分组）"
+            size="small"
+          />
+          <n-input v-model:value="sendForm.title" placeholder="反馈标题（一句话说清线索）" size="small" />
+          <div>
+            <div class="text-xs text-gray-400 mb-1">现象 / 线索 / 怀疑点（markdown），对方 Agent 将阅读分析是否建任务</div>
+            <MdEditor
+              v-model="sendForm.content"
+              :theme="isDark ? 'dark' : 'light'"
+              placeholder="支持 markdown（代码块/截图链接/表格）"
+              :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+              :footers="[]"
+              style="height: 240px"
+            />
+          </div>
         </n-space>
-      </template>
-    </n-modal>
+        <template #footer>
+          <n-space>
+            <n-button size="small" @click="showSend = false">取消</n-button>
+            <n-button size="small" type="primary" :disabled="!sendForm.projectId || !sendForm.title.trim()" :loading="sending" @click="handleSend">
+              投递
+            </n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <!-- 忽略理由 -->
     <n-modal v-model:show="showDismiss" preset="dialog" title="忽略反馈" :show-icon="false">
@@ -93,6 +100,8 @@
   import { ref, computed, reactive, onMounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useMessage } from 'naive-ui';
+  import { MdEditor } from 'md-editor-v3';
+  import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import {
     getFeedbacks,
@@ -106,6 +115,7 @@
 
   const route = useRoute();
   const message = useMessage();
+  const { getDarkTheme: isDark } = useDesignSetting();
   const projectId = computed(() => Number(route.params.projectId));
 
   // 数据链接导航：来源项目/来源任务/转出任务三个断链点修复

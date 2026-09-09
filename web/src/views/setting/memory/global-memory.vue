@@ -48,44 +48,48 @@
       />
     </n-card>
 
-    <!-- 新增/编辑弹窗 -->
-    <n-modal
-      v-model:show="showModal"
-      preset="dialog"
-      :title="editingKey ? `编辑全局记忆：${editingKey}` : '新增全局记忆'"
-      positive-text="确定"
-      negative-text="取消"
-      @positive-click="handleSubmit"
-      style="width: 520px"
-    >
-      <n-form label-placement="left" :label-width="70" class="py-4">
-        <n-form-item v-if="!editingKey" label="key" required>
-          <n-input v-model:value="form.key" placeholder="点分层级，例：conventions.code-style / deploy.default" />
-        </n-form-item>
-        <n-form-item label="value" required>
-          <n-input
-            v-model:value="form.value"
-            type="textarea"
-            :autosize="{ minRows: 4, maxRows: 12 }"
-            placeholder="纯文本（JSON 由 agent 自管格式），上限 64KB"
-          />
-        </n-form-item>
-        <n-form-item label="状态">
-          <n-radio-group v-model:value="form.status">
-            <n-radio value="active">active（已验证）</n-radio>
-            <n-radio value="pending">pending（待验证）</n-radio>
-          </n-radio-group>
-        </n-form-item>
-        <n-form-item label="有效期">
-          <n-select
-            v-model:value="form.ttl"
-            :options="ttlOptions"
-            placeholder="缺省永不过期"
-            clearable
-          />
-        </n-form-item>
-      </n-form>
-    </n-modal>
+    <!-- 新增/编辑抽屉（大文本 + markdown 编辑器适合抽屉） -->
+    <n-drawer v-model:show="showModal" :width="560" placement="right">
+      <n-drawer-content :title="editingKey ? `编辑全局记忆：${editingKey}` : '新增全局记忆'" closable>
+        <n-form label-placement="top" class="px-1">
+          <n-form-item v-if="!editingKey" label="key" required>
+            <n-input v-model:value="form.key" placeholder="点分层级，例：conventions.code-style / deploy.default" />
+          </n-form-item>
+          <n-form-item label="value" required>
+            <MdEditor
+              v-model="form.value"
+              :theme="isDark ? 'dark' : 'light'"
+              placeholder="支持 markdown（代码块/列表/表格），上限 64KB"
+              :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+              :footers="[]"
+              style="height: 320px"
+            />
+          </n-form-item>
+          <div class="form-grid">
+            <n-form-item label="状态">
+              <n-radio-group v-model:value="form.status">
+                <n-radio value="active">active（已验证）</n-radio>
+                <n-radio value="pending">pending（待验证）</n-radio>
+              </n-radio-group>
+            </n-form-item>
+            <n-form-item label="有效期">
+              <n-select
+                v-model:value="form.ttl"
+                :options="ttlOptions"
+                placeholder="缺省永不过期"
+                clearable
+              />
+            </n-form-item>
+          </div>
+        </n-form>
+        <template #footer>
+          <n-space>
+            <n-button @click="showModal = false">取消</n-button>
+            <n-button type="primary" @click="handleSubmit">确定</n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
 
@@ -94,6 +98,9 @@
   import { ref, reactive, computed, h, onMounted } from 'vue';
   import { NButton, NSpace, NTag, useMessage, useDialog } from 'naive-ui';
   import type { DataTableColumns } from 'naive-ui';
+  import { MdEditor } from 'md-editor-v3';
+  import 'md-editor-v3/lib/style.css';
+  import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
   import {
     getGlobalMemories,
     setGlobalMemory,
@@ -105,6 +112,7 @@
   import { useUserStore } from '@/store/modules/user';
 
   const message = useMessage();
+  const { getDarkTheme: isDark } = useDesignSetting();
   const dialog = useDialog();
 
   // 与 asyncRoute 的菜单过滤同规则：拥有系统菜单/角色管理权限即视为管理员
@@ -282,5 +290,11 @@
     font-size: 12px;
     color: #999;
     font-weight: normal;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
   }
 </style>
