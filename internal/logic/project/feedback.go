@@ -49,11 +49,18 @@ func (s *sProject) CreateFeedback(ctx context.Context, req *api.FeedbackCreateRe
 	if sourceProject == 0 || sourceProject == req.ProjectId {
 		return 0, fmt.Errorf("无法确定来源项目（跨项目反馈需要来源）")
 	}
-	// 目标项目须已关联来源项目（投递面由 B 的 owner 治理）
+	// 关联门槛：显式 project_relations 或同 group 隐式关联（同分组免手动建关联）
+	related := false
 	if cnt, _ := g.DB().Model("project_relations").Ctx(ctx).
 		Where("project_id", req.ProjectId).
-		Where("related_project_id", sourceProject).Count(); cnt == 0 {
-		return 0, fmt.Errorf("目标项目未关联来源项目，不能投递（请对方项目管理员先建立关联）")
+		Where("related_project_id", sourceProject).Count(); cnt > 0 {
+		related = true
+	}
+	if !related && ShareGroup(ctx, sourceProject, req.ProjectId) {
+		related = true // 同分组隐式关联
+	}
+	if !related {
+		return 0, fmt.Errorf("目标项目未关联来源项目（不同分组须先建立关联，同分组自动关联）")
 	}
 	result, err := g.DB().Model("project_feedbacks").Ctx(ctx).Insert(g.Map{
 		"project_id": req.ProjectId, "source_project_id": sourceProject,

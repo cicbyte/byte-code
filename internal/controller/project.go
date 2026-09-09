@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/gogf/gf/v2/errors/gerror"
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
@@ -131,6 +132,38 @@ func (c *projectController) ReopenTask(ctx context.Context, req *api.TaskReopenR
 	err = service.Project().ReopenTask(ctx, req)
 	res = new(api.TaskReopenRes)
 	return
+}
+
+func (c *projectController) CreateGroup(ctx context.Context, req *api.GroupCreateReq) (*api.GroupCreateRes, error) {
+	id, err := service.Project().CreateGroup(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.GroupCreateRes{Id: id}, nil
+}
+
+func (c *projectController) ListGroups(ctx context.Context, req *api.GroupListReq) (*api.GroupListRes, error) {
+	return service.Project().ListGroups(ctx)
+}
+
+func (c *projectController) UpdateGroup(ctx context.Context, req *api.GroupUpdateReq) (*api.GroupUpdateRes, error) {
+	err := service.Project().UpdateGroup(ctx, req)
+	return &api.GroupUpdateRes{}, err
+}
+
+func (c *projectController) DeleteGroup(ctx context.Context, req *api.GroupDeleteReq) (*api.GroupDeleteRes, error) {
+	err := service.Project().DeleteGroup(ctx, req.Id)
+	return &api.GroupDeleteRes{}, err
+}
+
+func (c *projectController) AddProjectToGroup(ctx context.Context, req *api.GroupMemberAddReq) (*api.GroupMemberAddRes, error) {
+	err := service.Project().AddProjectToGroup(ctx, req)
+	return &api.GroupMemberAddRes{}, err
+}
+
+func (c *projectController) RemoveProjectFromGroup(ctx context.Context, req *api.GroupMemberRemoveReq) (*api.GroupMemberRemoveRes, error) {
+	err := service.Project().RemoveProjectFromGroup(ctx, req.Id, req.ProjectId)
+	return &api.GroupMemberRemoveRes{}, err
 }
 
 func (c *projectController) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (res *api.TaskCompleteRes, err error) {
