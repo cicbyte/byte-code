@@ -38,6 +38,27 @@
           </n-form-item>
         </div>
 
+        <!-- 发送测试 -->
+        <div class="form-section-title mt-6">
+          <n-icon size="14" color="var(--primary-color, #16a34a)"><SendOutlined /></n-icon>
+          发送测试
+        </div>
+        <div class="test-row">
+          <n-input
+            v-model:value="testTo"
+            placeholder="收件邮箱（如 you@example.com）"
+            size="small"
+            style="flex: 1"
+            @keyup.enter="handleTest"
+          />
+          <n-button size="small" ghost type="primary" :loading="testing" :disabled="!testTo.trim()" @click="handleTest">
+            发送测试邮件
+          </n-button>
+        </div>
+        <n-alert v-if="testResult" :type="testResult.ok ? 'success' : 'error'" :bordered="false" class="mt-3">
+          {{ testResult.msg }}
+        </n-alert>
+
         <div class="form-actions">
           <n-button type="primary" :loading="submitting" @click="formSubmit">保存邮件配置</n-button>
         </div>
@@ -49,8 +70,8 @@
 <script lang="ts" setup>
   import { ref, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
-  import { CloudServerOutlined, MailOutlined } from '@vicons/antd';
-  import { getSystemConfig, updateSystemConfig } from '@/api/setting/system';
+  import { CloudServerOutlined, MailOutlined, SendOutlined } from '@vicons/antd';
+  import { getSystemConfig, updateSystemConfig, sendTestMail } from '@/api/setting/system';
 
   const rules = {};
   const formRef: any = ref(null);
@@ -85,6 +106,25 @@
       loading.value = false;
     }
   });
+
+  // 测试邮件
+  const testTo = ref('');
+  const testing = ref(false);
+  const testResult = ref<{ ok: boolean; msg: string } | null>(null);
+
+  async function handleTest() {
+    if (!testTo.value.trim()) return;
+    testing.value = true;
+    testResult.value = null;
+    try {
+      await sendTestMail(testTo.value.trim());
+      testResult.value = { ok: true, msg: `测试邮件已发送至 ${testTo.value}，请查收（注意检查垃圾箱）` };
+    } catch (e: any) {
+      testResult.value = { ok: false, msg: e?.message || '发送失败' };
+    } finally {
+      testing.value = false;
+    }
+  }
 
   async function formSubmit() {
     submitting.value = true;
@@ -134,6 +174,12 @@
       font-weight: 500;
       color: var(--text-2, #57606a);
     }
+  }
+
+  .test-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
   }
 
   .form-actions {

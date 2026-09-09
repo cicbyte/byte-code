@@ -7,3 +7,7 @@ export function getSystemConfig() {
 export function updateSystemConfig(data) {
   return Alova.Put('/system/config', data);
 }
+
+export function sendTestMail(to: string) {
+  return Alova.Post('/system/smtp-test', { to });
+}

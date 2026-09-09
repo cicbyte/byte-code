@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/gogf/gf/v2/errors/gerror"
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/setting"
@@ -40,6 +41,13 @@ func (c *settingController) ChangePassword(ctx context.Context, req *api.ChangeP
 	err = service.Setting().ChangePassword(ctx, req)
 	res = new(api.ChangePasswordRes)
 	return
+}
+
+func (c *settingController) SmtpTest(ctx context.Context, req *api.SmtpTestReq) (*api.SmtpTestRes, error) {
+	if err := service.Setting().SendTestMail(ctx, req.To); err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.SmtpTestRes{}, nil
 }
 
 func (c *settingController) GetSystemConfig(ctx context.Context, req *api.GetSystemConfigReq) (res *api.GetSystemConfigRes, err error) {

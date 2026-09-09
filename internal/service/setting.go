@@ -13,6 +13,7 @@ type ISetting interface {
 	ServeAvatar(ctx context.Context, userId int, name string) (err error)
 	ChangePassword(ctx context.Context, req *api.ChangePasswordReq) (err error)
 	GetSystemConfig(ctx context.Context) (res *api.GetSystemConfigRes, err error)
+	SendTestMail(ctx context.Context, to string) error
 	UpdateSystemConfig(ctx context.Context, req *api.UpdateSystemConfigReq) (err error)
 	GetAiEngineConfig(ctx context.Context) (res *api.AiEngineConfigRes, err error)
 	UpdateAiEngineConfig(ctx context.Context, req *api.AiEngineConfigUpdateReq) (err error)

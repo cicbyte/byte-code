@@ -67,6 +67,16 @@ type ChangePasswordRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// SmtpTestReq 发送测试邮件
+type SmtpTestReq struct {
+	g.Meta `path:"/system/smtp-test" method:"post" tags:"系统设置" summary:"发送测试邮件（验证 SMTP 配置）"`
+	To     string `json:"to" v:"required|email#收件邮箱不能为空|邮箱格式不合法"`
+}
+
+type SmtpTestRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // GetSystemConfigReq 获取系统配置
 type GetSystemConfigReq struct {
 	g.Meta `path:"/system/config" method:"get" tags:"系统设置" summary:"获取系统配置"`
