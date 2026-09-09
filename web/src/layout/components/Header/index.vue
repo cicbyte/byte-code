@@ -24,6 +24,8 @@
         <img :src="websiteConfig.logo" alt="" />
         <h2 class="title">{{ websiteConfig.title }}</h2>
       </div>
+      <!-- 品牌区 / 导航区分隔线：面包屑不再贴着 logo -->
+      <div class="header-divider"></div>
       <!-- 面包屑 -->
       <n-breadcrumb v-if="crumbsSetting.show">
         <n-breadcrumb-item>
@@ -401,10 +403,20 @@
         }
       }
 
-      // 全宽 Header 中的 Logo：可点击回首页，左右留白比折叠触发器更宽
+      // 全宽 Header 中的 Logo：可点击回首页；左缘 24px 与下方侧栏卡菜单内容
+      // （卡边 8px + 菜单内边距）形成垂直对齐线，不再比菜单还靠左
       .header-logo {
-        padding: 0 8px 0 16px;
+        padding: 0 12px 0 24px;
         cursor: pointer;
+      }
+
+      // 品牌区与导航区的竖分隔线（GitHub 顶栏同款手法）
+      .header-divider {
+        flex-shrink: 0;
+        width: 1px;
+        height: 18px;
+        margin: 0 12px;
+        background: var(--line, #e9e9e7);
       }
 
       ::v-deep(.ant-breadcrumb span:last-child .link-text) {
