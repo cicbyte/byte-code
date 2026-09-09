@@ -26,6 +26,15 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/project/list.vue'),
       },
       {
+        // 全局分组管理（项目管理下）
+        path: 'groups',
+        name: `${routeName}_groups`,
+        meta: {
+          title: '项目分组',
+        },
+        component: () => import('@/views/platform/groups.vue'),
+      },
+      {
         path: ':projectId',
         name: `${routeName}_workspace`,
         meta: {
@@ -189,6 +198,17 @@ const routes: Array<RouteRecordRaw> = [
               hideInMenu: true,
             },
             component: () => import('@/views/test/plans.vue'),
+          },
+          {
+            // 关联项目 + 项目分组（从成员管理拆出）
+            path: 'settings',
+            name: `${routeName}_settings`,
+            meta: {
+              title: '项目设置',
+              group: '管理',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/settings.vue'),
           },
           {
             path: 'members',

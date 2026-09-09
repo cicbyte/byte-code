@@ -42,75 +42,10 @@
       </n-spin>
     </n-card>
 
-    <!-- 关联项目（owner 治理反馈投递面）：A 关联 B 后 A 可向 B 投递跨项目反馈 -->
-    <n-card title="关联项目" :bordered="false" class="mt-4">
-      <template #header-extra>
-        <n-button size="small" @click="showRelation = true">添加关联</n-button>
-      </template>
-      <n-spin :show="relationsLoading">
-        <EmptyState v-if="!relationsLoading && relations.length === 0" type="member" title="未关联其他项目" description="建立关联后可互相投递跨项目反馈（线索由对方 Agent 分析是否建任务）" compact />
-        <n-table v-else :bordered="false" :single-line="false" size="small">
-          <thead><tr><th>项目</th><th>关联时间</th><th style="width: 80px">操作</th></tr></thead>
-          <tbody>
-            <tr v-for="r in relations" :key="r.id">
-              <td>{{ r.name }}（#{{ r.projectId }}）</td>
-              <td>{{ (r.createdAt || '').slice(0, 16) }}</td>
-              <td><n-button text type="error" size="small" @click="handleRemoveRelation(r)">移除</n-button></td>
-            </tr>
-          </tbody>
-        </n-table>
-      </n-spin>
-    </n-card>
 
-    <!-- 项目分组（同 group 自动互为关联，免手动建 relation） -->
-    <n-card title="项目分组" :bordered="false" class="mt-4">
-      <template #header-extra>
-        <n-button size="small" @click="showGroupAdd = true">加入分组</n-button>
-      </template>
-      <n-spin :show="groupsLoading">
-        <EmptyState v-if="!groupsLoading && myGroups.length === 0" type="generic" title="未加入任何分组" description="同分组的项目自动互为关联（反馈/引用免准入），比手动建关联更省事" compact />
-        <n-space v-else :size="8">
-          <n-tag v-for="g in myGroups" :key="g.id" closable size="small" type="success" @close="handleRemoveGroup(g)">
-            {{ g.name }}
-            <span class="text-xs opacity-60 ml-1">({{ (g.projects || []).length }}个项目)</span>
-          </n-tag>
-        </n-space>
-      </n-spin>
-    </n-card>
 
     <!-- Agent 接入码（一次性展示） -->
-    <!-- 加入分组：选已有或新建 -->
-    <n-modal v-model:show="showGroupAdd" preset="dialog" title="加入分组" :show-icon="false">
-      <n-radio-group v-model:value="groupAddMode" size="small" class="mb-3">
-        <n-radio-button value="existing">加入已有分组</n-radio-button>
-        <n-radio-button value="new">新建分组</n-radio-button>
-      </n-radio-group>
-      <n-select
-        v-if="groupAddMode === 'existing'"
-        v-model:value="groupTarget"
-        :options="groupOptions"
-        placeholder="选择分组"
-        size="small"
-      />
-      <n-input v-else v-model:value="newGroupName" placeholder="分组名（如 cicbyte 生态）" size="small" />
-      <template #action>
-        <n-space>
-          <n-button size="small" @click="showGroupAdd = false">取消</n-button>
-          <n-button size="small" type="primary" :disabled="groupAddMode === 'existing' ? !groupTarget : !newGroupName.trim()" :loading="groupAdding" @click="handleAddGroup">确认</n-button>
-        </n-space>
-      </template>
-    </n-modal>
 
-    <!-- 添加关联：从当前账号可访问的项目里选 -->
-    <n-modal v-model:show="showRelation" preset="dialog" title="添加关联项目" :show-icon="false">
-      <n-select v-model:value="relationTarget" :options="relationOptions" placeholder="选择项目（须为你可访问的项目）" size="small" />
-      <template #action>
-        <n-space>
-          <n-button size="small" @click="showRelation = false">取消</n-button>
-          <n-button size="small" type="primary" :disabled="!relationTarget" @click="handleAddRelation">关联</n-button>
-        </n-space>
-      </template>
-    </n-modal>
 
     <n-modal v-model:show="showAgentCode" preset="dialog" title="Agent 项目接入" :show-icon="false" style="width: 560px">
       <n-space vertical :size="10" class="py-2">
@@ -173,9 +108,7 @@
   import { ref, reactive, computed, watch, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
-  import { getGroups, createGroup, addProjectToGroup, removeProjectFromGroup } from '@/api/project/group';
-  import type { GroupItem } from '@/api/project/group';
-  import { getMembers, addMember, removeMember, removeAgentProject, getRelations, addRelation, removeRelation, getProjects } from '@/api/project/index';
+      import { getMembers, addMember, removeMember, removeAgentProject } from '@/api/project/index';
   import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
@@ -242,148 +175,6 @@
 
   // 关联项目治理（owner）
 
-  // ==================== 项目分组 ====================
-  const groupsLoading = ref(false);
-  const allGroups = ref<GroupItem[]>([]);
-  const myGroups = computed(() =>
-    allGroups.value.filter((g) => (g.projects || []).some((p) => p.id === projectId.value))
-  );
-  const groupOptions = computed(() =>
-    allGroups.value
-      .filter((g) => !(g.projects || []).some((p) => p.id === projectId.value))
-      .map((g) => ({ label: `${g.name}（${(g.projects || []).length}个项目）`, value: g.id }))
-  );
-  const showGroupAdd = ref(false);
-  const groupAddMode = ref<'existing' | 'new'>('existing');
-  const groupTarget = ref<number | null>(null);
-  const newGroupName = ref('');
-  const groupAdding = ref(false);
-
-  async function loadGroups() {
-    groupsLoading.value = true;
-    try {
-      const res = await getGroups();
-      allGroups.value = res?.list || [];
-    } catch { /* ignore */ }
-    finally { groupsLoading.value = false; }
-  }
-
-  async function handleAddGroup() {
-    groupAdding.value = true;
-    try {
-      let gid = groupTarget.value;
-      if (groupAddMode.value === 'new') {
-        const res = await createGroup({ name: newGroupName.value.trim() });
-        gid = res?.id || null;
-      }
-      if (gid) {
-        await addProjectToGroup(gid, projectId.value);
-        message.success('已加入分组');
-        showGroupAdd.value = false;
-        groupTarget.value = null;
-        newGroupName.value = '';
-        loadGroups();
-      }
-    } catch (e: any) {
-      message.error(e?.message || '操作失败');
-    } finally { groupAdding.value = false; }
-  }
-
-  async function handleRemoveGroup(g: GroupItem) {
-    try {
-      await removeProjectFromGroup(g.id, projectId.value);
-      message.success(`已从「${g.name}」移除`);
-      loadGroups();
-    } catch (e: any) {
-      message.error(e?.message || '移除失败');
-    }
-  }
-
-  const relations = ref<Array<{ id: number; projectId: number; name: string; createdAt: string }>>([]);
-  const relationsLoading = ref(false);
-  const showRelation = ref(false);
-  const relationTarget = ref<number | null>(null);
-  const relationOptions = ref<Array<{ label: string; value: number }>>([]);
-
-  async function loadRelations() {
-    relationsLoading.value = true;
-    try {
-      const res = await getRelations(projectId.value);
-      relations.value = res?.list || [];
-    } catch { /* ignore */ } finally { relationsLoading.value = false; }
-  }
-  async function openRelationPicker() {
-    try {
-      const res = await getProjects({ size: 100 });
-      const related = new Set(relations.value.map((r) => r.projectId));
-      relationOptions.value = (res?.list || [])
-        .filter((p: any) => p.id !== projectId.value && !related.has(p.id))
-        .map((p: any) => ({ label: p.name, value: p.id }));
-    } catch { /* ignore */ }
-    relationTarget.value = null;
-  }
-  watch(showRelation, (v) => { if (v) openRelationPicker(); });
-  async function handleAddRelation() {
-    if (!relationTarget.value) return;
-    try {
-      await addRelation(projectId.value, relationTarget.value);
-      message.success('关联已建立');
-      showRelation.value = false;
-      loadRelations();
-    } catch (e: any) { message.error(e?.message || '添加失败'); }
-  }
-  function handleRemoveRelation(r: { id: number; name: string }) {
-    dialog.warning({
-      title: '移除关联',
-      content: `移除后「${r.name}」将无法向本项目投递反馈，确定？`,
-      positiveText: '移除',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        try { await removeRelation(projectId.value, r.id); message.success('已移除'); loadRelations(); }
-        catch (e: any) { message.error(e?.message || '移除失败'); }
-      },
-    });
-  }
-
-  // Agent 接入码：owner 生成，一次性展示
-  const showAgentCode = ref(false);
-  const agentCode = ref('');
-  const agentCodeExpires = ref('');
-  // 连接信息随码展示：agent 侧无需手动问服务器地址（取当前访问地址 + /api 前缀）
-  const serverUrl = computed(() => window.location.origin + '/api');
-  const onboardCommands = computed(() =>
-    [
-      '# 1. 配置服务器（一次性，写入 ~/.bc/config.toml）',
-      `bcode config set server ${serverUrl.value}`,
-      '',
-      '# 2. 注册身份（bc_ key 自动落本地 ~/.bc/agents/<profile>/）',
-      'bcode register <agent-name>',
-      '',
-      '# 3. 凭码加入本项目',
-      `bcode join ${agentCode.value || '<接入码>'}`,
-      '',
-      '# 4. 在项目目录建立会话（展示开工包：项目记忆 + 我的任务 + 待分析反馈）',
-      'bcode start',
-    ].join('\n'));
-  function copyText(text: string) {
-    navigator.clipboard?.writeText(text).then(
-      () => message.success('已复制'),
-      () => message.error('复制失败，请手动选择'),
-    );
-  }
-  async function handleGenAgentCode() {
-    try {
-      const res = await createAgentJoinCode(projectId.value);
-      agentCode.value = res.code;
-      agentCodeExpires.value = res.expiresAt;
-      showAgentCode.value = true;
-      loadMembers();
-    } catch {
-      // http 层统一提示（无权限等）
-    }
-  }
-
-onMounted(() => { loadMembers(); loadRelations(); });
 </script>
 
 <style lang="less" scoped>

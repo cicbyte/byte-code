@@ -35,14 +35,6 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/platform/activities.vue'),
       },
       {
-        path: 'groups',
-        name: `${routeName}_groups`,
-        meta: {
-          title: '项目分组',
-        },
-        component: () => import('@/views/platform/groups.vue'),
-      },
-      {
         path: 'tags',
         name: `${routeName}_tags`,
         meta: {
