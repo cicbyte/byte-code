@@ -77,6 +77,7 @@
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { getQas, upsertQa, archiveQa } from '@/api/project/index';
   import type { QaItem } from '@/api/project/index';
+  import { mdToolbars } from '@/utils/mdEditor';
 
   const route = useRoute();
   const message = useMessage();
@@ -142,14 +143,6 @@
       load();
     } catch (e: any) { message.error(e?.message || '归档失败'); }
   }
-
-  const mdToolbars = [
-    'bold', 'italic', 'title', 'quote',
-    'unorderedList', 'orderedList', 'task',
-    'codeRow', 'codeBlock', 'link', 'image', 'table',
-    '-',
-    'preview', 'pageFullscreen', 'fullscreen',
-  ] as const;
 
   onMounted(load);
 </script>

@@ -48,8 +48,8 @@
       />
     </n-card>
 
-    <!-- 新增/编辑抽屉（大文本 + markdown 编辑器适合抽屉） -->
-    <n-drawer v-model:show="showModal" :width="560" placement="right">
+    <!-- 新增/编辑抽屉（大文本 + markdown 编辑器适合抽屉；宽度与任务详情对齐） -->
+    <n-drawer v-model:show="showModal" :width="drawerWidth" placement="right">
       <n-drawer-content :title="editingKey ? `编辑全局记忆：${editingKey}` : '新增全局记忆'" closable>
         <n-form label-placement="top" class="px-1">
           <n-form-item v-if="!editingKey" label="key" required>
@@ -58,11 +58,12 @@
           <n-form-item label="value" required>
             <MdEditor
               v-model="form.value"
+              editor-id="global-memory-editor"
               :theme="isDark ? 'dark' : 'light'"
               placeholder="支持 markdown（代码块/列表/表格），上限 64KB"
-              :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+              :toolbars="mdToolbars"
               :footers="[]"
-              style="height: 320px"
+              style="height: 360px"
             />
           </n-form-item>
           <div class="form-grid">
@@ -101,6 +102,7 @@
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
+  import { mdToolbars, editDrawerWidth } from '@/utils/mdEditor';
   import {
     getGlobalMemories,
     setGlobalMemory,
@@ -126,6 +128,7 @@
   const list = ref<MemoryItem[]>([]);
   const prefix = ref('');
   const includeStates = ref<string[]>([]);
+  const drawerWidth = editDrawerWidth();
 
   const showModal = ref(false);
   const editingKey = ref('');

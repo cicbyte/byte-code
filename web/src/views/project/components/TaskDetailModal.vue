@@ -453,6 +453,7 @@
   import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
   import { useUserStore } from '@/store/modules/user';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
+  import { editDrawerWidth } from '@/utils/mdEditor';
   import { priorityTagType, statusLabel, statusTagType } from '@/enums/task';
   import { AgentSparkleIcon } from '@/components/Icons/AgentSparkle';
 
@@ -569,8 +570,8 @@
 
   const router = useRouter();
 
-  // 宽屏大面板（AI 产出 markdown/长评论阅读），窄屏留 8% 呼吸
-  const drawerWidth = typeof window !== 'undefined' ? Math.min(880, window.innerWidth * 0.92) : 720;
+  // 宽屏大面板（AI 产出 markdown/长评论阅读），窄屏留 8% 呼吸；与编辑抽屉共用宽度约定
+  const drawerWidth = editDrawerWidth();
 
   // ==================== 关联文档 / AI 日志 / AI 产出 ====================
   const linkedDocs = ref<DocsSearchItem[]>([]);

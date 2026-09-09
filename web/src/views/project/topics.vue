@@ -190,6 +190,7 @@
   import 'md-editor-v3/lib/style.css';
   import DOMPurify from 'dompurify';
   import { statusLabel, statusTagType } from '@/enums/task';
+  import { mdToolbars } from '@/utils/mdEditor';
   import {
     getTopics,
     appendTopicPhase,
@@ -329,15 +330,6 @@
   function safeHtml(md: string): string {
     return DOMPurify.sanitize(md);
   }
-
-  // 编辑器精简工具栏（阶段编辑高频项）
-  const mdToolbars = [
-    'bold', 'italic', 'title', 'quote',
-    'unorderedList', 'orderedList', 'task',
-    'codeRow', 'codeBlock', 'link', 'image', 'table',
-    '-',
-    'preview', 'pageFullscreen', 'fullscreen',
-  ] as const;
 
   async function openPhaseDrawer(t: TopicItem, p: any) {
     await loadMemberOptions();

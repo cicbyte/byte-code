@@ -123,8 +123,8 @@
       </div>
     </n-card>
 
-    <!-- 新建/编辑任务抽屉（编辑类表单适合抽屉） -->
-    <n-drawer v-model:show="showCreateModal" :width="480" placement="right">
+    <!-- 新建/编辑任务抽屉（编辑类表单适合抽屉；宽度与任务详情对齐） -->
+    <n-drawer v-model:show="showCreateModal" :width="drawerWidth" placement="right">
       <n-drawer-content :title="editingId ? '编辑任务' : '新建任务'" closable>
         <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="top" class="px-1">
           <n-form-item label="标题" path="title">
@@ -157,8 +157,17 @@
               />
             </n-form-item>
           </div>
+          <!-- 描述用 MdEditor：任务详情侧已是 markdown 渲染，编辑侧所见即所得 -->
           <n-form-item label="描述" path="description">
-            <n-input v-model:value="formData.description" type="textarea" placeholder="补充说明（支持 markdown）" :autosize="{ minRows: 3, maxRows: 8 }" />
+            <MdEditor
+              v-model="formData.description"
+              editor-id="task-edit-editor"
+              :theme="isDark ? 'dark' : 'light'"
+              placeholder="补充说明（支持 markdown：代码块/列表/表格）"
+              :toolbars="mdToolbars"
+              :footers="[]"
+              style="height: 260px"
+            />
           </n-form-item>
         </n-form>
         <template #footer>
@@ -183,6 +192,10 @@
   import { getTags } from '@/api/platform/index';
   import { getTasks, createTask, updateTask, deleteTask, getMembers } from '@/api/project/index';
   import { usePagedList } from '@/composables/usePagedList';
+  import { MdEditor } from 'md-editor-v3';
+  import 'md-editor-v3/lib/style.css';
+  import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
+  import { mdToolbars, editDrawerWidth } from '@/utils/mdEditor';
 
   // 来源标签（后端派生：feedback/topic/ai/import/agent/human）
   const SOURCE_LABELS: Record<string, string> = {
@@ -207,7 +220,9 @@
   const router = useRouter();
   const message = useMessage();
   const dialog = useDialog();
+  const { getDarkTheme: isDark } = useDesignSetting();
   const projectId = computed(() => Number(route.params.projectId));
+  const drawerWidth = editDrawerWidth();
 
   const taskDetailRef = ref();
 

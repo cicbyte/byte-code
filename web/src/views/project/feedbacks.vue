@@ -49,8 +49,8 @@
       </n-spin>
     </n-card>
 
-    <!-- 投递反馈：抽屉 + markdown 编辑器 -->
-    <n-drawer v-model:show="showSend" :width="520" placement="right">
+    <!-- 投递反馈：抽屉 + markdown 编辑器（宽度与任务详情对齐） -->
+    <n-drawer v-model:show="showSend" :width="drawerWidth" placement="right">
       <n-drawer-content title="投递跨项目反馈" closable>
         <n-space vertical :size="12" class="px-1">
           <n-select
@@ -64,11 +64,12 @@
             <div class="text-xs text-gray-400 mb-1">现象 / 线索 / 怀疑点（markdown），对方 Agent 将阅读分析是否建任务</div>
             <MdEditor
               v-model="sendForm.content"
+              editor-id="feedback-editor"
               :theme="isDark ? 'dark' : 'light'"
               placeholder="支持 markdown（代码块/截图链接/表格）"
-              :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+              :toolbars="mdToolbars"
               :footers="[]"
-              style="height: 240px"
+              style="height: 280px"
             />
           </div>
         </n-space>
@@ -102,6 +103,7 @@
   import { useMessage } from 'naive-ui';
   import { MdEditor } from 'md-editor-v3';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
+  import { mdToolbars, editDrawerWidth } from '@/utils/mdEditor';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import {
     getFeedbacks,
@@ -161,6 +163,7 @@
   // ---- 投递 ----
   const showSend = ref(false);
   const sending = ref(false);
+  const drawerWidth = editDrawerWidth();
   const sendForm = reactive({ projectId: null as number | null, title: '', content: '' });
   const sendTargets = ref<Array<{ label: string; value: number }>>([]);
 
