@@ -24,7 +24,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: '通知中心',
         },
-        component: () => import('@/views/platform/notifications.vue'),
+        component: () => import('@/views/platform/notifications/index.vue'),
       },
       {
         path: 'activities',
@@ -32,7 +32,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: '活动流',
         },
-        component: () => import('@/views/platform/activities.vue'),
+        component: () => import('@/views/platform/activities/index.vue'),
       },
       {
         path: 'tags',
@@ -40,7 +40,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: '标签管理',
         },
-        component: () => import('@/views/platform/tags.vue'),
+        component: () => import('@/views/platform/tags/index.vue'),
       },
       {
         path: 'audit',
@@ -50,7 +50,7 @@ const routes: Array<RouteRecordRaw> = [
           // 审计接口在管理组（MiddlewareAdminAuth），菜单同步设门槛
           menuKey: 'platform_audit',
         },
-        component: () => import('@/views/platform/audit.vue'),
+        component: () => import('@/views/platform/audit/index.vue'),
       },
       {
         // Agent 账号（bc_ Key 外部代理）：平台级管理入口，接口在管理组
@@ -60,7 +60,7 @@ const routes: Array<RouteRecordRaw> = [
           title: 'Agent 账号',
           menuKey: 'ai_users',
         },
-        component: () => import('@/views/platform/agents.vue'),
+        component: () => import('@/views/platform/agents/index.vue'),
       },
     ],
   },

@@ -26,7 +26,7 @@ const routes: Array<RouteRecordRaw> = [
           permissions: ['dashboard_console'],
           affix: true,
         },
-        component: () => import('@/views/dashboard/console/console.vue'),
+        component: () => import('@/views/dashboard/console/index.vue'),
       },
     ],
   },

@@ -111,7 +111,7 @@
     { label: '30 天', value: '30d' },
   ];
 
-  // 字典统一出口：enums/entities.ts（与 global-memory.vue 共用）
+  // 字典统一出口：enums/entities.ts（与 setting/memory 页共用）
   const statusTagType = MEMORY_STATUS.tagType;
   const statusLabel = MEMORY_STATUS.label;
 

@@ -244,11 +244,11 @@
     refreshDocs,
   } from '@/api/docs/index';
   import type { DocsTreeNode, DocsFile } from '@/api/docs/index';
-  import { useInlineEdit } from './composables/useInlineEdit';
-  import { useCtxMenu } from './composables/useCtxMenu';
-  import { useBinaryPreview } from './composables/useBinaryPreview';
-  import { useDirtyGuard } from './composables/useDirtyGuard';
-  import DocsHistoryModal from './components/DocsHistoryModal.vue';
+  import { useInlineEdit } from '../composables/useInlineEdit';
+  import { useCtxMenu } from '../composables/useCtxMenu';
+  import { useBinaryPreview } from '../composables/useBinaryPreview';
+  import { useDirtyGuard } from '../composables/useDirtyGuard';
+  import DocsHistoryModal from '../components/DocsHistoryModal.vue';
 
   const message = useMessage();
   const dialog = useDialog();

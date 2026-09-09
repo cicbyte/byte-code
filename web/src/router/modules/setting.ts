@@ -21,7 +21,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: '个人设置',
         },
-        component: () => import('@/views/setting/account/account.vue'),
+        component: () => import('@/views/setting/account/index.vue'),
       },
       {
         path: 'system',
@@ -31,7 +31,7 @@ const routes: Array<RouteRecordRaw> = [
           // 系统配置接口在管理组（MiddlewareAdminAuth），菜单同步设门槛
           menuKey: 'setting_system',
         },
-        component: () => import('@/views/setting/system/system.vue'),
+        component: () => import('@/views/setting/system/index.vue'),
       },
       {
         path: 'global-memory',
@@ -41,7 +41,7 @@ const routes: Array<RouteRecordRaw> = [
           // 记忆写操作接口在管理组，读全员；页面含管理动作，按管理入口设门槛
           menuKey: 'setting_global_memory',
         },
-        component: () => import('@/views/setting/memory/global-memory.vue'),
+        component: () => import('@/views/setting/memory/index.vue'),
       },
     ],
   },

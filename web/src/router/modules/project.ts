@@ -23,7 +23,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: '项目列表',
         },
-        component: () => import('@/views/project/list.vue'),
+        component: () => import('@/views/project/list/index.vue'),
       },
       {
         // 全局分组管理（项目管理下）
@@ -32,7 +32,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: {
           title: '项目分组',
         },
-        component: () => import('@/views/platform/groups.vue'),
+        component: () => import('@/views/platform/groups/index.vue'),
       },
       {
         path: ':projectId',
@@ -41,7 +41,7 @@ const routes: Array<RouteRecordRaw> = [
           title: '项目详情',
           hideInMenu: true,
         },
-        component: () => import('@/views/project/ProjectWorkspace.vue'),
+        component: () => import('@/views/project/workspace/index.vue'),
         children: [
           {
             path: 'overview',
@@ -50,7 +50,7 @@ const routes: Array<RouteRecordRaw> = [
               title: '项目概览',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/overview.vue'),
+            component: () => import('@/views/project/overview/index.vue'),
           },
           {
             path: 'board',
@@ -60,7 +60,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '任务',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/board.vue'),
+            component: () => import('@/views/project/board/index.vue'),
           },
           {
             path: 'tasks',
@@ -70,7 +70,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '任务',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/tasks.vue'),
+            component: () => import('@/views/project/tasks/index.vue'),
           },
           {
             // 审核工作台：集中验收（完成即待人审，CompleteTask 统一置位）
@@ -80,7 +80,7 @@ const routes: Array<RouteRecordRaw> = [
               title: '待审核',
               group: '任务',
             },
-            component: () => import('@/views/project/reviews.vue'),
+            component: () => import('@/views/project/reviews/index.vue'),
           },
           {
             // 专题（long-task）：长时间自动执行的工程，与日常任务分池
@@ -91,7 +91,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '任务',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/topics.vue'),
+            component: () => import('@/views/project/topics/index.vue'),
           },
           {
             // 跨项目反馈收件箱：对方项目投递的线索，分析后转任务或忽略
@@ -102,7 +102,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '任务',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/feedbacks.vue'),
+            component: () => import('@/views/project/feedbacks/index.vue'),
           },
           {
             path: 'requirements',
@@ -112,7 +112,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '规划',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/requirements.vue'),
+            component: () => import('@/views/project/requirements/index.vue'),
           },
           {
             path: 'milestones',
@@ -122,7 +122,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '规划',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/milestones.vue'),
+            component: () => import('@/views/project/milestones/index.vue'),
           },
           {
             path: 'sprints',
@@ -132,7 +132,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '规划',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/sprints.vue'),
+            component: () => import('@/views/project/sprints/index.vue'),
           },
           {
             // 记忆/文档中枢：知识库视图（vault 知识库空间 + 人审发布流）
@@ -144,7 +144,7 @@ const routes: Array<RouteRecordRaw> = [
               hideInMenu: true,
               vaultSpace: 'knowledge',
             },
-            component: () => import('@/views/project/docs.vue'),
+            component: () => import('@/views/project/docs/index.vue'),
           },
           {
             // 记忆/文档中枢：文档管理器（工作区空间）
@@ -155,7 +155,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '知识',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/docs.vue'),
+            component: () => import('@/views/project/docs/index.vue'),
           },
           {
             // QA 库：常见问答沉淀（agent 维护 + 检索）
@@ -166,7 +166,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '知识',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/qas.vue'),
+            component: () => import('@/views/project/qas/index.vue'),
           },
           {
             // 记忆/文档中枢：项目 KV 记忆
@@ -177,7 +177,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '知识',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/memories.vue'),
+            component: () => import('@/views/project/memories/index.vue'),
           },
           {
             path: 'test-cases',
@@ -187,7 +187,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '测试',
               hideInMenu: true,
             },
-            component: () => import('@/views/test/cases.vue'),
+            component: () => import('@/views/test/cases/index.vue'),
           },
           {
             path: 'test-plans',
@@ -197,7 +197,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '测试',
               hideInMenu: true,
             },
-            component: () => import('@/views/test/plans.vue'),
+            component: () => import('@/views/test/plans/index.vue'),
           },
           {
             // 关联项目 + 项目分组（从成员管理拆出）
@@ -208,7 +208,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '管理',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/settings.vue'),
+            component: () => import('@/views/project/settings/index.vue'),
           },
           {
             path: 'members',
@@ -218,7 +218,7 @@ const routes: Array<RouteRecordRaw> = [
               group: '管理',
               hideInMenu: true,
             },
-            component: () => import('@/views/project/members.vue'),
+            component: () => import('@/views/project/members/index.vue'),
           },
         ],
       },

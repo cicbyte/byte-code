@@ -26,8 +26,8 @@
 </template>
 <script lang="ts" setup>
   import { reactive } from 'vue';
-  import BasicSetting from './BasicSetting.vue';
-  import EmailSetting from './EmailSetting.vue';
+  import BasicSetting from './components/BasicSetting.vue';
+  import EmailSetting from './components/EmailSetting.vue';
 
   const typeTabList = [
     {

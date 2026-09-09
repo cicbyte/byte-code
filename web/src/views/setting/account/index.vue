@@ -26,8 +26,8 @@
 </template>
 <script lang="ts" setup>
 import { reactive, ref } from 'vue';
-import BasicSetting from './BasicSetting.vue';
-import SafetySetting from './SafetySetting.vue';
+import BasicSetting from './components/BasicSetting.vue';
+import SafetySetting from './components/SafetySetting.vue';
 
 const typeTabList = [
   {
