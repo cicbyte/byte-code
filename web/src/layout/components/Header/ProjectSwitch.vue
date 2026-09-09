@@ -1,5 +1,5 @@
 <template>
-  <n-popover trigger="hover" placement="bottom" :width="260" :show-arrow="false" raw>
+  <n-popover trigger="hover" placement="bottom" :width="280" :show-arrow="false" raw>
     <template #trigger>
       <div class="layout-header-trigger layout-header-trigger-min project-switch" title="切换项目">
         <n-icon size="16"><AppstoreOutlined /></n-icon>
@@ -9,20 +9,56 @@
     </template>
 
     <div class="ps-panel">
-      <div class="ps-head">切换项目</div>
+      <div class="ps-head">
+        <span>切换项目</span>
+        <n-radio-group v-model:value="viewMode" size="tiny">
+          <n-radio-button value="project">项目</n-radio-button>
+          <n-radio-button value="group">分组</n-radio-button>
+        </n-radio-group>
+      </div>
       <n-spin :show="loading" size="small">
-        <div
-          v-for="p in projects"
-          :key="p.id"
-          class="ps-item"
-          :class="{ cur: p.id === currentProjectId }"
-          @click="onSelect(p.id)"
-        >
-          <span class="ps-item-name">{{ p.name }}</span>
-          <span class="ps-item-code">{{ p.code }}</span>
-          <svg v-if="p.id === currentProjectId" class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
-        </div>
-        <div v-if="!loading && projects.length === 0" class="ps-empty">暂无项目</div>
+        <!-- 项目视图：平铺列表（原逻辑不变） -->
+        <template v-if="viewMode === 'project'">
+          <div
+            v-for="p in projects"
+            :key="p.id"
+            class="ps-item"
+            :class="{ cur: p.id === currentProjectId }"
+            @click="onSelect(p.id)"
+          >
+            <span class="ps-item-name">{{ p.name }}</span>
+            <span class="ps-item-code">{{ p.code }}</span>
+            <svg v-if="p.id === currentProjectId" class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
+          </div>
+          <div v-if="!loading && projects.length === 0" class="ps-empty">暂无项目</div>
+        </template>
+
+        <!-- 分组视图：按分组折叠展示 -->
+        <template v-else>
+          <template v-for="g in groups" :key="g.id">
+            <div class="ps-group-head" @click="toggleGroup(g.id)">
+              <n-icon size="10" class="ps-group-caret" :class="{ open: expandedGroups.has(g.id) }">
+                <CaretRightOutlined />
+              </n-icon>
+              <span class="ps-group-name">{{ g.name }}</span>
+              <span class="ps-group-count">{{ (g.projects || []).length }}</span>
+            </div>
+            <template v-if="expandedGroups.has(g.id)">
+              <div
+                v-for="p in g.projects"
+                :key="p.id"
+                class="ps-item ps-group-child"
+                :class="{ cur: p.id === currentProjectId }"
+                @click="onSelect(p.id)"
+              >
+                <span class="ps-item-name">{{ p.name }}</span>
+                <span class="ps-item-code">{{ p.code }}</span>
+                <svg v-if="p.id === currentProjectId" class="ps-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>
+              </div>
+            </template>
+          </template>
+          <div v-if="!loading && groups.length === 0" class="ps-empty">暂无分组</div>
+        </template>
       </n-spin>
       <div class="ps-foot" @click="goList">管理项目 ›</div>
     </div>
@@ -30,20 +66,30 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, computed, onMounted } from 'vue';
+  import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
-  import { AppstoreOutlined, CaretDownOutlined } from '@vicons/antd';
+  import { AppstoreOutlined, CaretDownOutlined, CaretRightOutlined } from '@vicons/antd';
   import { getProjects } from '@/api/project/index';
+  import { getGroups } from '@/api/project/group';
+  import type { GroupItem } from '@/api/project/group';
 
   const route = useRoute();
   const router = useRouter();
   const loading = ref(false);
   const projects = ref<Array<{ id: number; name: string; code: string }>>([]);
+  const groups = ref<GroupItem[]>([]);
+  const viewMode = ref<'project' | 'group'>('project');
+  const expandedGroups = reactive(new Set<number>());
 
   const currentProjectId = computed(() => Number(route.params.projectId) || 0);
   const currentName = computed(
     () => projects.value.find((p) => p.id === currentProjectId.value)?.name || '',
   );
+
+  function toggleGroup(id: number) {
+    if (expandedGroups.has(id)) expandedGroups.delete(id);
+    else expandedGroups.add(id);
+  }
 
   function onSelect(id: number) {
     if (id === currentProjectId.value) return;
@@ -62,110 +108,173 @@
     router.push('/project/list');
   }
 
-  async function load() {
+  onMounted(async () => {
     loading.value = true;
     try {
-      const res = await getProjects({ size: 50 });
-      projects.value = (res?.list || []).map((p: any) => ({ id: p.id, name: p.name, code: p.code }));
-    } catch { /* ignore */ }
-    finally { loading.value = false; }
-  }
-
-  onMounted(load);
+      const [pRes, gRes] = await Promise.all([
+        getProjects({ size: 50 }),
+        viewMode.value === 'group' ? getGroups() : Promise.resolve(null),
+      ]);
+      projects.value = pRes?.list || [];
+      if (gRes) groups.value = gRes?.list || [];
+    } catch {
+      // ignore
+    } finally {
+      loading.value = false;
+    }
+  });
 </script>
 
 <style lang="less" scoped>
   .project-switch {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     padding: 0 10px;
+    height: 100%;
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &:hover {
+      background: var(--hover-bg, #f5f5f5);
+    }
 
     .ps-name {
-      font-size: 13px;
-      font-weight: 600;
-      max-width: 120px;
+      max-width: 140px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-size: 13px;
+      color: var(--text-1, #333);
     }
 
-    .ps-caret { opacity: 0.45; }
+    .ps-caret {
+      color: var(--text-3, #999);
+      transition: transform 0.2s;
+    }
+
+    &:hover .ps-caret {
+      color: var(--primary-color, #16a34a);
+    }
   }
 </style>
 
 <style lang="less">
-  /* Popover raw 模式：内容不带 naive 默认壳，完全自定义 */
   .ps-panel {
-    background: #fff;
-    border-radius: 14px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1), 0 12px 36px rgba(0, 0, 0, 0.08);
-    overflow: hidden;
-    min-width: 240px;
+    margin: -4px -8px;
   }
+
   .ps-head {
-    font-size: 11px;
-    font-weight: 700;
-    color: #9aa1ab;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 12px 14px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px 8px;
+    border-bottom: 1px solid var(--line, #efeff5);
+    font-size: 13px;
+    font-weight: 500;
   }
+
   .ps-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 9px 14px;
+    padding: 7px 12px;
     cursor: pointer;
-    transition: background 0.12s;
+    transition: background 0.15s;
 
-    &:hover { background: rgba(22, 163, 74, 0.05); }
+    &:hover {
+      background: var(--hover-bg, #f8f8f6);
+    }
+
     &.cur {
-      background: rgba(22, 163, 74, 0.08);
-      .ps-item-name { font-weight: 700; color: #16a34a; }
-      .ps-check { stroke: #16a34a; }
+      background: rgba(22, 163, 74, 0.06);
+
+      .ps-item-name {
+        color: var(--primary-color, #16a34a);
+        font-weight: 500;
+      }
     }
   }
+
   .ps-item-name {
     flex: 1;
-    min-width: 0;
-    font-size: 13.5px;
-    color: #1f2329;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 13px;
+    color: var(--text-1, #333);
   }
+
   .ps-item-code {
     flex: none;
+    font-family: 'JetBrains Mono', Consolas, monospace;
     font-size: 11px;
-    font-family: ui-monospace, Consolas, monospace;
-    color: #9aa1ab;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 6px;
-    padding: 2px 7px;
+    color: var(--text-3, #999);
+    background: var(--hover-bg, #f4f4f2);
+    padding: 1px 5px;
+    border-radius: 4px;
   }
+
   .ps-check {
     flex: none;
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
+    color: var(--primary-color, #16a34a);
   }
+
+  .ps-group-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-2, #57606a);
+    font-weight: 500;
+
+    &:hover {
+      color: var(--primary-color, #16a34a);
+    }
+
+    .ps-group-caret {
+      transition: transform 0.2s;
+      &.open {
+        transform: rotate(90deg);
+      }
+    }
+
+    .ps-group-name {
+      flex: 1;
+    }
+
+    .ps-group-count {
+      font-size: 10px;
+      color: var(--text-3, #999);
+    }
+  }
+
+  .ps-group-child {
+    padding-left: 28px;
+  }
+
   .ps-empty {
     padding: 16px;
     text-align: center;
+    color: var(--text-3, #999);
     font-size: 12px;
-    color: #9aa1ab;
   }
-  .ps-foot {
-    font-size: 12px;
-    font-weight: 600;
-    color: #16a34a;
-    text-align: center;
-    padding: 10px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    cursor: pointer;
-    transition: background 0.12s;
 
-    &:hover { background: rgba(22, 163, 74, 0.05); }
+  .ps-foot {
+    padding: 8px 12px;
+    border-top: 1px solid var(--line, #efeff5);
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3, #999);
+    cursor: pointer;
+    transition: color 0.15s;
+
+    &:hover {
+      color: var(--primary-color, #16a34a);
+    }
   }
 </style>
