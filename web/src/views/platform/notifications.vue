@@ -64,10 +64,13 @@
 
       <div class="mt-4 flex justify-end" v-if="total > pagination.size">
         <n-pagination
+          show-size-picker
+          :page-sizes="[10, 20, 50, 100]"
           v-model:page="pagination.page"
           :page-size="pagination.size"
           :item-count="total"
           @update:page="onPageChange"
+          @update:page-size="onPageSizeChange"
         />
       </div>
     </n-card>
@@ -108,7 +111,7 @@
   // usePagedList 统一四件套（含筛选重置页码/末页删空回退；已读批量后刷新走 load）
   const {
     loading, list, total, pagination,
-    load, onFilterChange, onPageChange,
+    load, onFilterChange, onPageChange, onPageSizeChange,
   } = usePagedList<any>((page: number, size: number) =>
     getNotifications({
       unread: Number(readFilter.value) || undefined,

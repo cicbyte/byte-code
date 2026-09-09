@@ -9,7 +9,7 @@
       </div>
       <div class="brand-content">
         <div class="brand-logo">
-          <div class="logo-icon">B</div>
+          <img :src="logoImage" alt="ByteCode" class="logo-icon-svg" />
           <span class="logo-name">ByteCode</span>
         </div>
         <h1 class="brand-headline">AI-Native<br/>项目管理平台</h1>
@@ -130,6 +130,8 @@
   const formRef = ref();
   const message = useMessage();
   const loading = ref(false);
+  import logoImage from '@/assets/images/logo.svg';
+
   const autoLogin = ref(true);
   const LOGIN_NAME = PageEnum.BASE_LOGIN_NAME;
 
@@ -247,20 +249,11 @@
       gap: 12px;
       margin-bottom: 48px;
 
-      .logo-icon {
+      .logo-icon-svg {
         width: 44px;
         height: 44px;
         border-radius: 12px;
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 22px;
-        font-weight: 700;
-        color: #fff;
-      }
+}
 
       .logo-name {
         font-size: 22px;

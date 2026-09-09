@@ -80,10 +80,13 @@
 
       <div class="mt-4 flex justify-end" v-if="total > pagination.size">
         <n-pagination
+          show-size-picker
+          :page-sizes="[10, 20, 50, 100]"
           v-model:page="pagination.page"
           :page-size="pagination.size"
           :item-count="total"
           @update:page="onPageChange"
+          @update:page-size="onPageSizeChange"
         />
       </div>
     </n-card>
@@ -209,7 +212,7 @@
 // usePagedList 统一四件套；后端 pageNum/pageSize 差异在 fetcher 内映射
   const {
     loading, list: caseList, total, pagination,
-    load: loadData, onFilterChange, afterRemove, onPageChange,
+    load: loadData, onFilterChange, afterRemove, onPageChange, onPageSizeChange,
   } = usePagedList((page: number, size: number) =>
     getTestCases(projectId.value, {
       category: filters.category ?? undefined,

@@ -34,7 +34,8 @@
           </div>
           <div v-if="fb.content" class="fb-content">{{ fb.content }}</div>
           <div v-if="fb.status === 'converted' && fb.convertedTaskId" class="fb-result">
-            已转化为任务 #{{ fb.convertedTaskId }}
+            已转化为
+            <n-button text type="success" size="tiny" @click="gotoConvertedTask(fb)">任务 #{{ fb.convertedTaskId }}</n-button>
           </div>
           <div v-if="fb.status === 'dismissed' && fb.dismissReason" class="fb-result dismissed">
             未采纳：{{ fb.dismissReason }}

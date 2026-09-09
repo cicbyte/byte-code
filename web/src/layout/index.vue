@@ -233,24 +233,24 @@
       flex-direction: column;
 
       // 页面根节点：宽度撑满；末位节点至少撑满剩余高度——
-      // 表格型页面数据少时不留大片画布空白，数据多时自然长高照常滚动。
+      // 表格型页面数据少时不留大片画布空白，数据多时自然长高由 layout-content
+      // 滚动。min-height 不设 0：flex-basis:0% + grow 已保证数据少时撑满，
+      // 若再锁 0 则内容超出视口时被压缩而非生长 → 溢出无滚动（用户实测踩坑）。
       // 多数页面根是透明 wrapper div：flex:1 给它没意义，需穿透传递——
       // wrapper 自身变 flex 列，其末位卡 flex:1 撑满。
-      // :not(.board)/:not(.vault-page) 排除自管布局的整页型视图（看板横排会被
+      // :not(.board)/:not(.docs-page) 排除自管布局的整页型视图（看板横排会被
       // column 穿透破坏）
       > * {
         width: 100%;
 
         &:last-child:not(.board):not(.docs-page) {
           flex: 1;
-          min-height: 0;
           display: flex;
           flex-direction: column;
 
           // wrapper 内的末位卡片真正撑满（多卡页面最后一张吸收剩余高度）
           > :last-child {
             flex: 1;
-            min-height: 0;
           }
         }
       }

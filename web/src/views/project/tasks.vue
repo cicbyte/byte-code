@@ -46,6 +46,7 @@
             <th class="col-idx">#</th>
             <th>标题</th>
             <th>类型</th>
+            <th>来源</th>
             <th>优先级</th>
             <th>标签</th>
             <th>状态</th>
@@ -62,6 +63,11 @@
               <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
             </td>
             <td><n-tag :type="typeTagType(task.type)" size="small">{{ typeLabel(task.type) }}</n-tag></td>
+            <td>
+              <n-tag size="small" :bordered="false" :type="sourceTagType(task.sourceLabel || task.source)">
+                {{ sourceLabel(task.sourceLabel || task.source) }}
+              </n-tag>
+            </td>
             <td><n-tag :type="priorityTagType(task.priority)" size="small">P{{ task.priority }}</n-tag></td>
             <td>
               <n-space :size="2">
@@ -106,10 +112,13 @@
 
       <div class="mt-4 flex justify-end" v-if="total > pagination.size">
         <n-pagination
+          show-size-picker
+          :page-sizes="[10, 20, 50, 100]"
           v-model:page="pagination.page"
           :page-size="pagination.size"
           :item-count="total"
           @update:page="onPageChange"
+          @update:page-size="onPageSizeChange"
         />
       </div>
     </n-card>
@@ -170,6 +179,18 @@
   import { getTags } from '@/api/platform/index';
   import { getTasks, createTask, updateTask, deleteTask, getMembers } from '@/api/project/index';
   import { usePagedList } from '@/composables/usePagedList';
+
+  // 来源标签（后端派生：feedback/topic/ai/import/agent/human）
+  const SOURCE_LABELS: Record<string, string> = {
+    human: '手动', agent: 'Agent', ai: 'AI', import: '导入', feedback: '反馈转换', topic: '专题',
+  };
+  function sourceLabel(s: string) { return SOURCE_LABELS[s] || s; }
+  function sourceTagType(s: string): 'default' | 'info' | 'success' | 'warning' {
+    if (s === 'feedback') return 'warning';
+    if (s === 'topic') return 'info';
+    if (s === 'agent' || s === 'ai') return 'success';
+    return 'default';
+  }
   import type { TaskItem } from '@/api/project/index';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
@@ -283,7 +304,7 @@
   // usePagedList 统一分页四件套：筛选重置页码/末页删空回退/过期响应防护
   const {
     loading, list: taskList, total, pagination,
-    load: loadTasks, onFilterChange, afterRemove, onPageChange,
+    load: loadTasks, onFilterChange, afterRemove, onPageChange, onPageSizeChange,
   } = usePagedList((page: number, size: number) =>
     getTasks(projectId.value, {
       page, size,

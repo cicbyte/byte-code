@@ -365,7 +365,15 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	m := g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users au", "t.assignee_id = au.id").
 		LeftJoin("sys_users cu", "t.creator_id = cu.id").
-		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
+		Fields(`t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name,
+			CASE
+				WHEN EXISTS(SELECT 1 FROM project_feedbacks f WHERE f.converted_task_id = t.id) THEN 'feedback'
+				WHEN EXISTS(SELECT 1 FROM topic_phases tp WHERE tp.task_id = t.id) THEN 'topic'
+				WHEN t.source = 'ai' THEN 'ai'
+				WHEN t.source = 'pm_import' THEN 'import'
+				WHEN cu.type = 'ai' THEN 'agent'
+				ELSE 'human'
+			END as source_label`).
 		Where("t.project_id", req.ProjectId)
 	if req.Status != "" {
 		m = m.Where("t.status", req.Status)

@@ -238,6 +238,7 @@ type TaskItem struct {
 	Tags        []string `json:"tags"`
 	CreatedAt   string   `json:"createdAt"`
 	UpdatedAt   string   `json:"updatedAt"`
+	SourceLabel  string     `json:"sourceLabel,omitempty"`
 }
 
 type TaskDetailReq struct {

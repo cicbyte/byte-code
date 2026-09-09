@@ -14,7 +14,7 @@ import { ref, reactive } from 'vue';
  */
 export function usePagedList<T = any>(
   fetcher: (page: number, size: number) => Promise<{ list: T[]; total: number }>,
-  defaultSize = 20
+  defaultSize = 10
 ) {
   const loading = ref(false);
   const list = ref<T[]>([]) as any;
@@ -59,5 +59,12 @@ export function usePagedList<T = any>(
     return load();
   }
 
-  return { loading, list, total, pagination, load, onFilterChange, afterRemove, onPageChange };
+  /** 页大小变更：重置到第一页后重查 */
+  function onPageSizeChange(size: number) {
+    pagination.size = size;
+    pagination.page = 1;
+    return load();
+  }
+
+  return { loading, list, total, pagination, load, onFilterChange, afterRemove, onPageChange, onPageSizeChange };
 }
