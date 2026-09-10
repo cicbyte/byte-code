@@ -105,10 +105,10 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { ref, reactive, computed, watch, onMounted } from 'vue';
+  import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
-      import { getMembers, addMember, removeMember, removeAgentProject } from '@/api/project/index';
+  import { getMembers, addMember, removeMember, removeAgentProject } from '@/api/project/index';
   import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
@@ -173,8 +173,46 @@
     });
   }
 
-  // 关联项目治理（owner）
+  // Agent 接入码：owner 生成，一次性展示
+  // （关联项目/分组治理已拆至项目设置页；本段在 f6830e7 拆分时被误删，自 0ca5705 恢复）
+  const showAgentCode = ref(false);
+  const agentCode = ref('');
+  const agentCodeExpires = ref('');
+  // 连接信息随码展示：agent 侧无需手动问服务器地址（取当前访问地址 + /api 前缀）
+  const serverUrl = computed(() => window.location.origin + '/api');
+  const onboardCommands = computed(() =>
+    [
+      '# 1. 配置服务器（一次性，写入 ~/.bc/config.toml）',
+      `bcode config set server ${serverUrl.value}`,
+      '',
+      '# 2. 注册身份（bc_ key 自动落本地 ~/.bc/agents/<profile>/）',
+      'bcode register <agent-name>',
+      '',
+      '# 3. 凭码加入本项目',
+      `bcode join ${agentCode.value || '<接入码>'}`,
+      '',
+      '# 4. 在项目目录建立会话（展示开工包：项目记忆 + 我的任务 + 待分析反馈）',
+      'bcode start',
+    ].join('\n'));
+  function copyText(text: string) {
+    navigator.clipboard?.writeText(text).then(
+      () => message.success('已复制'),
+      () => message.error('复制失败，请手动选择'),
+    );
+  }
+  async function handleGenAgentCode() {
+    try {
+      const res = await createAgentJoinCode(projectId.value);
+      agentCode.value = res.code;
+      agentCodeExpires.value = res.expiresAt;
+      showAgentCode.value = true;
+      loadMembers();
+    } catch {
+      // http 层统一提示（无权限等）
+    }
+  }
 
+  onMounted(() => { loadMembers(); });
 </script>
 
 <style lang="less" scoped>
