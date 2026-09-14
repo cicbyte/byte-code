@@ -139,9 +139,26 @@ func (s *sProject) TransferOwner(ctx context.Context, req *api.OwnerTransferReq)
 		return fmt.Errorf("目标已是项目负责人")
 	}
 
+	// 原负责人（leave 语义作用于交接方；超管代办时同为移出原负责人）
+	oldOwnerV, _ := g.DB().Model("project_members").Ctx(ctx).
+		Where("project_id", req.ProjectId).
+		Where("role", "owner").Fields("user_id").Value()
+	oldOwner := 0
+	if oldOwnerV != nil {
+		oldOwner = oldOwnerV.Int()
+	}
+
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		// 先降旧再升新：owner 唯一性没有 DB 约束（role 无 UNIQUE），靠顺序保证
-		if _, e := tx.Model("project_members").Ctx(ctx).
+		// 先处理旧 owner 再升新：owner 唯一性没有 DB 约束（role 无 UNIQUE），靠顺序保证。
+		// leave=原负责人退出（成员行删除，隔离交接）；缺省=降为普通成员
+		if req.Leave {
+			if _, e := tx.Model("project_members").Ctx(ctx).
+				Where("project_id", req.ProjectId).
+				Where("role", "owner").
+				Delete(); e != nil {
+				return e
+			}
+		} else if _, e := tx.Model("project_members").Ctx(ctx).
 			Where("project_id", req.ProjectId).
 			Where("role", "owner").
 			Data(g.Map{"role": "member"}).Update(); e != nil {
@@ -160,7 +177,15 @@ func (s *sProject) TransferOwner(ctx context.Context, req *api.OwnerTransferReq)
 	}
 
 	name := target.Name
-	s.recordActivity(ctx, uid, "project.owner_transfer", "project", req.ProjectId, name, req.ProjectId, fmt.Sprintf("负责人转移给 %s", name))
+	mode := "留在项目"
+	if req.Leave {
+		mode = "退出项目"
+	}
+	s.recordActivity(ctx, uid, "project.owner_transfer", "project", req.ProjectId, name, req.ProjectId, fmt.Sprintf("负责人转移给 %s（%s）", name, mode))
 	notify.Send(ctx, req.UserId, "成为项目负责人", "项目负责人已转移给您，您现在可以管理成员与项目设置", "info", "project", req.ProjectId)
+	// 被移出方非操作者本人时补一条通知（自己操作的转交弹窗已明示，不发噪音）
+	if req.Leave && oldOwner > 0 && oldOwner != uid {
+		notify.Send(ctx, oldOwner, "已退出项目", "项目负责人已转移，您已退出该项目", "warning", "project", req.ProjectId)
+	}
 	return nil
 }

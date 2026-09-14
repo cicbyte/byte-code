@@ -371,9 +371,9 @@ export function removeMember(projectId: number, userId: number) {
   return Alova.Delete(`/v1/projects/${projectId}/members/${userId}`);
 }
 
-/** 转移项目负责人（目标须为已存在的人类成员；旧 owner 降为 member） */
-export function transferOwner(projectId: number, userId: number) {
-  return Alova.Put(`/v1/projects/${projectId}/owner`, { userId });
+/** 转移项目负责人（目标须为已存在的人类成员；leave=true 时原负责人退出项目） */
+export function transferOwner(projectId: number, userId: number, leave = false) {
+  return Alova.Put(`/v1/projects/${projectId}/owner`, { userId, leave });
 }
 
 // ==================== QA 库 ====================

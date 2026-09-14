@@ -96,8 +96,10 @@ type MemberRemoveRes struct {
 
 type OwnerTransferReq struct {
 	g.Meta    `path:"/projects/{projectId}/owner" method:"put" tags:"项目成员" summary:"转移项目负责人"`
-	ProjectId int `json:"projectId" v:"required" in:"path"`
-	UserId    int `json:"userId" v:"required#目标负责人用户ID不能为空"`
+	ProjectId int  `json:"projectId" v:"required" in:"path"`
+	UserId    int  `json:"userId" v:"required#目标负责人用户ID不能为空"`
+	// 转交后原负责人退出项目（隔离交接场景）；缺省留在项目降为普通成员
+	Leave bool `json:"leave"`
 }
 
 type OwnerTransferRes struct {

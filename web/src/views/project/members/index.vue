@@ -90,6 +90,28 @@
       </n-space>
     </n-modal>
 
+    <!-- 转交负责人：选择转移方式（隔离交接可退出本项目） -->
+    <n-modal v-model:show="showTransfer" preset="dialog" title="转交项目负责人" :show-icon="false" style="width: 460px">
+      <n-space vertical :size="10" class="py-2">
+        <span class="text-sm">确定将项目负责人转交给「{{ transferringTarget?.realName || transferringTarget?.username }}」吗？</span>
+        <n-radio-group v-model:value="transferLeave">
+          <n-space vertical>
+            <n-radio :value="false">留在本项目 —— 转交后您成为普通成员</n-radio>
+            <n-radio :value="true">退出本项目 —— 转交后移出成员列表（需要隔离时选择）</n-radio>
+          </n-space>
+        </n-radio-group>
+        <n-text v-if="transferLeave" depth="3" style="font-size: 12px">
+          退出后您将失去本项目全部访问权限，如需回来需新负责人重新添加
+        </n-text>
+      </n-space>
+      <template #action>
+        <n-space>
+          <n-button size="small" @click="showTransfer = false">取消</n-button>
+          <n-button size="small" type="warning" :loading="transferring" @click="confirmTransfer">确认转交</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
     <!-- 添加成员弹窗 -->
     <n-modal
       v-model:show="showAddModal"
@@ -115,7 +137,7 @@
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, computed, onMounted } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { useUserStore } from '@/store/modules/user';
   import { getMembers, addMember, removeMember, removeAgentProject, transferOwner } from '@/api/project/index';
@@ -123,6 +145,7 @@
   import type { MemberItem } from '@/api/project/index';
 
   const route = useRoute();
+  const router = useRouter();
   const message = useMessage();
   const dialog = useDialog();
   const userStore = useUserStore();
@@ -136,22 +159,38 @@
     return perms.has('system_menu') || perms.has('system_role');
   });
 
+  const showTransfer = ref(false);
+  const transferring = ref(false);
+  const transferLeave = ref(false);
+  const transferringTarget = ref<MemberItem | null>(null);
+
   function handleTransfer(member: MemberItem) {
-    dialog.warning({
-      title: '转交项目负责人',
-      content: `确定将项目负责人转交给「${member.realName || member.username}」吗？转交后您将成为普通成员，对方获得成员管理与项目设置权限。`,
-      positiveText: '转交',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        try {
-          await transferOwner(projectId.value, member.userId);
-          message.success(`负责人已转交给 ${member.realName || member.username}`);
-          loadMembers();
-        } catch (e: any) {
-          message.error(e?.message || '转交失败');
-        }
-      },
-    });
+    transferringTarget.value = member;
+    transferLeave.value = false;
+    showTransfer.value = true;
+  }
+
+  async function confirmTransfer() {
+    const m = transferringTarget.value;
+    if (!m) return;
+    transferring.value = true;
+    try {
+      await transferOwner(projectId.value, m.userId, transferLeave.value);
+      message.success(transferLeave.value
+        ? `负责人已转交给 ${m.realName || m.username}，您已退出本项目`
+        : `负责人已转交给 ${m.realName || m.username}`);
+      showTransfer.value = false;
+      if (transferLeave.value) {
+        // 退出后无权停留在成员页，回到项目列表
+        router.push('/project/list');
+      } else {
+        loadMembers();
+      }
+    } catch (e: any) {
+      message.error(e?.message || '转交失败');
+    } finally {
+      transferring.value = false;
+    }
   }
   const projectId = computed(() => Number(route.params.projectId));
 
