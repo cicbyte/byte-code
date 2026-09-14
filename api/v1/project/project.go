@@ -94,6 +94,15 @@ type MemberRemoveRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+type MemberLeaveReq struct {
+	g.Meta    `path:"/projects/{projectId}/members/leave" method:"post" tags:"项目成员" summary:"退出项目（本人；owner 须先转交）"`
+	ProjectId int `json:"projectId" v:"required" in:"path"`
+}
+
+type MemberLeaveRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 type OwnerTransferReq struct {
 	g.Meta    `path:"/projects/{projectId}/owner" method:"put" tags:"项目成员" summary:"转移项目负责人"`
 	ProjectId int  `json:"projectId" v:"required" in:"path"`

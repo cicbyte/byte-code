@@ -2,10 +2,16 @@
   <div>
     <n-card :bordered="false" title="项目成员" class="proCard">
       <template #header-extra>
-        <!-- 管理级入口（owner/maintainer/超管）：member 不显示，后端同口径兜底 -->
-        <n-space v-if="canManage">
-          <n-button @click="handleGenAgentCode">Agent 接入码</n-button>
-          <n-button type="primary" @click="showAddModal = true">添加成员</n-button>
+        <n-space>
+          <!-- 管理级入口（owner/maintainer/超管）：member 不显示，后端同口径兜底 -->
+          <template v-if="canManage">
+            <n-button @click="handleGenAgentCode">Agent 接入码</n-button>
+            <n-button type="primary" @click="showAddModal = true">添加成员</n-button>
+          </template>
+          <!-- 自助退出：member/maintainer 可用；owner 须先转交（后端同口径） -->
+          <n-button v-if="myRole === 'member' || myRole === 'maintainer'" text type="error" @click="handleLeave">
+            退出项目
+          </n-button>
         </n-space>
       </template>
 
@@ -176,7 +182,7 @@
   import { useMessage, useDialog } from 'naive-ui';
   import { useUserStore } from '@/store/modules/user';
   import { usePerm } from '@/composables/usePerm';
-  import { getMembers, addMember, removeMember, removeAgentProject, transferOwner } from '@/api/project/index';
+  import { getMembers, addMember, removeMember, removeAgentProject, transferOwner, leaveProject } from '@/api/project/index';
   import { createAgentJoinCode, updateAgentCapabilities, AGENT_CAPS } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
@@ -285,6 +291,24 @@
       formData.userId = null; formData.role = 'member';
       loadMembers();
     } catch (e: any) { message.error(e?.message || '添加失败'); return false; }
+  }
+
+  function handleLeave() {
+    dialog.warning({
+      title: '退出项目',
+      content: '退出后将失去本项目全部访问权限（任务/文档/记忆），确定退出吗？',
+      positiveText: '确认退出',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await leaveProject(projectId.value);
+          message.success('已退出项目');
+          router.push('/project/list');
+        } catch (e: any) {
+          message.error(e?.message || '退出失败');
+        }
+      },
+    });
   }
 
   function handleRemove(member: MemberItem) {

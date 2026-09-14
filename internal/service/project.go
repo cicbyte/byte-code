@@ -17,6 +17,7 @@ type IProject interface {
 	// 项目成员
 	AddMember(ctx context.Context, req *api.MemberAddReq) (err error)
 	RemoveMember(ctx context.Context, projectId, userId int) (err error)
+	LeaveMember(ctx context.Context, projectId int) (err error)
 	TransferOwner(ctx context.Context, req *api.OwnerTransferReq) (err error)
 	ListMembers(ctx context.Context, projectId int) (res *api.MemberListRes, err error)
 

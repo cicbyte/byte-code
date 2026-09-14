@@ -93,6 +93,40 @@ func (s *sProject) RemoveMember(ctx context.Context, projectId, userId int) (err
 	return nil
 }
 
+func (s *sProject) LeaveMember(ctx context.Context, projectId int) (err error) {
+	uid := perm.UserId(ctx)
+	// 仅人类成员自助退出；agent 的准入移除走管理侧（RemoveAgentProject）
+	if v, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", uid).Fields("type").Value(); v != nil && v.String() == "ai" {
+		return fmt.Errorf("Agent 准入请由项目管理员移除")
+	}
+	row, err := g.DB().Model("project_members").Ctx(ctx).
+		Where("project_id", projectId).Where("user_id", uid).Fields("role").Value()
+	if err != nil || row == nil {
+		return fmt.Errorf("您不是本项目成员")
+	}
+	// owner 退出会产生无主项目：必须先转交（单人 owner 不变量与转交/移除侧一致）
+	if row.String() == consts.MemberRoleOwner {
+		return fmt.Errorf("项目负责人不能直接退出，请先转交负责人")
+	}
+	if _, err = g.DB().Model("project_members").Ctx(ctx).
+		Where("project_id", projectId).Where("user_id", uid).Delete(); err != nil {
+		return liberr.WrapDb(ctx, err, "退出项目失败")
+	}
+	// 留痕 + 通知 owner（退出对项目而言是被动事件）
+	s.recordActivity(ctx, uid, "project.member_left", "project", projectId,
+		fmt.Sprintf("#%d", uid), projectId, "退出了项目")
+	if ov, _ := g.DB().Model("project_members").Ctx(ctx).
+		Where("project_id", projectId).Where("role", consts.MemberRoleOwner).Fields("user_id").Value(); ov != nil {
+		un, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", uid).Fields("username").Value()
+		name := ""
+		if un != nil {
+			name = un.String()
+		}
+		notify.Send(ctx, ov.Int(), "成员退出项目", fmt.Sprintf("成员「%s」已退出项目", name), "warning", "project", projectId)
+	}
+	return nil
+}
+
 func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.MemberListRes, err error) {
 	res = &api.MemberListRes{}
 	// 成员两来源合并：project_members（人/早期手动加的 agent）+

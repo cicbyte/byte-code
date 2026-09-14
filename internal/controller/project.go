@@ -58,6 +58,14 @@ func (c *projectController) AddMember(ctx context.Context, req *api.MemberAddReq
 	return &api.MemberAddRes{}, nil
 }
 
+func (c *projectController) LeaveMember(ctx context.Context, req *api.MemberLeaveReq) (res *api.MemberLeaveRes, err error) {
+	err = service.Project().LeaveMember(ctx, req.ProjectId)
+	if err != nil {
+		return nil, err
+	}
+	return &api.MemberLeaveRes{}, nil
+}
+
 func (c *projectController) RemoveMember(ctx context.Context, req *api.MemberRemoveReq) (res *api.MemberRemoveRes, err error) {
 	err = service.Project().RemoveMember(ctx, req.ProjectId, req.UserId)
 	if err != nil {
