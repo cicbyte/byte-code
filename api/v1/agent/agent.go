@@ -94,6 +94,9 @@ type ProjectBrief struct {
 	Id   int    `json:"id"`
 	Code string `json:"code"`
 	Name string `json:"name"`
+	// 该绑定的能力集（逗号分隔 key；空=全部能力）。agent 自查权限用
+	// （bcode projects 可见），与成员页管理口径一致
+	Capabilities string `json:"capabilities,omitempty"`
 }
 
 type ConventionItem struct {

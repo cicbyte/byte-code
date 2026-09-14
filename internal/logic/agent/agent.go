@@ -20,6 +20,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/agent"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/dbinit"
+	"github.com/cicbyte/byte-code/utility/notify"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
@@ -495,6 +496,23 @@ func UpdateAgentCapabilities(ctx context.Context, projectId, agentId int, caps [
 	if n, _ := result.RowsAffected(); n == 0 {
 		return fmt.Errorf("Agent 未接入本项目")
 	}
+	// 变更即时通知 agent 账号（CLI/Web 通知中心均可见）——收紧后 agent
+	// 不必等下次 403 才发现（PRD §5 遗留 #415）
+	summary := "全部能力"
+	if len(keys) > 0 {
+		labels := make([]string, 0, len(keys))
+		for _, k := range keys {
+			if l, ok := perm.AgentCaps[k]; ok {
+				labels = append(labels, l)
+			} else {
+				labels = append(labels, k)
+			}
+		}
+		summary = strings.Join(labels, "、")
+	}
+	notify.Send(ctx, agentId, "能力集已调整",
+		fmt.Sprintf("管理员将你在本项目的能力集调整为：%s（即时生效）", summary),
+		"warning", "project", projectId)
 	return nil
 }
 
@@ -553,7 +571,7 @@ func AgentProjects(ctx context.Context, agentId int) (res *api.AgentProjectsRes,
 	res = &api.AgentProjectsRes{List: []api.ProjectBrief{}}
 	rows, qerr := g.DB().Model("agent_project_bindings b").Ctx(ctx).
 		InnerJoin("projects p", "p.id = b.project_id").
-		Fields("p.id, p.code, p.name").
+		Fields("p.id, p.code, p.name, COALESCE(b.capabilities, '') AS capabilities").
 		Where("b.agent_id", agentId).
 		Order("p.id ASC").All()
 	if qerr != nil {
@@ -562,6 +580,7 @@ func AgentProjects(ctx context.Context, agentId int) (res *api.AgentProjectsRes,
 	for _, r := range rows {
 		res.List = append(res.List, api.ProjectBrief{
 			Id: r["id"].Int(), Code: r["code"].String(), Name: r["name"].String(),
+			Capabilities: r["capabilities"].String(),
 		})
 	}
 	return res, nil
