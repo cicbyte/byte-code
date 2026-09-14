@@ -193,6 +193,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.PlatformCtrl.ListAuditLogs,
 				controller.PlatformCtrl.AuditLogExport,
 				controller.PlatformCtrl.UsageOverview,
+				controller.PlatformCtrl.UsageReport,
 			)
 
 			// 用户管理

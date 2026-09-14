@@ -49,7 +49,30 @@ func (s *sMiddleware) MiddlewareUsageTrack(r *ghttp.Request) {
 		SessionId:  sessionIdOf(r),
 		ErrorCode:  respErrorCode(r.Response.Buffer()),
 		Params:     extractParams(r, body),
+		ClientVersion: clientVersionOf(r),
 	})
+}
+
+// clientVersionOf CLI 版本识别：UA 形如 bcode/0.3.1 或 bcode-cli/v1.2.3。
+// web 或未带版本的 CLI 返回空（版本分布侧归「未识别」）
+func clientVersionOf(r *ghttp.Request) string {
+	ua := r.UserAgent()
+	i := strings.Index(ua, "/")
+	if i < 0 || i+1 >= len(ua) {
+		return ""
+	}
+	prefix := strings.ToLower(ua[:i])
+	if prefix != "bcode" && prefix != "bcode-cli" {
+		return ""
+	}
+	v := strings.TrimSpace(ua[i+1:])
+	if k := strings.IndexAny(v, " ;,)"); k >= 0 {
+		v = v[:k]
+	}
+	if len(v) > 32 || v == "" || !strings.ContainsAny(v, "0123456789") {
+		return ""
+	}
+	return v
 }
 
 // usageClient 客户端识别：bc_ API key（agent/CLI）→ cli；UA 带 bcode 也归 cli；

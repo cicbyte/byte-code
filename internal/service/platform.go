@@ -36,6 +36,7 @@ type IPlatform interface {
 	ListAuditLogs(ctx context.Context, req *api.AuditLogListReq) (res *api.AuditLogListRes, err error)
 	ExportAuditLogs(ctx context.Context, r *ghttp.Request, req *api.AuditLogExportReq) error
 	UsageOverview(ctx context.Context, req *api.UsageOverviewReq) (res *api.UsageOverviewRes, err error)
+	UsageReport(ctx context.Context, req *api.UsageReportReq) (res *api.UsageReportRes, err error)
 }
 
 var localPlatform IPlatform

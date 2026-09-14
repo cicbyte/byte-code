@@ -21,8 +21,9 @@ type Event struct {
 	DurationMs int
 	ProjectId  int
 	SessionId  string
-	ErrorCode  int // 业务响应壳 code（0=成功）
+	ErrorCode  int    // 业务响应壳 code（0=成功）
 	Params     string
+	ClientVersion string // CLI 版本（UA 解析 bcode/x.y.z；空=未识别）
 }
 
 const (
@@ -134,6 +135,7 @@ func flush(ctx context.Context, buf *[]Event) {
 			"session_id":  e.SessionId,
 			"error_code":  e.ErrorCode,
 			"params":      e.Params,
+			"client_version": e.ClientVersion,
 			"created_at":  now,
 		})
 	}

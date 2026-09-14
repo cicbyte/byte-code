@@ -328,3 +328,53 @@ export function getUsageOverview(days = 7) {
     params: { days },
   });
 }
+
+export interface UsageDailyPoint {
+  day: string;
+  cliCalls: number;
+  webCalls: number;
+  errCalls: number;
+  activeActors: number;
+}
+
+export interface UsageFunnelStep {
+  step: number;
+  label: string;
+  actors: number;
+}
+
+export interface UsageVersionItem {
+  version: string;
+  calls: number;
+  actors: number;
+  lastSeen: string;
+}
+
+export interface UsageActorEfficiency {
+  assigneeId: number;
+  assigneeName: string;
+  actorType: string;
+  completed: number;
+  avgLeadHours: number;
+  blocked: number;
+}
+
+export interface UsageReportResult {
+  windowDays: number;
+  daily: UsageDailyPoint[];
+  funnel: UsageFunnelStep[];
+  versions: UsageVersionItem[];
+  efficiency: {
+    completedTotal: number;
+    avgLeadHours: number;
+    blockedTotal: number;
+    byActor: UsageActorEfficiency[];
+  };
+}
+
+/** 使用分析报告（管理员）：每日趋势 + CLI 漏斗 + 版本分布 + 任务效率 */
+export function getUsageReport(days = 30) {
+  return Alova.Get<UsageReportResult>('/v1/admin/usage/report', {
+    params: { days },
+  });
+}

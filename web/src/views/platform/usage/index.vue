@@ -60,15 +60,104 @@
         :max-height="320"
       />
     </n-card>
+
+    <!-- 分析报告（#426）：趋势 / CLI 漏斗 / 版本分布 / 任务效率 -->
+    <n-card :bordered="false" class="proCard mt-4" :loading="reportLoading">
+      <template #header>
+        分析报告
+        <n-tag size="small" :bordered="false" class="ml-2">近 {{ days }} 天</n-tag>
+      </template>
+      <n-spin :show="reportLoading">
+        <!-- 每日趋势：usage_daily 物化（明细 30 天清理，趋势长期保留） -->
+        <n-h6>每日调用趋势</n-h6>
+        <div ref="trendRef" class="trend-chart"></div>
+        <div v-if="!reportLoading && report.daily.length === 0" class="text-xs text-gray-400">
+          窗口内暂无调用记录
+        </div>
+
+        <n-grid cols="1 s:2" responsive="screen" :x-gap="24" class="mt-4">
+          <!-- CLI 工作流漏斗：去重账号数 -->
+          <n-grid-item>
+            <n-h6>CLI 工作流漏斗（去重账号）</n-h6>
+            <div v-if="report.funnel.length === 0" class="text-xs text-gray-400">窗口内无 CLI 流量</div>
+            <div v-for="s in report.funnel" :key="s.step" class="funnel-row">
+              <span class="funnel-label">{{ s.step }}. {{ s.label }}</span>
+              <div class="funnel-track">
+                <div class="funnel-bar" :style="{ width: funnelPct(s.actors) }"></div>
+              </div>
+              <span class="funnel-num">{{ s.actors }}</span>
+            </div>
+            <div class="text-xs text-gray-400 mt-1">
+              会话 → 看任务 → 认领 → 完成的账号到达数；未识别版本不影响漏斗统计
+            </div>
+          </n-grid-item>
+
+          <!-- CLI 版本分布：UA 解析 bcode/x.y.z，空=未识别 -->
+          <n-grid-item>
+            <n-h6>CLI 版本分布</n-h6>
+            <n-table v-if="report.versions.length" :bordered="false" :single-line="false" size="small">
+              <thead>
+                <tr><th>版本</th><th>调用量</th><th>账号数</th><th>最近使用</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="v in report.versions" :key="v.version">
+                  <td>
+                    <n-tag size="small" :bordered="false" :type="v.version === '未识别' ? 'warning' : 'success'">
+                      {{ v.version }}
+                    </n-tag>
+                  </td>
+                  <td>{{ v.calls }}</td>
+                  <td>{{ v.actors }}</td>
+                  <td>{{ (v.lastSeen || '').slice(0, 16) }}</td>
+                </tr>
+              </tbody>
+            </n-table>
+            <div v-else class="text-xs text-gray-400">窗口内无 CLI 流量</div>
+            <div class="text-xs text-gray-400 mt-1">「未识别」= CLI UA 未带版本号（旧版客户端）</div>
+          </n-grid-item>
+        </n-grid>
+
+        <!-- 任务效率：交付周期 + 人均表 -->
+        <n-h6 class="mt-4">任务效率</n-h6>
+        <n-grid cols="1 s:3" responsive="screen" :x-gap="12" class="mb-3">
+          <n-grid-item>
+            <n-statistic label="完成任务" :value="report.efficiency.completedTotal" />
+          </n-grid-item>
+          <n-grid-item>
+            <n-statistic label="平均交付周期" :value="report.efficiency.avgLeadHours">
+              <template #suffix><span class="text-xs text-gray-400">小时</span></template>
+            </n-statistic>
+          </n-grid-item>
+          <n-grid-item>
+            <n-statistic label="阻塞上报" :value="report.efficiency.blockedTotal" />
+          </n-grid-item>
+        </n-grid>
+        <n-data-table
+          :columns="effColumns"
+          :data="report.efficiency.byActor"
+          :loading="reportLoading"
+          :row-key="(row: UsageActorEfficiency) => row.assigneeId"
+          size="small"
+          :max-height="320"
+        />
+      </n-spin>
+    </n-card>
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, h, onMounted } from 'vue';
+  import { ref, reactive, h, onMounted, onUnmounted, nextTick } from 'vue';
   import { NTag, useMessage } from 'naive-ui';
   import type { DataTableColumns } from 'naive-ui';
-  import { getUsageOverview } from '@/api/platform/index';
-  import type { UsageEndpointStat, UsageErrorItem, UsageOverviewResult } from '@/api/platform/index';
+  import echarts from '@/utils/lib/echarts';
+  import { getUsageOverview, getUsageReport } from '@/api/platform/index';
+  import type {
+    UsageEndpointStat,
+    UsageErrorItem,
+    UsageOverviewResult,
+    UsageReportResult,
+    UsageActorEfficiency,
+  } from '@/api/platform/index';
 
   const message = useMessage();
   const loading = ref(false);
@@ -82,25 +171,84 @@
     errors: [],
   });
 
+  const reportLoading = ref(false);
+  const report = reactive<UsageReportResult>({
+    windowDays: 7,
+    daily: [],
+    funnel: [],
+    versions: [],
+    efficiency: { completedTotal: 0, avgLeadHours: 0, blockedTotal: 0, byActor: [] },
+  });
+
   function pct(n: number): string {
     if (!overview.totalCalls) return '0%';
     return Math.round((n / overview.totalCalls) * 100) + '%';
   }
 
+  // 漏斗条宽：相对第一步（第一步 100%）
+  function funnelPct(actors: number): string {
+    const first = report.funnel[0]?.actors || 0;
+    if (!first || !actors) return '0%';
+    return Math.max(2, Math.round((actors / first) * 100)) + '%';
+  }
+
   async function load() {
     loading.value = true;
+    reportLoading.value = true;
     try {
-      const res = await getUsageOverview(days.value);
-      if (res) {
-        Object.assign(overview, res);
-        overview.endpoints = res.endpoints || [];
-        overview.errors = res.errors || [];
+      const [ov, rp] = await Promise.all([getUsageOverview(days.value), getUsageReport(days.value)]);
+      if (ov) {
+        Object.assign(overview, ov);
+        overview.endpoints = ov.endpoints || [];
+        overview.errors = ov.errors || [];
+      }
+      if (rp) {
+        Object.assign(report, rp);
+        report.daily = rp.daily || [];
+        report.funnel = rp.funnel || [];
+        report.versions = rp.versions || [];
+        report.efficiency = rp.efficiency || { completedTotal: 0, avgLeadHours: 0, blockedTotal: 0, byActor: [] };
+        await nextTick();
+        initTrend();
       }
     } catch {
       message.error('加载使用统计失败');
     } finally {
       loading.value = false;
+      reportLoading.value = false;
     }
+  }
+
+  // ---- 趋势图（echarts 复用：折线两系列 cli/web；清理模式对齐 console） ----
+  const trendRef = ref<HTMLDivElement | null>(null);
+  let chart: echarts.ECharts | null = null;
+
+  function handleChartResize() {
+    chart?.resize();
+  }
+
+  function disposeChart() {
+    window.removeEventListener('resize', handleChartResize);
+    chart?.dispose();
+    chart = null;
+  }
+
+  function initTrend() {
+    if (!trendRef.value) return;
+    disposeChart();
+    chart = echarts.init(trendRef.value);
+    chart.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['CLI', 'Web'] },
+      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      xAxis: { type: 'category', data: report.daily.map((d) => d.day.slice(5)) },
+      yAxis: { type: 'value' },
+      series: [
+        { name: 'CLI', type: 'line', smooth: true, data: report.daily.map((d) => d.cliCalls) },
+        { name: 'Web', type: 'line', smooth: true, data: report.daily.map((d) => d.webCalls) },
+      ],
+    });
+    window.addEventListener('resize', handleChartResize);
   }
 
   function methodTagType(m: string): 'success' | 'info' | 'warning' | 'error' | 'default' {
@@ -166,5 +314,79 @@
     { title: '最近发生', key: 'lastSeen', width: 150, render: (r) => (r.lastSeen || '').slice(0, 16) },
   ];
 
+  const effColumns: DataTableColumns<UsageActorEfficiency> = [
+    { title: '账号', key: 'assigneeName', width: 160 },
+    {
+      title: '类型',
+      key: 'actorType',
+      width: 80,
+      render: (row) =>
+        h(
+          NTag,
+          { size: 'small', bordered: false, type: row.actorType === 'ai' ? 'info' : 'default' },
+          () => (row.actorType === 'ai' ? 'Agent' : '人类'),
+        ),
+    },
+    { title: '完成任务', key: 'completed', width: 100, sorter: (a, b) => a.completed - b.completed },
+    {
+      title: '平均交付周期',
+      key: 'avgLeadHours',
+      width: 130,
+      sorter: (a, b) => a.avgLeadHours - b.avgLeadHours,
+      render: (r) => (r.avgLeadHours ? `${r.avgLeadHours} 小时` : '-'),
+    },
+    {
+      title: '阻塞上报',
+      key: 'blocked',
+      width: 100,
+      sorter: (a, b) => a.blocked - b.blocked,
+      render: (r) => (r.blocked ? String(r.blocked) : '-'),
+    },
+  ];
+
   onMounted(load);
+  onUnmounted(disposeChart);
 </script>
+
+<style lang="less" scoped>
+  .trend-chart {
+    width: 100%;
+    height: 260px;
+  }
+
+  .funnel-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .funnel-label {
+      width: 110px;
+      font-size: 12px;
+      color: var(--n-text-color-2, #666);
+      flex-shrink: 0;
+    }
+
+    .funnel-track {
+      flex: 1;
+      height: 18px;
+      background: var(--n-color-disabled, #f3f3f6);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .funnel-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #1890ff, #69c0ff);
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .funnel-num {
+      width: 40px;
+      text-align: right;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+  }
+</style>

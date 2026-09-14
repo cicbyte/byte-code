@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/cicbyte/byte-code/internal/logic"
 	logicAiengine "github.com/cicbyte/byte-code/internal/logic/aiengine"
+	"github.com/cicbyte/byte-code/internal/logic/platform"
 	"github.com/cicbyte/byte-code/internal/logic/project"
 	"github.com/cicbyte/byte-code/internal/router"
 	"github.com/cicbyte/byte-code/internal/service"
@@ -79,7 +80,9 @@ var (
 				name string
 				run  func(context.Context) error
 			}{
-				{"dbclean", func(c context.Context) error { dbclean.Run(c); return nil }},
+				// usage_daily 物化必须在 dbclean 之前：明细 30 天清理后未物化的日子永久丢失
+			{"usage materialize", func(c context.Context) error { return platform.MaterializeUsageDaily(c) }},
+			{"dbclean", func(c context.Context) error { dbclean.Run(c); return nil }},
 				{"docs scan", func(c context.Context) error { return docs.ScanAll(c) }},
 				{"mem materialize", func(c context.Context) error { return service.Docs().MemMaterialize(c) }},
 				{"db backup", func(c context.Context) error { dbbackup.Run(c); return nil }},

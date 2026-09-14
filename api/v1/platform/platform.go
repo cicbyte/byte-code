@@ -301,3 +301,60 @@ type UsageOverviewRes struct {
 	Endpoints  []UsageEndpointStat  `json:"endpoints"`
 	Errors     []UsageErrorItem     `json:"errors"`
 }
+
+// UsageReportReq 使用分析 P2：趋势/漏斗/版本分布/任务效率
+type UsageReportReq struct {
+	g.Meta `path:"/admin/usage/report" method:"get" tags:"使用分析" summary:"使用分析报告（趋势+CLI漏斗+版本分布+任务效率）"`
+	Days   int `json:"days" in:"query" d:"30" v:"max:90#天数最大 90"`
+}
+
+// UsageDailyPoint 每日调用量（cli/web 两列，day 为 YYYY-MM-DD）
+type UsageDailyPoint struct {
+	Day     string `json:"day"`
+	CliCalls int   `json:"cliCalls"`
+	WebCalls int   `json:"webCalls"`
+	ErrCalls int   `json:"errCalls"`
+	ActiveActors int `json:"activeActors"`
+}
+
+// UsageFunnelStep CLI 工作流漏斗：去重账号数（到过该步骤的 actor 数，
+// 非严格漏斗——跳步不计入后续，但人数只看是否到过）
+type UsageFunnelStep struct {
+	Step  int    `json:"step"`
+	Label string `json:"label"`
+	Actors int   `json:"actors"`
+}
+
+// UsageVersionItem CLI 版本分布（version 空=未识别——UA 未带版本号）
+type UsageVersionItem struct {
+	Version string `json:"version"`
+	Calls   int    `json:"calls"`
+	Actors  int    `json:"actors"`
+	LastSeen string `json:"lastSeen"`
+}
+
+// UsageActorEfficiency 人均任务效率（窗口内完成的任务维度）
+type UsageActorEfficiency struct {
+	AssigneeId   int    `json:"assigneeId"`
+	AssigneeName string `json:"assigneeName"`
+	ActorType    string `json:"actorType"`
+	Completed    int    `json:"completed"`
+	AvgLeadHours float64 `json:"avgLeadHours"`
+	Blocked      int    `json:"blocked"`
+}
+
+// UsageEfficiency 任务效率报告
+type UsageEfficiency struct {
+	CompletedTotal int    `json:"completedTotal"`
+	AvgLeadHours   float64 `json:"avgLeadHours"`
+	BlockedTotal   int    `json:"blockedTotal"`
+	ByActor        []UsageActorEfficiency `json:"byActor"`
+}
+
+type UsageReportRes struct {
+	WindowDays  int                 `json:"windowDays"`
+	Daily       []UsageDailyPoint   `json:"daily"`
+	Funnel      []UsageFunnelStep   `json:"funnel"`
+	Versions    []UsageVersionItem  `json:"versions"`
+	Efficiency  UsageEfficiency     `json:"efficiency"`
+}
