@@ -23,6 +23,15 @@ export function login(params) {
 }
 
 /**
+ * @description: 用户搜索（添加成员选择器；仅人类，限 10 条）
+ */
+export function searchUsers(q: string) {
+  return Alova.Get<{ list: Array<{ id: number; username: string; realName: string }> }>('/v1/users/search', {
+    params: { q },
+  });
+}
+
+/**
  * @description: 发起密码重置（防枚举：恒定成功）
  */
 export function forgotPassword(account: string) {

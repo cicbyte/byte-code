@@ -61,6 +61,22 @@ type UpdateRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+type SearchReq struct {
+	g.Meta `path:"/users/search" method:"get" tags:"用户管理" summary:"用户搜索（添加成员选择器用；仅人类，限 10 条）"`
+	Q      string `json:"q" in:"query" v:"required#请输入关键词"`
+}
+
+type SearchRes struct {
+	g.Meta `mime:"application/json"`
+	List   []SearchItem `json:"list"`
+}
+
+type SearchItem struct {
+	Id       int    `json:"id"`
+	Username string `json:"username"`
+	RealName string `json:"realName"`
+}
+
 type ResetPasswordReq struct {
 	g.Meta      `path:"/admin/users/{id}/reset-password" method:"put" tags:"用户管理" summary:"重置用户密码"`
 	Id          int    `json:"id" v:"required" in:"path"`

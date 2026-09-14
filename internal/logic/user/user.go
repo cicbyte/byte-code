@@ -81,6 +81,24 @@ func (s *sUser) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, e
 
 // loadUserRoles 批量取用户的角色绑定（避免逐行 N+1；无绑定时返回空 map，
 // Item.Roles 序列化为 null，前端按 '-' 兜底）
+// Search 用户搜索（添加成员选择器）：仅启用的人类账号，用户名/姓名前缀
+// 与包含匹配，限 10 条——最小字段返回（无邮箱等敏感信息）
+func (s *sUser) Search(ctx context.Context, q string) (res *api.SearchRes, err error) {
+	res = &api.SearchRes{List: []api.SearchItem{}}
+	kw := escape.Like(q)
+	var rows []api.SearchItem
+	err = g.DB().Model("sys_users").Ctx(ctx).
+		Where("type = 'human' AND status = 1").
+		Where("(username LIKE ? OR real_name LIKE ?)", "%"+kw+"%", "%"+kw+"%").
+		Fields("id, username, COALESCE(real_name, '') AS real_name").
+		Order("id ASC").Limit(10).Scan(&rows)
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "搜索用户失败")
+	}
+	res.List = rows
+	return res, nil
+}
+
 func (s *sUser) loadUserRoles(ctx context.Context, userIds []int) map[int][]api.RoleBrief {
 	roleMap := make(map[int][]api.RoleBrief)
 	if len(userIds) == 0 {

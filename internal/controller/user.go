@@ -5,12 +5,21 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/user"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/gogf/gf/v2/errors/gerror"
 )
 
 var UserCtrl = userController{}
 
 type userController struct {
 	BaseController
+}
+
+func (c *userController) Search(ctx context.Context, req *api.SearchReq) (res *api.SearchRes, err error) {
+	// 用户目录信息不给 agent（agent 加成员走管理侧人类操作）
+	if isAgentCtx(ctx) {
+		return nil, gerror.New("仅人类用户可搜索")
+	}
+	return service.User().Search(ctx, req.Q)
 }
 
 func (c *userController) List(ctx context.Context, req *api.ListReq) (res *api.ListRes, err error) {

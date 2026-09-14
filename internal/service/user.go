@@ -8,6 +8,7 @@ import (
 
 type IUser interface {
 	List(ctx context.Context, req *api.ListReq) (res *api.ListRes, err error)
+	Search(ctx context.Context, q string) (res *api.SearchRes, err error)
 	Create(ctx context.Context, req *api.CreateReq) (id int, err error)
 	Update(ctx context.Context, req *api.UpdateReq) (err error)
 	ResetPassword(ctx context.Context, req *api.ResetPasswordReq) (err error)

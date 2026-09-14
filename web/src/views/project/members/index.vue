@@ -138,8 +138,17 @@
       style="width: 420px"
     >
       <n-form ref="formRef" :model="formData" :rules="formRules" label-placement="left" :label-width="80" class="py-4">
-        <n-form-item label="用户ID" path="userId">
-          <n-input-number v-model:value="formData.userId" placeholder="请输入用户ID" style="width: 100%" />
+        <n-form-item label="成员" path="userId">
+          <n-select
+            v-model:value="formData.userId"
+            filterable
+            remote
+            clearable
+            :options="userOptions"
+            :loading="userSearching"
+            placeholder="输入用户名 / 姓名搜索"
+            @search="handleUserSearch"
+          />
         </n-form-item>
         <n-form-item label="角色" path="role">
           <n-select v-model:value="formData.role" :options="roleOptions" placeholder="请选择角色" />
@@ -184,6 +193,7 @@
   import { usePerm } from '@/composables/usePerm';
   import { getMembers, addMember, removeMember, removeAgentProject, transferOwner, leaveProject } from '@/api/project/index';
   import { createAgentJoinCode, updateAgentCapabilities, AGENT_CAPS } from '@/api/agent/index';
+  import { searchUsers } from '@/api/system/user';
   import type { MemberItem } from '@/api/project/index';
 
   const route = useRoute();
@@ -269,8 +279,27 @@
   });
 
   const formData = reactive({ userId: null as number | null, role: 'member' });
+  // 用户远程搜索（后端 /v1/users/search，仅人类）
+  const userOptions = ref<Array<{ label: string; value: number }>>([]);
+  const userSearching = ref(false);
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  function handleUserSearch(q: string) {
+    if (searchTimer) clearTimeout(searchTimer);
+    if (!q.trim()) { userOptions.value = []; return; }
+    searchTimer = setTimeout(async () => {
+      userSearching.value = true;
+      try {
+        const res = await searchUsers(q.trim());
+        userOptions.value = (res?.list || []).map((u) => ({
+          label: `${u.realName || u.username}（${u.username} · #${u.id}）`,
+          value: u.id,
+        }));
+      } catch { userOptions.value = []; }
+      finally { userSearching.value = false; }
+    }, 300);
+  }
   const formRules = {
-    userId: { required: true, type: 'number', message: '请输入用户ID', trigger: 'blur' },
+    userId: { required: true, type: 'number', message: '请选择成员', trigger: ['blur', 'change'] },
     role: { required: true, message: '请选择角色', trigger: ['blur', 'change'] },
   };
 

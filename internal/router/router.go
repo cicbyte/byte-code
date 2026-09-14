@@ -42,6 +42,8 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		group.Bind(
 			controller.Auth.AdminInfo,
 			controller.Auth.Logout,
+			// 用户搜索（添加成员选择器）：认证人类可用（controller 内拒 agent）
+			controller.UserCtrl.Search,
 			controller.Menu.Menus,
 			controller.DashboardCtrl.Console,
 			controller.Setting.GetProfile,
