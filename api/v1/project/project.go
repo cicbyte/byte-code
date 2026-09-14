@@ -272,9 +272,35 @@ type TaskDetailRes struct {
 	TaskItem
 	// 直接子任务（一级）：详情弹窗展示与跳转用，不递归（树形展示按需逐级拉）
 	SubTasks []TaskItem `json:"subTasks"`
+	// watcher 订阅回填：当前用户是否已关注、关注人数与名称列表
+	// （human/agent 名称混合；名称列表供详情弹窗关注按钮 tooltip 展示）
+	Watching     bool     `json:"watching"`
+	WatcherCount int      `json:"watcherCount"`
+	Watchers     []string `json:"watchers"`
 }
 
 // ==================== 任务特殊操作 ====================
+
+// TaskWatchReq 关注任务：assignee/creator 之外的旁观点（测试、协作方、
+// 想跟进展的 owner）显式订阅动态——评论/认领/完成/阻塞/解除/重开/审核
+// 事件向 watcher 扇出通知
+type TaskWatchReq struct {
+	g.Meta `path:"/tasks/{id}/watch" method:"post" tags:"任务管理" summary:"关注任务（订阅动态通知）"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type TaskWatchRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type TaskUnwatchReq struct {
+	g.Meta `path:"/tasks/{id}/unwatch" method:"post" tags:"任务管理" summary:"取消关注任务"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type TaskUnwatchRes struct {
+	g.Meta `mime:"application/json"`
+}
 
 type TaskClaimReq struct {
 	g.Meta `path:"/tasks/{id}/claim" method:"post" tags:"任务管理" summary:"AI认领任务"`

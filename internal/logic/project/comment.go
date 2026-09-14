@@ -69,6 +69,9 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 				authorName = an.String()
 			}
 			notifyMentions(ctx, req.Content, title, authorName, req.TaskId, notified)
+			// 关注者兜底收「新评论」：被 @ 的 watcher 上一行已按提及文案通知并进去重表
+			fanOutWatchers(ctx, req.TaskId, notified, "任务新评论",
+				fmt.Sprintf("任务「%s」有新评论", title), "info")
 		}
 	}
 	if err != nil {

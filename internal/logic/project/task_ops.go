@@ -61,6 +61,9 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 
 	// 记录活动
 	s.recordActivity(ctx, userId, "task.claimed", "task", req.Id, task.Title, task.ProjectId, "")
+	// 关注者得知任务已被认领（认领人自己已在去重表里）
+	fanOutWatchers(ctx, req.Id, map[int]bool{userId: true}, "关注的任务被认领",
+		fmt.Sprintf("你关注的任务「%s」已被认领", task.Title), "info")
 	return nil
 }
 
@@ -143,6 +146,8 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 
 	// 通知创建者审核
 	notify.Send(ctx, task.CreatorId, "任务待审核", fmt.Sprintf("任务 '%s' 已完成，等待审核", task.Title), "info", "task", req.Id)
+	fanOutWatchers(ctx, req.Id, map[int]bool{userId: true, task.CreatorId: true}, "关注的任务待审核",
+		fmt.Sprintf("你关注的任务「%s」已完成，等待审核", task.Title), "info")
 	return nil
 }
 
@@ -181,6 +186,8 @@ func (s *sProject) BlockTask(ctx context.Context, req *api.TaskBlockReq) (err er
 	notify.Send(ctx, task.CreatorId, "任务已阻塞",
 		fmt.Sprintf("任务「%s」被阻塞：%s（请补充信息或处理环境问题）", task.Title, req.Reason),
 		"warning", "task", req.Id)
+	fanOutWatchers(ctx, req.Id, map[int]bool{perm.UserId(ctx): true, task.CreatorId: true}, "关注的任务被阻塞",
+		fmt.Sprintf("你关注的任务「%s」被阻塞：%s", task.Title, req.Reason), "warning")
 	s.recordActivity(ctx, perm.UserId(ctx), "task.blocked", "task", req.Id, task.Title, task.ProjectId, req.Reason)
 	return nil
 }
@@ -216,6 +223,8 @@ func (s *sProject) UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (er
 	notify.Send(ctx, task.CreatorId, "阻塞已解除",
 		fmt.Sprintf("任务「%s」的阻塞已解除，恢复进行中", task.Title),
 		"success", "task", req.Id)
+	fanOutWatchers(ctx, req.Id, map[int]bool{perm.UserId(ctx): true, task.CreatorId: true}, "关注的任务阻塞已解除",
+		fmt.Sprintf("你关注的任务「%s」的阻塞已解除，恢复进行中", task.Title), "success")
 	s.recordActivity(ctx, perm.UserId(ctx), "task.unblocked", "task", req.Id, task.Title, task.ProjectId, "")
 	return nil
 }
@@ -263,6 +272,8 @@ func (s *sProject) ReopenTask(ctx context.Context, req *api.TaskReopenReq) (err 
 			fmt.Sprintf("任务「%s」实测发现问题被重开：%s", task.Title, req.Reason),
 			"warning", "task", req.Id)
 	}
+	fanOutWatchers(ctx, req.Id, map[int]bool{uid: true, task.AssigneeId: true}, "关注的任务被重开",
+		fmt.Sprintf("你关注的任务「%s」实测发现问题被重开：%s", task.Title, req.Reason), "warning")
 	s.recordActivity(ctx, uid, "task.reopened", "task", req.Id, task.Title, task.ProjectId, req.Reason)
 	return nil
 }
@@ -320,6 +331,8 @@ func (s *sProject) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err 
 
 	// 通知任务执行者
 	notify.Send(ctx, task.AssigneeId, "任务审核结果", fmt.Sprintf("任务 '%s' 审核结果: %s", task.Title, req.Status), "info", "task", req.Id)
+	fanOutWatchers(ctx, req.Id, map[int]bool{userId: true, task.AssigneeId: true}, "关注的任务审核结果",
+		fmt.Sprintf("你关注的任务「%s」审核结果: %s", task.Title, req.Status), "info")
 	return nil
 }
 

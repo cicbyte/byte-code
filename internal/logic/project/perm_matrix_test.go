@@ -317,3 +317,92 @@ func TestDeleteAgileGates(t *testing.T) {
 		t.Errorf("maintainer 删除迭代应放行: %v", err)
 	}
 }
+
+// ---------- P2 watcher 订阅（#424） ----------
+
+// watchNotifCount 某用户在某任务上指定标题的通知条数
+func watchNotifCount(t *testing.T, uid, taskId int, title string) int {
+	t.Helper()
+	n, err := g.DB().Model("notifications").Ctx(ctxAs(uid)).
+		Where("user_id", uid).Where("source_type", "task").
+		Where("source_id", taskId).Where("title", title).Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestTaskWatchers(t *testing.T) {
+	tid := newTask(t, 101)
+
+	// 关注与幂等：重复 watch 不报错不重复行
+	if err := s.WatchTask(ctxAs(103), tid); err != nil {
+		t.Fatalf("member 关注任务应放行: %v", err)
+	}
+	if err := s.WatchTask(ctxAs(103), tid); err != nil {
+		t.Errorf("重复关注应幂等: %v", err)
+	}
+	// 只读 agent（tasks_read）可关注：订阅是读语义
+	if err := s.WatchTask(ctxAs(108), tid); err != nil {
+		t.Errorf("只读 agent 关注任务应放行: %v", err)
+	}
+
+	// 详情回填：watching/watcherCount/watchers
+	det, err := s.GetTask(ctxAs(103), tid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !det.Watching || det.WatcherCount != 2 || len(det.Watchers) != 2 {
+		t.Errorf("详情回填错误: watching=%v count=%d names=%v", det.Watching, det.WatcherCount, det.Watchers)
+	}
+
+	// 评论扇出：creator(101) 评论 → 两位 watcher 各一条「任务新评论」，作者自己不收
+	if _, err := s.CreateComment(ctxAs(101), &api.CommentCreateReq{TaskId: tid, Content: "watcher 扇出验证"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := watchNotifCount(t, 103, tid, "任务新评论"); n != 1 {
+		t.Errorf("watcher103 应收 1 条新评论通知, got %d", n)
+	}
+	if n := watchNotifCount(t, 108, tid, "任务新评论"); n != 1 {
+		t.Errorf("watcher108 应收 1 条新评论通知, got %d", n)
+	}
+	if n := watchNotifCount(t, 101, tid, "任务新评论"); n != 0 {
+		t.Errorf("评论作者不应收到自己的评论通知, got %d", n)
+	}
+
+	// 完成扇出：认领→完成 → watcher 收「关注的任务待审核」
+	if err := s.ClaimTask(ctxAs(103), &api.TaskClaimReq{Id: tid}); err != nil {
+		t.Fatal(err)
+	}
+	if n := watchNotifCount(t, 108, tid, "关注的任务被认领"); n != 1 {
+		t.Errorf("watcher108 应收 1 条被认领通知, got %d", n)
+	}
+	if err := s.CompleteTask(ctxAs(103), &api.TaskCompleteReq{Id: tid}); err != nil {
+		t.Fatal(err)
+	}
+	if n := watchNotifCount(t, 108, tid, "关注的任务待审核"); n != 1 {
+		t.Errorf("watcher108 应收 1 条待审核通知, got %d", n)
+	}
+
+	// 取关后不再收
+	if err := s.UnwatchTask(ctxAs(108), tid); err != nil {
+		t.Fatalf("取关应放行: %v", err)
+	}
+	if _, err := s.CreateComment(ctxAs(101), &api.CommentCreateReq{TaskId: tid, Content: "取关后验证"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := watchNotifCount(t, 108, tid, "任务新评论"); n != 1 {
+		t.Errorf("取关后不应再收新评论通知, got %d", n)
+	}
+	if n := watchNotifCount(t, 103, tid, "任务新评论"); n != 2 {
+		t.Errorf("仍关注的 watcher 应继续收通知, got %d", n)
+	}
+
+	// 删除任务级联清理关注行
+	if err := s.DeleteTask(ctxAs(101), tid); err != nil {
+		t.Fatalf("owner 删除任务应放行: %v", err)
+	}
+	if n, _ := g.DB().Model("task_watchers").Ctx(ctxAs(101)).Where("task_id", tid).Count(); n != 0 {
+		t.Errorf("删除任务应级联清理 watcher, 残留 %d 行", n)
+	}
+}

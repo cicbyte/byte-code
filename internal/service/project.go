@@ -34,6 +34,8 @@ type IProject interface {
 	ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err error)
 	ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (err error)
 	ReopenTask(ctx context.Context, req *api.TaskReopenReq) (err error)
+	WatchTask(ctx context.Context, id int) (err error)
+	UnwatchTask(ctx context.Context, id int) (err error)
 	CreateGroup(ctx context.Context, req *api.GroupCreateReq) (id int, err error)
 	ListGroups(ctx context.Context) (res *api.GroupListRes, err error)
 	UpdateGroup(ctx context.Context, req *api.GroupUpdateReq) (err error)

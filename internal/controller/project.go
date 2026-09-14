@@ -138,6 +138,20 @@ func (c *projectController) ClaimTask(ctx context.Context, req *api.TaskClaimReq
 	return &api.TaskClaimRes{}, nil
 }
 
+func (c *projectController) WatchTask(ctx context.Context, req *api.TaskWatchReq) (res *api.TaskWatchRes, err error) {
+	if err = service.Project().WatchTask(ctx, req.Id); err != nil {
+		return nil, err
+	}
+	return &api.TaskWatchRes{}, nil
+}
+
+func (c *projectController) UnwatchTask(ctx context.Context, req *api.TaskUnwatchReq) (res *api.TaskUnwatchRes, err error) {
+	if err = service.Project().UnwatchTask(ctx, req.Id); err != nil {
+		return nil, err
+	}
+	return &api.TaskUnwatchRes{}, nil
+}
+
 func (c *projectController) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (res *api.TaskReleaseRes, err error) {
 	err = service.Project().ReleaseTask(ctx, req)
 	res = new(api.TaskReleaseRes)

@@ -289,6 +289,9 @@ func (s *sProject) DeleteTask(ctx context.Context, id int) (err error) {
 		if _, err := tx.Exec("DELETE FROM attachments WHERE entity_type = 'task' AND entity_id = ?", id); err != nil {
 			return err
 		}
+		if _, err := tx.Delete("task_watchers", "task_id", id); err != nil {
+			return err
+		}
 		_, err := tx.Delete("tasks", "id", id)
 		return err
 	})
@@ -318,6 +321,9 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 	// 标签回填（与列表口径一致）
 	item.Tags = taskTagNames(ctx, id)
 	res = &api.TaskDetailRes{TaskItem: item}
+	// watcher 订阅回填：当前用户关注态、关注人数与名称列表
+	res.Watchers, res.Watching = taskWatcherSummary(ctx, id)
+	res.WatcherCount = len(res.Watchers)
 	// 直接子任务回填（一级）：父子血缘此前仅导入时写入、UI 零呈现（审计挂账项）
 	var subs []api.TaskItem
 	if serr := g.DB().Model("tasks t").Ctx(ctx).

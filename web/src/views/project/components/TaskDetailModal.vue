@@ -21,6 +21,22 @@
           >
             {{ sec.label }}
           </button>
+          <!-- watcher 订阅：关注开关 + 关注人数（tooltip 列名称）。
+               v-if 须在 tooltip 外层：#trigger 插槽为空会让 n-tooltip
+               拿到 null vnode，patch 时炸掉整棵默认插槽 -->
+          <div class="nav-watch">
+            <n-tooltip v-if="task.watcherCount" trigger="hover">
+              <template #trigger>
+                <n-tag size="small" :bordered="false" round>
+                  {{ task.watcherCount }} 人关注
+                </n-tag>
+              </template>
+              关注者：{{ (task.watchers || []).join('、') }}
+            </n-tooltip>
+            <n-button size="tiny" :loading="watchLoading" @click="toggleWatch">
+              {{ task.watching ? '已关注，取消' : '关注动态' }}
+            </n-button>
+          </div>
         </div>
 
         <!-- 基本信息 -->
@@ -449,8 +465,10 @@
     getMembers,
     updateComment,
     deleteComment,
+    watchTask,
+    unwatchTask,
   } from '@/api/project/index';
-  import type { TaskItem, CommentItem, AiLogItem } from '@/api/project/index';
+  import type { TaskItem, TaskDetail, CommentItem, AiLogItem } from '@/api/project/index';
   import { useUserStore } from '@/store/modules/user';
   import { dueTagType, dueLabel } from '@/utils/taskDue';
   import { editDrawerWidth } from '@/utils/mdEditor';
@@ -482,7 +500,7 @@
   const visible = ref(false);
   const loading = ref(false);
   const submitting = ref(false);
-  const task = ref<TaskItem | null>(null);
+  const task = ref<TaskDetail | null>(null);
 
   // 标签管理：attach 选择（含新建：tag 模式回车创建后挂载）
   const attachTagId = ref<number | null>(null);
@@ -674,6 +692,30 @@
   function openTask(id: number) {
     visible.value = false;
     window.dispatchEvent(new CustomEvent('bc-open-task', { detail: id }));
+  }
+
+  // watcher 订阅开关：成功后只回填关注三字段（整task重拉会覆盖并发中的编辑态）
+  const watchLoading = ref(false);
+  async function toggleWatch() {
+    if (!task.value || watchLoading.value) return;
+    watchLoading.value = true;
+    try {
+      if (task.value.watching) {
+        await unwatchTask(task.value.id);
+      } else {
+        await watchTask(task.value.id);
+      }
+      const res = await getTask(task.value.id);
+      if (res && task.value) {
+        task.value.watching = res.watching;
+        task.value.watcherCount = res.watcherCount;
+        task.value.watchers = res.watchers;
+      }
+    } catch {
+      message.error(task.value?.watching ? '取消关注失败' : '关注失败');
+    } finally {
+      watchLoading.value = false;
+    }
   }
 
   // ==================== 附件 ====================
@@ -1117,6 +1159,14 @@
         color: #fff;
         background: var(--n-primary-color, #2080f0);
       }
+    }
+
+    // 关注开关区：推到锚点条最右
+    .nav-watch {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
   }
   // 各节卡片滚动定位时避开 sticky 条高度

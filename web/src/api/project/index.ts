@@ -99,6 +99,24 @@ export interface TaskListResult {
   total: number;
 }
 
+/** 任务详情：watcher 订阅回填（关注态/人数/名称列表） */
+export interface TaskDetail extends TaskItem {
+  subTasks?: TaskItem[];
+  watching?: boolean;
+  watcherCount?: number;
+  watchers?: string[];
+}
+
+/** 关注任务（订阅动态通知：评论/认领/完成/阻塞/解除/重开/审核） */
+export function watchTask(id: number) {
+  return Alova.Post(`/v1/tasks/${id}/watch`, {});
+}
+
+/** 取消关注任务 */
+export function unwatchTask(id: number) {
+  return Alova.Post(`/v1/tasks/${id}/unwatch`, {});
+}
+
 // ==================== 我的任务（跨项目聚合） ====================
 
 export interface MyTaskItem extends TaskItem {
@@ -567,7 +585,7 @@ export function createTask(projectId: number, data: TaskCreateData) {
 
 /** 任务详情 */
 export function getTask(id: number) {
-  return Alova.Get<TaskItem>(`/v1/tasks/${id}`);
+  return Alova.Get<TaskDetail>(`/v1/tasks/${id}`);
 }
 
 /** 更新任务 */

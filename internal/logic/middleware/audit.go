@@ -49,7 +49,13 @@ func (s *sMiddleware) MiddlewareAuditLog(r *ghttp.Request) {
 		// POST 路径中的 id 是父资源（如 /projects/5/tasks 的 5 是项目），不能当作
 		// 操作目标；目标类型取路径最后的资源段，新实体 id 从响应体 data.id 补全
 		target = targetInfo{entityType: lastResourceSegment(path)}
-		if target.entityId = createdIdFromBody(r.Response.Buffer()); target.entityType == "projects" {
+		target.entityId = createdIdFromBody(r.Response.Buffer())
+		if target.entityId == 0 {
+			// 动作端点（/tasks/81/claim 等）响应无新实体 id：目标 id
+			// 取路径中动作词前的数字段（#424 实测此前一直记 0）
+			target.entityId = entityIdBeforeVerb(path)
+		}
+		if target.entityType == "projects" {
 			// 创建项目时项目即目标，归属项目就是它自己
 			projectId = target.entityId
 		}
@@ -110,6 +116,21 @@ func lastResourceSegment(path string) string {
 	return ""
 }
 
+// entityIdBeforeVerb 路径末段为动作词时取其前的数字段：/api/v1/tasks/81/watch
+// → 81。末段不是动作词或前段非数字（如 /members/leave 的 leave 前是资源名）
+// 返回 0
+func entityIdBeforeVerb(path string) int {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) < 2 || !postEntityVerbs[parts[len(parts)-1]] {
+		return 0
+	}
+	id, err := strconv.Atoi(parts[len(parts)-2])
+	if err != nil {
+		return 0
+	}
+	return id
+}
+
 type targetInfo struct {
 	entityType string
 	entityId   int
@@ -148,7 +169,8 @@ func enrichVaultTarget(r *ghttp.Request, t *targetInfo, path string) {
 	}
 }
 
-// postEntityVerbs 紧跟实体 id 出现的动作词：审计目标仍归父实体
+// postEntityVerbs 紧跟实体 id 出现的动作词：审计目标仍归父实体，
+// 动作词本身记为 action（POST 到这些端点不是语义上的 create）
 var postEntityVerbs = map[string]bool{
 	"claim":    true,
 	"burndown": true,
@@ -159,6 +181,19 @@ var postEntityVerbs = map[string]bool{
 	"block":    true,
 	"unblock":  true,
 	"log":      true,
+	"review":   true,
+	// watcher 订阅动作（#424）
+	"watch":   true,
+	"unwatch": true,
+	// 其余 {实体}/{id}/{动作} 形态的 POST 端点（#424 实测同缺陷）：
+	// 动作词缺登记会把 targetType 记成动作词、targetId 记 0
+	"attach":    true,
+	"convert":   true,
+	"toggle":    true,
+	"add":       true,
+	"reset-key": true,
+	"leave":     true,
+	"batch":     true,
 }
 
 func parseTarget(path string) targetInfo {
