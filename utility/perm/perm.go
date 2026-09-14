@@ -2,6 +2,7 @@ package perm
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cicbyte/byte-code/internal/consts"
 	"github.com/gogf/gf/v2/frame/g"
@@ -26,6 +27,33 @@ func IsAdmin(ctx context.Context, userId int) bool {
 		Where("r.id", AdminRoleId).
 		Count()
 	return err == nil && count > 0
+}
+
+// RequireMenuPerm 菜单权限字典校验（PRD design/permission-system-prd.md §3.2）：
+// 超管直通；否则查 sys_user_roles→sys_role_menus→sys_menus(name=key)。
+// 通过返回 nil，拒绝返回带权限显示名的错误。挂检点在业务方法顶部，
+// 风格同项目侧 IsProjectOwner 检查
+func RequireMenuPerm(ctx context.Context, key string) error {
+	uid := UserId(ctx)
+	if IsAdmin(ctx, uid) {
+		return nil
+	}
+	v, err := g.DB().Model("sys_menus m").
+		InnerJoin("sys_role_menus rm", "m.id = rm.menu_id").
+		InnerJoin("sys_user_roles ur", "rm.role_id = ur.role_id").
+		Where("ur.user_id", uid).
+		Where("m.name", key).
+		Where("m.status", 1).
+		Fields("m.title").
+		Value()
+	if err == nil && v != nil {
+		return nil
+	}
+	title := key
+	if t, terr := g.DB().Model("sys_menus").Where("name", key).Fields("title").Value(); terr == nil && t != nil {
+		title = t.String()
+	}
+	return fmt.Errorf("无权限：需管理员授予「%s」", title)
 }
 
 // IsProjectMember 判断用户是否为指定项目的成员（project_members）

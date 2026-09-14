@@ -116,9 +116,13 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			)
 
 			// 平台功能（活动流、通知、搜索、统计；审计日志在管理组）。
-			// 标签仅读/挂/摘在认证组——标签定义（建/改/删）属全局数据，在管理组
+			// 标签读/挂/摘全员；标签定义（建/改/删）改为权限字典放行
+			// （perm.RequireMenuPerm platform_tags，role2 预绑——登录即可用标签）
 			group.Bind(
 				controller.PlatformCtrl.ListTags,
+				controller.PlatformCtrl.CreateTag,
+				controller.PlatformCtrl.UpdateTag,
+				controller.PlatformCtrl.DeleteTag,
 				controller.PlatformCtrl.AttachTag,
 				controller.PlatformCtrl.DetachTag,
 				controller.PlatformCtrl.GetTagEntities,
@@ -157,15 +161,13 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		)
 
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
-			// 全局共享数据写操作：分类/标签定义（影响所有项目，仅管理员）
+			// 全局共享数据写操作：分类定义（影响所有项目，仅管理员；
+			// 标签定义已改为权限字典放行，移至上方认证组）
 			group.Bind(
 				controller.Categories.Add,
 				controller.Categories.Edit,
 				controller.Categories.Delete,
 				controller.Categories.BatchDelete,
-				controller.PlatformCtrl.CreateTag,
-				controller.PlatformCtrl.UpdateTag,
-				controller.PlatformCtrl.DeleteTag,
 			)
 
 			// 全局记忆写操作（影响所有项目的 AI 上下文，仅管理员）

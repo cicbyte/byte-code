@@ -15,6 +15,11 @@ import (
 // ==================== 项目分组（多对多）：同 group 自动互为关联 ====================
 
 func (s *sProject) CreateGroup(ctx context.Context, req *api.GroupCreateReq) (id int, err error) {
+	// 分组定义属平台级数据，按权限字典放行；项目侧加入/移出分组
+	// （AddProjectToGroup/RemoveProjectFromGroup）走项目角色门槛（P2）
+	if err := perm.RequireMenuPerm(ctx, "platform_groups"); err != nil {
+		return 0, err
+	}
 	uid := perm.UserId(ctx)
 	if cnt, _ := g.DB().Model("project_groups").Ctx(ctx).Where("name", req.Name).Count(); cnt > 0 {
 		return 0, fmt.Errorf("分组名已存在")
@@ -69,6 +74,9 @@ func (s *sProject) ListGroups(ctx context.Context) (res *api.GroupListRes, err e
 }
 
 func (s *sProject) UpdateGroup(ctx context.Context, req *api.GroupUpdateReq) (err error) {
+	if err := perm.RequireMenuPerm(ctx, "platform_groups"); err != nil {
+		return err
+	}
 	data := g.Map{}
 	if req.Name != nil {
 		data["name"] = *req.Name
@@ -87,6 +95,9 @@ func (s *sProject) UpdateGroup(ctx context.Context, req *api.GroupUpdateReq) (er
 }
 
 func (s *sProject) DeleteGroup(ctx context.Context, id int) (err error) {
+	if err := perm.RequireMenuPerm(ctx, "platform_groups"); err != nil {
+		return err
+	}
 	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Exec("DELETE FROM project_group_members WHERE group_id = ?", id); err != nil {
 			return err

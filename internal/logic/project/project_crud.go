@@ -18,6 +18,10 @@ import (
 // 项目 CRUD 与列表
 
 func (s *sProject) CreateProject(ctx context.Context, req *api.ProjectCreateReq) (id int, err error) {
+	// 创建项目按权限字典放行（role2 预绑保持「登录即可建项目」现状，PRD §3.3）
+	if err := perm.RequireMenuPerm(ctx, "project_create"); err != nil {
+		return 0, err
+	}
 	userId := ctx.Value("userId")
 	if userId == nil {
 		return 0, fmt.Errorf("未获取到用户信息")

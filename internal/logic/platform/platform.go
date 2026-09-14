@@ -29,6 +29,10 @@ type sPlatform struct{}
 // ========== 标签 ==========
 
 func (s *sPlatform) CreateTag(ctx context.Context, req *api.TagCreateReq) (id int, err error) {
+	// 标签定义属全局共享数据，按权限字典放行（原超管组硬门槛改为字典驱动）
+	if err := perm.RequireMenuPerm(ctx, "platform_tags"); err != nil {
+		return 0, err
+	}
 	result, err := g.DB().Model("tags").Ctx(ctx).Insert(g.Map{
 		"name":       req.Name,
 		"color":      req.Color,
@@ -42,6 +46,9 @@ func (s *sPlatform) CreateTag(ctx context.Context, req *api.TagCreateReq) (id in
 }
 
 func (s *sPlatform) UpdateTag(ctx context.Context, req *api.TagUpdateReq) (err error) {
+	if err := perm.RequireMenuPerm(ctx, "platform_tags"); err != nil {
+		return err
+	}
 	_, err = g.DB().Model("tags").Ctx(ctx).Where("id", req.Id).Data(g.Map{
 		"name":  req.Name,
 		"color": req.Color,
@@ -53,6 +60,9 @@ func (s *sPlatform) UpdateTag(ctx context.Context, req *api.TagUpdateReq) (err e
 }
 
 func (s *sPlatform) DeleteTag(ctx context.Context, id int) (err error) {
+	if err := perm.RequireMenuPerm(ctx, "platform_tags"); err != nil {
+		return err
+	}
 	// 标签及其全部实体关联在同一事务内删除
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Delete("entity_tags", "tag_id", id); err != nil {
