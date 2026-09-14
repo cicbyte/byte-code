@@ -42,6 +42,10 @@ const routes: Array<RouteRecordRaw> = [
           title: '项目详情',
           hideInMenu: true,
         },
+        // 被权限过滤的静态子路由（如 /project/groups 无权限时）会跌进本
+        // 参数路由形成空工作台；非数字 projectId 一律 404，不再静默空白
+        beforeEnter: (to) =>
+          /^\d+$/.test(String(to.params.projectId || '')) || { name: 'ErrorPageSon' },
         component: () => import('@/views/project/workspace/index.vue'),
         children: [
           {
