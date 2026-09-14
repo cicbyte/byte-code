@@ -43,8 +43,15 @@
   const emit = defineEmits(['onStarted', 'onFinished']);
 
   const source = ref(props.startVal);
-  const disabled = ref(false);
-  let outputValue = useTransition(source);
+  // 单一 transition 实例：此前 run() 里重绑 let outputValue 会让模板 computed
+  // 的依赖与旧实例脱钩，动画期间 computed 不重算——仪表盘统计卡长期显示 0 的根因。
+  // 正确姿势：实例只在 setup 建一次，start() 仅改 source 让其动画到新值。
+  const outputValue = useTransition(source, {
+    duration: props.duration,
+    onFinished: () => emit('onFinished'),
+    onStarted: () => emit('onStarted'),
+    ...(props.useEasing ? { transition: TransitionPresets[props.transition] } : {}),
+  });
 
   const value = computed(() => formatNumber(unref(outputValue)));
 
@@ -63,23 +70,11 @@
   });
 
   function start() {
-    run();
     source.value = props.endVal;
   }
 
   function reset() {
     source.value = props.startVal;
-    run();
-  }
-
-  function run() {
-    outputValue = useTransition(source, {
-      disabled,
-      duration: props.duration,
-      onFinished: () => emit('onFinished'),
-      onStarted: () => emit('onStarted'),
-      ...(props.useEasing ? { transition: TransitionPresets[props.transition] } : {}),
-    });
   }
 
   function formatNumber(num: number | string) {

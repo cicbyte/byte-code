@@ -249,3 +249,43 @@ type NotificationStreamReq struct {
 type NotificationStreamRes struct {
 	g.Meta `mime:"text/event-stream"`
 }
+
+// ==================== 使用分析（usage_events 聚合，管理员） ====================
+
+// UsageOverviewReq 命令热度与错误概况
+type UsageOverviewReq struct {
+	g.Meta `path:"/admin/usage/overview" method:"get" tags:"使用分析" summary:"使用分析概况（命令热度+错误TopN）"`
+	Days   int `json:"days" in:"query" d:"7" v:"max:30#天数最大 30"`
+}
+
+type UsageEndpointStat struct {
+	Endpoint  string  `json:"endpoint"`
+	Method    string  `json:"method"`
+	CliCount  int     `json:"cliCount"`
+	WebCount  int     `json:"webCount"`
+	Total     int     `json:"total"`
+	ErrCount  int     `json:"errCount"`
+	ErrorRate float64 `json:"errorRate"`
+	P50Ms     int     `json:"p50ms"`
+	P95Ms     int     `json:"p95ms"`
+	AvgMs     int     `json:"avgMs"`
+	LastUsed  string  `json:"lastUsed"`
+}
+
+type UsageErrorItem struct {
+	Endpoint   string `json:"endpoint"`
+	Method     string `json:"method"`
+	ErrorCode  int    `json:"errorCode"`
+	StatusCode int    `json:"statusCode"`
+	Count      int    `json:"count"`
+	LastSeen   string `json:"lastSeen"`
+}
+
+type UsageOverviewRes struct {
+	WindowDays int                  `json:"windowDays"`
+	TotalCalls int                  `json:"totalCalls"`
+	CliCalls   int                  `json:"cliCalls"`
+	WebCalls   int                  `json:"webCalls"`
+	Endpoints  []UsageEndpointStat  `json:"endpoints"`
+	Errors     []UsageErrorItem     `json:"errors"`
+}

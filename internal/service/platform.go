@@ -33,6 +33,7 @@ type IPlatform interface {
 
 	// 审计日志
 	ListAuditLogs(ctx context.Context, req *api.AuditLogListReq) (res *api.AuditLogListRes, err error)
+	UsageOverview(ctx context.Context, req *api.UsageOverviewReq) (res *api.UsageOverviewRes, err error)
 }
 
 var localPlatform IPlatform

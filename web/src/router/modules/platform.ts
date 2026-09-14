@@ -53,6 +53,16 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/platform/audit/index.vue'),
       },
       {
+        // 使用分析（usage_events 聚合）：CLI/Web 行为画像，接口在管理组
+        path: 'usage',
+        name: `${routeName}_usage`,
+        meta: {
+          title: '使用分析',
+          menuKey: 'platform_usage',
+        },
+        component: () => import('@/views/platform/usage/index.vue'),
+      },
+      {
         // Agent 账号（bc_ Key 外部代理）：平台级管理入口，接口在管理组
         path: 'agents',
         name: `${routeName}_agents`,

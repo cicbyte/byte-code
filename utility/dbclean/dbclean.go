@@ -15,6 +15,7 @@ const (
 	retainReadNotifyDays = 30 // 已读通知保留天数
 	retainExpiredMemDays = 30 // expired 记忆删除前保留天数（终态，仅留观察窗口）
 	retainAiLogDays      = 90 // AI 执行日志保留天数（detail 存完整 LLM 输出，增长最快）
+	retainUsageDays      = 30 // 使用埋点明细保留天数（统计价值随时间衰减，趋势靠日报物化——P2）
 	retainHistoryPerFile = 20 // vault 每文件 .history 快照保留份数
 )
 
@@ -28,6 +29,7 @@ func Run(ctx context.Context) {
 	notifyBefore := time.Now().AddDate(0, 0, -retainReadNotifyDays).Format("2006-01-02 15:04:05")
 	memBefore := time.Now().AddDate(0, 0, -retainExpiredMemDays).Format("2006-01-02 15:04:05")
 	aiLogBefore := time.Now().AddDate(0, 0, -retainAiLogDays).Format("2006-01-02 15:04:05")
+	usageBefore := time.Now().AddDate(0, 0, -retainUsageDays).Format("2006-01-02 15:04:05")
 	agentBefore := time.Now().AddDate(0, 0, -7).Format("2006-01-02 15:04:05")
 
 	jobs := []struct {
@@ -43,6 +45,8 @@ func Run(ctx context.Context) {
 		{"expired_memories", "DELETE FROM project_memories WHERE status = 'expired' AND updated_at < ?", []interface{}{memBefore}},
 		// AI 执行日志每任务至少 3 条、complete 存完整 LLM 输出，开启引擎后增长最快
 		{"stale_ai_logs", "DELETE FROM ai_execution_logs WHERE created_at < ?", []interface{}{aiLogBefore}},
+		// 使用埋点明细：读+写全量，30 天后统计价值衰减，清明细保住明细查询的锐度
+		{"stale_usage_events", "DELETE FROM usage_events WHERE created_at < ?", []interface{}{usageBefore}},
 		// agent 通知无人回写 is_read（消费方是轮询/SSE），强制 7 天过期防膨胀
 		{"stale_agent_notifications", "DELETE FROM notifications WHERE user_id IN (SELECT id FROM sys_users WHERE type = 'ai') AND created_at < ?", []interface{}{agentBefore}},
 		// 已用/过期接入码保留 7 天排障后清理；过期会话即刻清理

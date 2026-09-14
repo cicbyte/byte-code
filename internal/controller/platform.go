@@ -134,3 +134,7 @@ func (c *platformController) DashboardStats(ctx context.Context, req *api.Dashbo
 func (c *platformController) ListAuditLogs(ctx context.Context, req *api.AuditLogListReq) (res *api.AuditLogListRes, err error) {
 	return service.Platform().ListAuditLogs(ctx, req)
 }
+
+func (c *platformController) UsageOverview(ctx context.Context, req *api.UsageOverviewReq) (res *api.UsageOverviewRes, err error) {
+	return service.Platform().UsageOverview(ctx, req)
+}

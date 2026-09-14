@@ -287,3 +287,44 @@ export function batchReview(data: { ids: number[]; status: 'approved' | 'rejecte
 export function getAuditLogs(params?: AuditLogListParams) {
   return Alova.Get<AuditLogListResult>('/v1/admin/audit-logs', { params });
 }
+
+// ==================== 使用分析 API ====================
+
+export interface UsageEndpointStat {
+  endpoint: string;
+  method: string;
+  cliCount: number;
+  webCount: number;
+  total: number;
+  errCount: number;
+  errorRate: number;
+  p50ms: number;
+  p95ms: number;
+  avgMs: number;
+  lastUsed: string;
+}
+
+export interface UsageErrorItem {
+  endpoint: string;
+  method: string;
+  errorCode: number;
+  statusCode: number;
+  count: number;
+  lastSeen: string;
+}
+
+export interface UsageOverviewResult {
+  windowDays: number;
+  totalCalls: number;
+  cliCalls: number;
+  webCalls: number;
+  endpoints: UsageEndpointStat[];
+  errors: UsageErrorItem[];
+}
+
+/** 使用分析概况（管理员）：命令热度 + 错误 TopN */
+export function getUsageOverview(days = 7) {
+  return Alova.Get<UsageOverviewResult>('/v1/admin/usage/overview', {
+    params: { days },
+  });
+}

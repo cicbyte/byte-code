@@ -13,6 +13,7 @@ import (
 	"github.com/cicbyte/byte-code/internal/router"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/auditwriter"
+	"github.com/cicbyte/byte-code/utility/usagewriter"
 	"github.com/cicbyte/byte-code/utility/dbbackup"
 	"github.com/cicbyte/byte-code/utility/dbclean"
 	"github.com/cicbyte/byte-code/utility/dbinit"
@@ -102,6 +103,8 @@ var (
 
 			// 审计日志异步落盘协程
 			auditwriter.Start()
+			// 使用埋点事件异步落盘协程
+			usagewriter.Start()
 
 			g.Log().Infof(ctx, "bytecode %s starting", version.Version)
 			s := g.Server()
@@ -142,6 +145,7 @@ var (
 			// ghttp 优雅关停完成后 Run 返回：排空审计缓冲再退出
 			// （否则最后 flushInterval 窗口内的审计随进程一起丢）
 			auditwriter.Stop()
+			usagewriter.Stop()
 			return nil
 		},
 	}

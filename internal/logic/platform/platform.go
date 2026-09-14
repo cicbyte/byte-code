@@ -3,6 +3,8 @@ package platform
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
 
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	api "github.com/cicbyte/byte-code/api/v1/platform"
@@ -417,4 +419,136 @@ func (s *sPlatform) ListAuditLogs(ctx context.Context, req *api.AuditLogListReq)
 
 	err = m.Page(req.Page, req.Size).Order("id DESC").Scan(&res.List)
 	return
+}
+
+// ========== 使用分析（usage_events 聚合） ==========
+
+// weightedDurationRow 加权分组行：SQLite/MySQL 都没有 percentile 函数，
+// 按 (endpoint, method, duration) 分组把行数压到延迟值域内，Go 内用权重算分位
+type weightedDurationRow struct {
+	Endpoint   string
+	Method     string
+	Client     string
+	DurationMs int
+	Cnt        int
+	ErrCnt     int
+	LastAt     string
+}
+
+func (s *sPlatform) UsageOverview(ctx context.Context, req *api.UsageOverviewReq) (res *api.UsageOverviewRes, err error) {
+	days := req.Days
+	if days <= 0 || days > 30 {
+		days = 7
+	}
+	before := time.Now().AddDate(0, 0, -days).Format("2006-01-02 15:04:05")
+
+	res = &api.UsageOverviewRes{
+		WindowDays: days,
+		Endpoints:  []api.UsageEndpointStat{},
+		Errors:     []api.UsageErrorItem{},
+	}
+
+	// 命令热度：按端点×方法×客户端×延迟值分组（加权），行数=延迟值域而非明细数
+	rows := []weightedDurationRow{}
+	err = g.DB().Model("usage_events").Ctx(ctx).
+		Fields("endpoint, method, client, duration_ms, COUNT(*) AS cnt, MAX(created_at) AS last_at").
+		Where("created_at >= ?", before).
+		Where("endpoint != ''").
+		Group("endpoint, method, client, duration_ms").
+		Scan(&rows)
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "使用统计查询失败")
+	}
+
+	type agg struct {
+		st          api.UsageEndpointStat
+		durations   []int // 按出现次数展开（加权）；延迟毫秒通常 <10^4，总量可控
+		errSum      int
+		durSum      int
+		lastAtMax   string
+	}
+	byKey := map[string]*agg{}
+	for _, r := range rows {
+		key := r.Method + " " + r.Endpoint
+		a, ok := byKey[key]
+		if !ok {
+			a = &agg{st: api.UsageEndpointStat{Endpoint: r.Endpoint, Method: r.Method, LastUsed: r.LastAt}}
+			byKey[key] = a
+		}
+		if r.Client == "cli" {
+			a.st.CliCount += r.Cnt
+			res.CliCalls += r.Cnt
+		} else {
+			a.st.WebCount += r.Cnt
+			res.WebCalls += r.Cnt
+		}
+		a.st.Total += r.Cnt
+		a.st.ErrCount += r.ErrCnt
+		a.errSum += r.ErrCnt
+		a.durSum += r.DurationMs * r.Cnt
+		for i := 0; i < r.Cnt; i++ {
+			a.durations = append(a.durations, r.DurationMs)
+		}
+		if r.LastAt > a.lastAtMax {
+			a.lastAtMax = r.LastAt
+			a.st.LastUsed = r.LastAt
+		}
+	}
+	res.TotalCalls = res.CliCalls + res.WebCalls
+
+	for _, a := range byKey {
+		st := a.st
+		st.LastUsed = a.lastAtMax
+		if st.Total > 0 {
+			st.ErrorRate = float64(a.st.ErrCount) / float64(st.Total)
+			st.AvgMs = a.durSum / st.Total
+		}
+		st.P50Ms = percentile(a.durations, 50)
+		st.P95Ms = percentile(a.durations, 95)
+		res.Endpoints = append(res.Endpoints, st)
+	}
+	// 热度倒序：调用最多的排前面
+	sort.Slice(res.Endpoints, func(i, j int) bool { return res.Endpoints[i].Total > res.Endpoints[j].Total })
+
+	// 错误 TopN：端点×错误码分组（错误行必须带错误才进结果）
+	errRows := []struct {
+		Endpoint   string
+		Method     string
+		ErrorCode  int
+		StatusCode int
+		Cnt        int
+		LastAt     string
+	}{}
+	err = g.DB().Model("usage_events").Ctx(ctx).
+		Fields("endpoint, method, error_code, status_code, COUNT(*) AS cnt, MAX(created_at) AS last_at").
+		Where("created_at >= ?", before).
+		Where("endpoint != ''").
+		Where("(error_code != 0 OR status_code >= 400)").
+		Group("endpoint, method, error_code, status_code").
+		Order("cnt DESC").Limit(20).
+		Scan(&errRows)
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "错误统计查询失败")
+	}
+	for _, r := range errRows {
+		res.Errors = append(res.Errors, api.UsageErrorItem{
+			Endpoint: r.Endpoint, Method: r.Method,
+			ErrorCode: r.ErrorCode, StatusCode: r.StatusCode,
+			Count: r.Cnt, LastSeen: r.LastAt,
+		})
+	}
+	return
+}
+
+// percentile 就地展开数组的分位值（p∈(0,100]）；空数组返回 0
+func percentile(arr []int, p int) int {
+	if len(arr) == 0 {
+		return 0
+	}
+	sort.Ints(arr)
+	idx := len(arr) * p / 100
+	if idx >= len(arr) {
+		idx = len(arr) - 1
+	}
+	return arr[idx]
 }

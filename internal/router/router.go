@@ -34,6 +34,8 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		group.Middleware(service.Middleware().MiddlewareCORS)
 		group.Middleware(service.Middleware().MiddlewareTokenAuth)
 		group.Middleware(service.Middleware().MiddlewareProjectAuth)
+		// 使用埋点：认证后读+写全量（uid 依赖 TokenAuth；项目归属复用 ProjectAuth 的解析）
+		group.Middleware(service.Middleware().MiddlewareUsageTrack)
 
 		group.Bind(
 			controller.Auth.AdminInfo,
@@ -190,9 +192,10 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AttachmentCtrl.StorageTest,
 			)
 
-			// 审计日志
+			// 审计日志 + 使用分析（均管理员）
 			group.Bind(
 				controller.PlatformCtrl.ListAuditLogs,
+				controller.PlatformCtrl.UsageOverview,
 			)
 
 			// 用户管理
