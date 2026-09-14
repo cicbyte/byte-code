@@ -19,6 +19,7 @@
         <n-card :bordered="false" size="small" :title="state.typeTitle" class="proCard">
           <BasicSetting v-if="state.type === 1" />
           <SafetySetting v-if="state.type === 2" />
+          <PermissionList v-if="state.type === 3" />
         </n-card>
       </n-grid-item>
     </n-grid>
@@ -28,6 +29,7 @@
 import { reactive, ref } from 'vue';
 import BasicSetting from './components/BasicSetting.vue';
 import SafetySetting from './components/SafetySetting.vue';
+import PermissionList from './components/PermissionList.vue';
 
 const typeTabList = [
   {
@@ -39,6 +41,11 @@ const typeTabList = [
     name: '安全设置',
     desc: '密码，邮箱等设置',
     key: 2,
+  },
+  {
+    name: '权限清单',
+    desc: '当前账号被授予的平台权限',
+    key: 3,
   },
 ];
 
