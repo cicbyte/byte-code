@@ -92,7 +92,7 @@
       style="width: 520px"
     >
       <n-alert type="info" :bordered="false" class="mt-2 mb-3">
-        勾选的菜单对该角色可见；个人可见页面（仪表盘/项目/我的任务/通知等）不受此控制。变更对该角色下的用户在下次刷新页面时生效。
+        勾选的菜单对该角色可见；个人可见页面（仪表盘/项目/我的任务/通知等）不受此控制。叶子括号内为权限 key（如 platform_tags），与后端 API 门禁同名。变更对该角色下的用户在下次刷新页面时生效。
       </n-alert>
       <div class="menu-tree-wrap">
         <n-tree
@@ -191,10 +191,13 @@
         message.warning('菜单字典异常（后端版本过旧），请重启后端后刷新页面');
         return;
       }
+      // 权限字典可视化：叶子 label 括号内展示字典 key（后端下发的 name，
+      // 此处 n.key 尚未被 id 覆盖）——与前端 meta.menuKey、后端
+      // perm.RequireMenuPerm 同名对照；勾选仍按 id 存取
       const toTree = (list: MenuDictItem[]): MenuDictItem[] =>
         (list || []).map((n) => ({
           id: n.id,
-          label: n.label,
+          label: !n.children?.length && n.key && n.key !== n.label ? `${n.label}（${n.key}）` : n.label,
           key: String(n.id),
           children: n.children?.length ? toTree(n.children) : undefined,
         }));
