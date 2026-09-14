@@ -57,6 +57,17 @@ type AgentRemoveRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+type AgentCapabilitiesUpdateReq struct {
+	g.Meta `path:"/projects/{projectId}/agents/{agentId}/capabilities" method:"put" tags:"Agent接入" summary:"调整 Agent 能力集（owner/maintainer；空=全部能力）"`
+	ProjectId    int      `json:"projectId" v:"required" in:"path"`
+	AgentId      int      `json:"agentId" v:"required" in:"path"`
+	Capabilities []string `json:"capabilities" dc:"能力 key 列表（8 项字典）；空数组=全部能力"`
+}
+
+type AgentCapabilitiesUpdateRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // ==================== 工作会话 ====================
 
 type SessionCreateReq struct {

@@ -16,6 +16,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/docs"
 	service "github.com/cicbyte/byte-code/internal/service"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/cicbyte/byte-code/utility/docs"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -46,6 +47,9 @@ func textExt(ext string) bool {
 // ==================== 目录树 ====================
 
 func (s *sVault) Tree(ctx context.Context, projectId int64, space string) ([]api.VaultTreeNode, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_read"); err != nil {
+		return nil, err
+	}
 	root := docs.RootPath(projectId)
 	if _, err := os.Stat(root); err != nil {
 		return []api.VaultTreeNode{}, nil
@@ -173,6 +177,9 @@ func fmToFileMeta(fm docs.Frontmatter, relSlash string) *api.FileMeta {
 // ==================== 读取 ====================
 
 func (s *sVault) ReadFile(ctx context.Context, projectId int64, rel string) (*api.VaultFileGetRes, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_read"); err != nil {
+		return nil, err
+	}
 	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return nil, gerror.New(err.Error())
@@ -280,6 +287,9 @@ func lockFile(projectId int64, rel string) *sync.Mutex {
 const maxVaultFileSize = 5 * 1024 * 1024
 
 func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content string) (*api.VaultFileWriteRes, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_write"); err != nil {
+		return nil, err
+	}
 	if !textExt(path.Ext(rel)) {
 		return nil, gerror.New("非文本文件请走上传接口")
 	}
@@ -306,6 +316,9 @@ func (s *sVault) WriteFile(ctx context.Context, projectId int64, rel, content st
 }
 
 func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops []api.VaultPatchOperation) (*api.VaultFilePatchRes, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_write"); err != nil {
+		return nil, err
+	}
 	if !textExt(path.Ext(rel)) {
 		return nil, gerror.New("补丁仅支持文本文件")
 	}
@@ -369,6 +382,9 @@ func (s *sVault) PatchFile(ctx context.Context, projectId int64, rel string, ops
 }
 
 func (s *sVault) CreateFolder(ctx context.Context, projectId int64, rel string) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_write"); err != nil {
+		return err
+	}
 	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return gerror.New(err.Error())
@@ -392,6 +408,9 @@ var vaultExtAllowed = map[string]bool{
 }
 
 func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *ghttp.UploadFile) (*api.VaultUploadRes, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_write"); err != nil {
+		return nil, err
+	}
 	if file == nil {
 		return nil, gerror.New("文件不能为空")
 	}

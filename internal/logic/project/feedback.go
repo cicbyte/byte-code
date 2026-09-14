@@ -49,6 +49,10 @@ func (s *sProject) CreateFeedback(ctx context.Context, req *api.FeedbackCreateRe
 	if sourceProject == 0 || sourceProject == req.ProjectId {
 		return 0, fmt.Errorf("无法确定来源项目（跨项目反馈需要来源）")
 	}
+	// Agent 能力门禁：以来源项目（agent 所绑定项目）的能力集为准
+	if err := perm.AgentRequire(ctx, sourceProject, "feedback"); err != nil {
+		return 0, err
+	}
 	// 关联门槛：显式 project_relations 或同 group 隐式关联（同分组免手动建关联）
 	related := false
 	if cnt, _ := g.DB().Model("project_relations").Ctx(ctx).

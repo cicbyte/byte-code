@@ -44,7 +44,14 @@
                   >转交负责人</n-button>
                   <n-button v-if="canRemoveRow(member)" text type="error" @click="handleRemove(member)">移除</n-button>
                 </n-space>
-                <n-button v-else-if="canManage" text type="error" @click="handleRemove(member)">移除</n-button>
+                <n-space v-else-if="canManage" size="small">
+                  <n-button text type="error" @click="handleRemove(member)">移除</n-button>
+                  <n-button
+                    text
+                    type="info"
+                    @click="openCaps(member)"
+                  >{{ member.capabilities ? `能力·${member.capabilities.split(',').length}项` : '能力·全部' }}</n-button>
+                </n-space>
               </td>
             </tr>
           </tbody>
@@ -87,6 +94,7 @@
             <n-button text size="tiny" type="primary" @click="copyText(onboardCommands)">复制</n-button>
           </div>
           <n-text depth="3" style="font-size: 12px">首次接入四步：配置服务器 → 注册身份（bc_ key 自动落本地）→ 凭码加入项目 → 建立会话（开工包）</n-text>
+          <n-text depth="3" style="font-size: 12px">新接入 Agent 默认全部能力；接入后可在成员列表按项目收紧（能力·全部 按钮）</n-text>
         </div>
       </n-space>
     </n-modal>
@@ -132,6 +140,32 @@
         </n-form-item>
       </n-form>
     </n-modal>
+
+    <!-- Agent 能力集编辑（空=全部能力；接入后由管理侧收紧，即时生效） -->
+    <n-modal
+      v-model:show="showCaps"
+      preset="dialog"
+      title="Agent 能力集"
+      positive-text="保存"
+      negative-text="取消"
+      :loading="capsSaving"
+      @positive-click="saveCaps"
+      style="width: 480px"
+    >
+      <n-space vertical :size="8" class="py-2">
+        <n-alert type="info" :show-icon="false">
+          {{ capsTarget?.username }} 在本项目的可行动作。全不勾选 = 全部能力（默认，存量 Agent 行为不变）。
+        </n-alert>
+        <n-checkbox-group v-model:value="capsSelected">
+          <n-space :size="[24, 6]">
+            <n-checkbox v-for="c in AGENT_CAPS" :key="c.key" :value="c.key" :label="c.label" />
+          </n-space>
+        </n-checkbox-group>
+        <n-text depth="3" style="font-size: 12px">
+          调整即时生效：受限 Agent 调用未授权端点会收到「未被授予「X」能力」的错误
+        </n-text>
+      </n-space>
+    </n-modal>
   </div>
 </template>
 
@@ -143,7 +177,7 @@
   import { useUserStore } from '@/store/modules/user';
   import { usePerm } from '@/composables/usePerm';
   import { getMembers, addMember, removeMember, removeAgentProject, transferOwner } from '@/api/project/index';
-  import { createAgentJoinCode } from '@/api/agent/index';
+  import { createAgentJoinCode, updateAgentCapabilities, AGENT_CAPS } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
   const route = useRoute();
@@ -276,7 +310,36 @@
     });
   }
 
-  // Agent 接入码：owner 生成，一次性展示
+  // ==================== Agent 能力集（PRD §5） ====================
+  const showCaps = ref(false);
+  const capsTarget = ref<MemberItem | null>(null);
+  const capsSelected = ref<string[]>([]);
+  const capsSaving = ref(false);
+
+  function openCaps(member: MemberItem) {
+    capsTarget.value = member;
+    capsSelected.value = (member.capabilities || '').split(',').filter(Boolean);
+    showCaps.value = true;
+  }
+
+  async function saveCaps() {
+    const m = capsTarget.value;
+    if (!m) return;
+    capsSaving.value = true;
+    try {
+      await updateAgentCapabilities(projectId.value, m.userId, capsSelected.value);
+      message.success(capsSelected.value.length ? `已收紧为 ${capsSelected.value.length} 项能力` : '已恢复全部能力');
+      showCaps.value = false;
+      loadMembers();
+    } catch (e: any) {
+      message.error(e?.message || '保存失败');
+      return false;
+    } finally {
+      capsSaving.value = false;
+    }
+  }
+
+  // Agent 接入码：owner/maintainer 生成，一次性展示
   // （关联项目/分组治理已拆至项目设置页；本段在 f6830e7 拆分时被误删，自 0ca5705 恢复）
   const showAgentCode = ref(false);
   const agentCode = ref('');

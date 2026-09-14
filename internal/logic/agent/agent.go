@@ -465,6 +465,39 @@ func fillTaskBriefTags(ctx context.Context, briefs []api.TaskBrief) {
 	}
 }
 
+// UpdateAgentCapabilities 调整 agent 的项目能力集（PRD §5.2）：能力由管理侧
+// 事后调整（接入时不选）。空列表 = 全部能力（存量兼容）；非法 key 整单拒绝。
+// 即时生效（校验无缓存）
+func UpdateAgentCapabilities(ctx context.Context, projectId, agentId int, caps []string) error {
+	if !perm.IsProjectMaintainer(ctx, perm.UserId(ctx), projectId) {
+		return fmt.Errorf("仅项目管理员可调整 Agent 能力")
+	}
+	seen := make(map[string]bool, len(caps))
+	for _, c := range caps {
+		if _, ok := perm.AgentCaps[c]; !ok {
+			return fmt.Errorf("未知能力项：%s", c)
+		}
+		seen[c] = true
+	}
+	keys := make([]string, 0, len(seen))
+	for k := range seen {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	result, err := g.DB().Model("agent_project_bindings").Ctx(ctx).
+		Where("agent_id", agentId).
+		Where("project_id", projectId).
+		Data(g.Map{"capabilities": strings.Join(keys, ",")}).
+		Update()
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "更新能力集失败")
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return fmt.Errorf("Agent 未接入本项目")
+	}
+	return nil
+}
+
 // RemoveAgentProject owner 移除 agent 的项目准入：binding 与该项目的会话一并清除
 // （会话只做路由不做权限，但清除可让免参端点立即 403 而非等到过期）
 func RemoveAgentProject(ctx context.Context, projectId, agentId, operator int) error {
@@ -552,6 +585,9 @@ func AgentDocsTree(ctx context.Context, session, space string) (*api.AgentDocsTr
 	if err != nil {
 		return nil, err
 	}
+	if err := perm.AgentRequire(ctx, int(pid), "docs_read"); err != nil {
+		return nil, err
+	}
 	list, err := service.Docs().Tree(ctx, pid, space)
 	if err != nil {
 		return nil, err
@@ -564,6 +600,9 @@ func AgentDocsFile(ctx context.Context, session, path string) (*docsApi.VaultFil
 	if err != nil {
 		return nil, err
 	}
+	if err := perm.AgentRequire(ctx, int(pid), "docs_read"); err != nil {
+		return nil, err
+	}
 	return service.Docs().ReadFile(ctx, pid, path)
 }
 
@@ -572,12 +611,18 @@ func AgentDocsWrite(ctx context.Context, session, path, content string) (*docsAp
 	if err != nil {
 		return nil, err
 	}
+	if err := perm.AgentRequire(ctx, int(pid), "docs_write"); err != nil {
+		return nil, err
+	}
 	return service.Docs().WriteFile(ctx, pid, path, content)
 }
 
 func AgentDocsSearch(ctx context.Context, session, keyword, space string) (*api.AgentDocsSearchRes, error) {
 	pid, err := agentDocsProject(ctx, session)
 	if err != nil {
+		return nil, err
+	}
+	if err := perm.AgentRequire(ctx, int(pid), "docs_read"); err != nil {
 		return nil, err
 	}
 	list, err := service.Docs().Search(ctx, pid, keyword, space)
@@ -590,6 +635,9 @@ func AgentDocsSearch(ctx context.Context, session, keyword, space string) (*api.
 func AgentTasks(ctx context.Context, agentId int, session, status, keyword string) (*api.AgentTasksRes, error) {
 	projectId, err := ResolveSession(ctx, session, agentId)
 	if err != nil {
+		return nil, err
+	}
+	if err := perm.AgentRequire(ctx, projectId, "tasks_read"); err != nil {
 		return nil, err
 	}
 	res := &api.AgentTasksRes{}

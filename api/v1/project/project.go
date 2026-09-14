@@ -120,6 +120,7 @@ type MemberItem struct {
 	JoinedAt   string `json:"joinedAt"`
 	UserType   string `json:"userType" dc:"human/ai"`
 	ViaBinding int    `json:"viaBinding" dc:"1=来自 agent 项目准入（移除走 DeleteAgentProject）；0=project_members"`
+	Capabilities string `json:"capabilities" dc:"agent 能力集（逗号分隔 key；空=全部），仅 viaBinding=1 行有值"`
 }
 
 type MemberListRes struct {

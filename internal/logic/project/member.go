@@ -104,12 +104,14 @@ func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.Mem
 		SELECT * FROM (
 			SELECT pm.id, pm.user_id, u.username, COALESCE(u.real_name, '') AS real_name,
 			       pm.role, pm.created_at AS joined_at,
-			       COALESCE(u.type, 'human') AS user_type, 0 AS via_binding
+			       COALESCE(u.type, 'human') AS user_type, 0 AS via_binding,
+			       '' AS capabilities
 			FROM project_members pm LEFT JOIN sys_users u ON pm.user_id = u.id
 			WHERE pm.project_id = ?
 			UNION ALL
 			SELECT b.id, b.agent_id, u.username, COALESCE(u.real_name, '') AS real_name,
-			       b.role, b.joined_at, 'ai' AS user_type, 1 AS via_binding
+			       b.role, b.joined_at, 'ai' AS user_type, 1 AS via_binding,
+			       COALESCE(b.capabilities, '') AS capabilities
 			FROM agent_project_bindings b LEFT JOIN sys_users u ON b.agent_id = u.id
 			WHERE b.project_id = ?
 			  AND b.agent_id NOT IN (SELECT user_id FROM project_members WHERE project_id = ?)

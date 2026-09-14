@@ -101,6 +101,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AgentCtl.AgentDocsSearch,
 				controller.AgentCtl.JoinCodeCreate,
 				controller.AgentCtl.AgentRemoveProject,
+				controller.AgentCtl.AgentCapabilitiesUpdate,
 			)
 
 			// 附件：上传/下载/列表对所有登录用户开放（存储配置在管理组）

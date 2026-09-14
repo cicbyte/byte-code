@@ -34,6 +34,9 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 	if err != nil {
 		return err
 	}
+	if err := perm.AgentRequire(ctx, task.ProjectId, "tasks_write"); err != nil {
+		return err
+	}
 
 	userId := 0
 	if uid := ctx.Value("userId"); uid != nil {
@@ -65,6 +68,9 @@ func (s *sProject) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (err er
 // 不必等 2h 租约超时（lease_expired 的手动对称版，bcode-cli 反馈 B5）
 func (s *sProject) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (err error) {
 	uid := perm.UserId(ctx)
+	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", req.Id), "tasks_write"); err != nil {
+		return err
+	}
 	// 条件更新防并发：仅当任务仍是本人持有且未终态时生效，
 	// 以影响行数判断成败（期间被 complete/审核的操作不受影响）
 	result, err := g.DB().Model("tasks").Ctx(ctx).
@@ -91,6 +97,9 @@ func (s *sProject) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (er
 func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (err error) {
 	task, err := s.GetTask(ctx, req.Id)
 	if err != nil {
+		return err
+	}
+	if err := perm.AgentRequire(ctx, task.ProjectId, "tasks_write"); err != nil {
 		return err
 	}
 
@@ -147,6 +156,9 @@ func (s *sProject) BlockTask(ctx context.Context, req *api.TaskBlockReq) (err er
 	if err != nil {
 		return err
 	}
+	if err := perm.AgentRequire(ctx, task.ProjectId, "tasks_write"); err != nil {
+		return err
+	}
 	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectOwner(ctx, perm.UserId(ctx), task.ProjectId) {
 		return fmt.Errorf("仅任务负责人或项目管理员可上报阻塞")
 	}
@@ -177,6 +189,9 @@ func (s *sProject) BlockTask(ctx context.Context, req *api.TaskBlockReq) (err er
 func (s *sProject) UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (err error) {
 	task, err := s.GetTask(ctx, req.Id)
 	if err != nil {
+		return err
+	}
+	if err := perm.AgentRequire(ctx, task.ProjectId, "tasks_write"); err != nil {
 		return err
 	}
 	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectOwner(ctx, perm.UserId(ctx), task.ProjectId) {

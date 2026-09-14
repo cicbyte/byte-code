@@ -94,6 +94,9 @@ func evalMemoryStatus(status string, expiresAt, lastVerified *gtime.Time, now *g
 }
 
 func (s *sVault) MemList(ctx context.Context, projectId int64, prefix, include string) ([]api.MemoryItem, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "memory_read"); err != nil {
+		return nil, err
+	}
 	includeStale := strings.Contains(include, "stale")
 	includeExpired := strings.Contains(include, "expired")
 
@@ -140,6 +143,9 @@ func (s *sVault) MemList(ctx context.Context, projectId int64, prefix, include s
 }
 
 func (s *sVault) MemGet(ctx context.Context, projectId int64, key string) (*api.MemoryGetRes, error) {
+	if err := perm.AgentRequire(ctx, int(projectId), "memory_read"); err != nil {
+		return nil, err
+	}
 	r, err := g.DB().Model("project_memories").Ctx(ctx).
 		LeftJoin("sys_users", "sys_users.id = project_memories.updated_by").
 		Where("project_id", projectId).Where("key", key).
@@ -158,6 +164,9 @@ func (s *sVault) MemGet(ctx context.Context, projectId int64, key string) (*api.
 }
 
 func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *api.MemorySetReq) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "memory_write"); err != nil {
+		return err
+	}
 	key = strings.TrimSpace(strings.Trim(key, "/"))
 	if key == "" || strings.Contains(key, "/") {
 		return gerror.New("key 不能为空且不含 /（点分层级：build.cmd / conventions.naming）")
@@ -214,6 +223,9 @@ func (s *sVault) MemSet(ctx context.Context, projectId int64, key string, req *a
 }
 
 func (s *sVault) MemVerify(ctx context.Context, projectId int64, key string, userId int64) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "memory_write"); err != nil {
+		return err
+	}
 	return s.memVerifyDo(ctx, projectId, key, userId, gtime.Now())
 }
 
@@ -246,6 +258,9 @@ func (s *sVault) memVerifyDo(ctx context.Context, projectId int64, key string, u
 }
 
 func (s *sVault) MemExpire(ctx context.Context, projectId int64, key string) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "memory_write"); err != nil {
+		return err
+	}
 	res, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", projectId).Where("key", key).
 		Data("status", "expired").Update()
@@ -259,6 +274,9 @@ func (s *sVault) MemExpire(ctx context.Context, projectId int64, key string) err
 }
 
 func (s *sVault) MemDelete(ctx context.Context, projectId int64, key string) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "memory_write"); err != nil {
+		return err
+	}
 	res, err := g.DB().Model("project_memories").Ctx(ctx).
 		Where("project_id", projectId).Where("key", key).Delete()
 	if err != nil {

@@ -16,6 +16,9 @@ import (
 // 评论与 AI 执行日志
 
 func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq) (id int, err error) {
+	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", req.TaskId), "tasks_write"); err != nil {
+		return 0, err
+	}
 	userId := 0
 	if uid := ctx.Value("userId"); uid != nil {
 		userId = uid.(int)
@@ -212,6 +215,10 @@ func (s *sProject) DeleteComment(ctx context.Context, id int) (err error) {
 	return nil
 }
 func (s *sProject) CreateAiLog(ctx context.Context, req *api.AiLogCreateReq) (id int, err error) {
+	// bcode log 的任务留痕属任务写路径
+	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", req.TaskId), "tasks_write"); err != nil {
+		return 0, err
+	}
 	result, err := g.DB().Model("ai_execution_logs").Ctx(ctx).Insert(g.Map{
 		"task_id":    req.TaskId,
 		"ai_user_id": req.AiUserId,

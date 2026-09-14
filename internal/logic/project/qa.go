@@ -18,6 +18,9 @@ import (
 
 // UpsertQa 创建/更新：同问题（精确匹配）已存在则更新答案/标签并复活
 func (s *sProject) UpsertQa(ctx context.Context, req *api.QaUpsertReq) (id int, updated bool, err error) {
+	if err := perm.AgentRequire(ctx, req.ProjectId, "qa"); err != nil {
+		return 0, false, err
+	}
 	uid := perm.UserId(ctx)
 	existing, _ := g.DB().Model("project_qas").Ctx(ctx).
 		Where("project_id", req.ProjectId).Where("question", req.Question).One()
@@ -80,6 +83,9 @@ func (s *sProject) HitQa(ctx context.Context, projectId, id int) (err error) {
 }
 
 func (s *sProject) ArchiveQa(ctx context.Context, projectId, id int) (err error) {
+	if err := perm.AgentRequire(ctx, projectId, "qa"); err != nil {
+		return err
+	}
 	result, err := g.DB().Model("project_qas").Ctx(ctx).
 		Where("id", id).Where("project_id", projectId).
 		Data(g.Map{"status": "archived"}).Update()

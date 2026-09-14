@@ -24,6 +24,13 @@ func (c *agentController) JoinCodeCreate(ctx context.Context, req *api.JoinCodeC
 	return agent.JoinCodeCreate(ctx, req.ProjectId)
 }
 
+func (c *agentController) AgentCapabilitiesUpdate(ctx context.Context, req *api.AgentCapabilitiesUpdateReq) (*api.AgentCapabilitiesUpdateRes, error) {
+	if err := agent.UpdateAgentCapabilities(ctx, req.ProjectId, req.AgentId, req.Capabilities); err != nil {
+		return nil, err
+	}
+	return &api.AgentCapabilitiesUpdateRes{}, nil
+}
+
 func (c *agentController) Join(ctx context.Context, req *api.JoinReq) (*api.JoinRes, error) {
 	if !isAgentCtx(ctx) {
 		return nil, gerror.New("仅 Agent（bc key）可加入项目")

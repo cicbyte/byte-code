@@ -26,6 +26,11 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	}
 	uid := userId.(int)
 
+	// Agent 能力门禁：任务类写操作（建/改/流转/留痕）需 tasks_write（人类直通）
+	if err := perm.AgentRequire(ctx, req.ProjectId, "tasks_write"); err != nil {
+		return 0, err
+	}
+
 	// 截止日期校验前置：非法格式在插入前报错，避免"报错但任务已落库，
 	// 重试产生重复任务"（normalizeDueDate 是纯函数，无 IO 代价）
 	due := ""
@@ -104,6 +109,9 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 
 func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err error) {
 	// 引用变更延迟到 Update 成功后再通知（写库失败不应发通知）
+	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", req.Id), "tasks_write"); err != nil {
+		return err
+	}
 	var deferredRefs []relatedRef
 	// 门禁：agent 禁改 status/assignee——任务状态流转必须走 claim/complete
 	// 专用端点（条件更新防并发、完成限 assignee/owner、人审拒 ai），
@@ -294,6 +302,9 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 	if item.Id == 0 {
 		return nil, fmt.Errorf("任务不存在（可能已被删除）")
 	}
+	if err := perm.AgentRequire(ctx, item.ProjectId, "tasks_read"); err != nil {
+		return nil, err
+	}
 	// 标签回填（与列表口径一致）
 	item.Tags = taskTagNames(ctx, id)
 	res = &api.TaskDetailRes{TaskItem: item}
@@ -330,6 +341,9 @@ func taskTagNames(ctx context.Context, taskId int) []string {
 
 func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *api.TaskListRes, err error) {
 	res = &api.TaskListRes{}
+	if err := perm.AgentRequire(ctx, req.ProjectId, "tasks_read"); err != nil {
+		return nil, err
+	}
 
 	// Count 查询（不带 Fields，兼容 SQLite）
 	countM := g.DB().Model("tasks t").Ctx(ctx).

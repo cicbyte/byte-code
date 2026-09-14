@@ -3,6 +3,7 @@ package perm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cicbyte/byte-code/internal/consts"
 	"github.com/gogf/gf/v2/frame/g"
@@ -85,6 +86,55 @@ func IsAgentBound(ctx context.Context, userId, projectId int) bool {
 		Where("project_id", projectId).
 		Count()
 	return err == nil && count > 0
+}
+
+// AgentCaps Agent 能力集字典（PRD §5.1）：key → 显示名。
+// 绑定表 capabilities 列存逗号分隔 key；空 = 全部能力（存量绑定兼容）
+var AgentCaps = map[string]string{
+	"tasks_read":   "读任务",
+	"tasks_write":  "写任务",
+	"docs_read":    "读文档",
+	"docs_write":   "写文档",
+	"memory_read":  "读记忆",
+	"memory_write": "写记忆",
+	"feedback":     "投递反馈",
+	"qa":           "维护问答库",
+}
+
+// AgentRequire Agent 能力门禁（PRD §5.2）：人类调用直通（受角色/成员体系
+// 约束）；agent 按 agent_project_bindings.capabilities 校验。无绑定行
+// （members 表手工加的早期 agent）与空能力集均视为全能力——只有管理侧
+// 显式设置过能力集的 agent 才受限，存量行为不变。调整即时生效（无缓存）
+func AgentRequire(ctx context.Context, projectId int, cap string) error {
+	uid := UserId(ctx)
+	if uid == 0 {
+		return nil // 未认证请求由外层 TokenAuth/协议认证兜底
+	}
+	v, err := g.DB().Model("sys_users").Where("id", uid).Fields("type").Value()
+	if err != nil || v == nil || v.String() != "ai" {
+		return nil
+	}
+	caps, cerr := g.DB().Model("agent_project_bindings").
+		Where("agent_id", uid).
+		Where("project_id", projectId).
+		Fields("capabilities").Value()
+	if cerr != nil || caps == nil {
+		return nil
+	}
+	list := strings.TrimSpace(caps.String())
+	if list == "" {
+		return nil
+	}
+	for _, c := range strings.Split(list, ",") {
+		if strings.TrimSpace(c) == cap {
+			return nil
+		}
+	}
+	label := AgentCaps[cap]
+	if label == "" {
+		label = cap
+	}
+	return fmt.Errorf("无权限：Agent 未被授予「%s」能力", label)
 }
 
 // IsProjectOwner 判断用户是否为项目 owner（或超管）——

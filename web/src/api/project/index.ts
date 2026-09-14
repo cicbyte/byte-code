@@ -50,6 +50,9 @@ export interface MemberItem {
   joinedAt: string;
   /** human/ai（@提及候选只列 human） */
   userType?: string;
+  /** agent 能力集（逗号分隔 key；空=全部；仅 viaBinding 行有值） */
+  viaBinding?: number;
+  capabilities?: string;
 }
 
 export interface MemberListResult {
