@@ -2,7 +2,7 @@ import { toRaw } from 'vue';
 import { defineStore } from 'pinia';
 import { RouteRecordRaw } from 'vue-router';
 import { store } from '@/store';
-import { useUserStore } from '@/store/modules/user';
+import { usePerm } from '@/composables/usePerm';
 import { asyncRoutes, constantRouter } from '@/router/index';
 
 export interface IAsyncRouteState {
@@ -48,18 +48,14 @@ export const useAsyncRouteStore = defineStore({
       this.keepAliveComponents = compNames;
     },
     async generateRoutes() {
-      const userStore = useUserStore();
-      const perms = new Set(
-        (userStore.permissions || []).map((p: any) => p?.value || p)
-      );
+      const { perms, isAdmin } = usePerm();
       // 超管（拥有 system_menu 或 system_role 权限）看全部；
       // 普通用户按 meta.menuKey 过滤（顶级与子级同规则）；无 menuKey 的路由始终可见
-      const isAdmin = perms.has('system_menu') || perms.has('system_role');
       const hasPerm = (meta: any) => {
         const key = meta?.menuKey as string | undefined;
-        return !key || perms.has(key);
+        return !key || perms.value.has(key);
       };
-      const visible = isAdmin
+      const visible = isAdmin.value
         ? asyncRoutes
         : asyncRoutes
             .filter((route) => hasPerm(route.meta))

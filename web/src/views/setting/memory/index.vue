@@ -111,18 +111,14 @@
     deleteGlobalMemory,
   } from '@/api/docs/index';
   import type { MemoryItem } from '@/api/docs/index';
-  import { useUserStore } from '@/store/modules/user';
+  import { usePerm } from '@/composables/usePerm';
 
   const message = useMessage();
   const { getDarkTheme: isDark } = useDesignSetting();
   const dialog = useDialog();
 
-  // 与 asyncRoute 的菜单过滤同规则：拥有系统菜单/角色管理权限即视为管理员
-  const userStore = useUserStore();
-  const isAdmin = computed(() => {
-    const perms = new Set((userStore.permissions || []).map((p: any) => p?.value || p));
-    return perms.has('system_menu') || perms.has('system_role');
-  });
+  // 管理口径统一走 usePerm（system_menu||system_role，与菜单过滤同源）
+  const { isAdmin } = usePerm();
 
   const loading = ref(false);
   const list = ref<MemoryItem[]>([]);

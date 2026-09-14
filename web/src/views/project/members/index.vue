@@ -140,6 +140,7 @@
   import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { useUserStore } from '@/store/modules/user';
+  import { usePerm } from '@/composables/usePerm';
   import { getMembers, addMember, removeMember, removeAgentProject, transferOwner } from '@/api/project/index';
   import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
@@ -151,12 +152,12 @@
   const userStore = useUserStore();
 
   // 转交权限：本人在本项目是 owner，或平台管理员（后端同口径兜底）
+  const { isAdmin } = usePerm();
   const canTransfer = computed(() => {
     const myId = Number((userStore?.info as any)?.userId || 0);
     const meRow = memberList.value.find((m) => m.userType !== 'ai' && m.userId === myId);
     if (meRow?.role === 'owner') return true;
-    const perms = new Set((userStore.permissions || []).map((p: any) => p?.value || p));
-    return perms.has('system_menu') || perms.has('system_role');
+    return isAdmin.value;
   });
 
   const showTransfer = ref(false);

@@ -2,7 +2,9 @@
   <div>
     <n-card :bordered="false" title="项目列表" class="proCard">
       <template #header-extra>
-        <n-button type="primary" @click="handleCreate">
+        <!-- 创建项目走权限字典 project_create（后端 CreateProject 同口径；
+             role2 预绑，无权限者藏入口） -->
+        <n-button v-if="canCreate" type="primary" @click="handleCreate">
           <template #icon>
             <n-icon><PlusOutlined /></n-icon>
           </template>
@@ -95,10 +97,11 @@
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { PROJECT_STATUS } from '@/enums/entities';
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, computed, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
+  import { usePerm } from '@/composables/usePerm';
   import {
     getProjects,
     createProject,
@@ -110,6 +113,8 @@
   const router = useRouter();
   const message = useMessage();
   const dialog = useDialog();
+  const { has } = usePerm();
+  const canCreate = computed(() => has('project_create'));
   const loading = ref(false);
   const projectList = ref<ProjectItem[]>([]);
   const total = ref(0);

@@ -35,10 +35,13 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/platform/activities/index.vue'),
       },
       {
+        // 标签定义（建/改/删）走权限字典 platform_tags（后端 RequireMenuPerm 同口径；
+        // 读/挂/摘全员开放，无权限者仅看不到管理入口）
         path: 'tags',
         name: `${routeName}_tags`,
         meta: {
           title: '标签管理',
+          menuKey: 'platform_tags',
         },
         component: () => import('@/views/platform/tags/index.vue'),
       },
