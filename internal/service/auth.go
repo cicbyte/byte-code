@@ -10,6 +10,8 @@ type IAuth interface {
 	Login(ctx context.Context, req *api.LoginReq) (res *api.LoginRes, err error)
 	AdminInfo(ctx context.Context) (res *api.AdminInfoRes, err error)
 	Logout(ctx context.Context) (err error)
+	ForgotPassword(ctx context.Context, account, origin string) (err error)
+	ResetPassword(ctx context.Context, token, newPassword string) (err error)
 	ValidateToken(ctx context.Context, tokenStr string) (userId int, err error)
 }
 

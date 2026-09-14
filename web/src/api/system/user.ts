@@ -23,6 +23,20 @@ export function login(params) {
 }
 
 /**
+ * @description: 发起密码重置（防枚举：恒定成功）
+ */
+export function forgotPassword(account: string) {
+  return Alova.Post<InResult>('/auth/forgot-password', { account });
+}
+
+/**
+ * @description: 凭重置令牌设置新密码（单次/30min）
+ */
+export function resetPassword(token: string, newPassword: string) {
+  return Alova.Post<InResult>('/auth/reset-password', { token, newPassword });
+}
+
+/**
  * @description: 用户修改密码
  */
 export function changePassword(params, uid) {

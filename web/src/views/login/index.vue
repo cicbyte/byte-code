@@ -85,6 +85,7 @@
 
           <div class="form-options">
             <n-checkbox v-model:checked="autoLogin">记住登录</n-checkbox>
+            <a class="forgot-link" @click="showForgot = true">忘记密码？</a>
           </div>
 
           <n-button
@@ -100,6 +101,20 @@
         </n-form>
       </div>
     </div>
+
+    <!-- 忘记密码：账号存在则收到重置邮件（防枚举：无论结果提示一致） -->
+    <n-modal v-model:show="showForgot" preset="dialog" title="找回密码" :show-icon="false" style="width: 420px">
+      <n-space vertical :size="8" class="py-2">
+        <n-input v-model:value="forgotAccount" placeholder="用户名或绑定邮箱" @keyup.enter="handleForgot" />
+        <n-text depth="3" style="font-size: 12px">需要账号已绑定邮箱且管理员已配置 SMTP；重置链接 30 分钟内有效</n-text>
+      </n-space>
+      <template #action>
+        <n-space>
+          <n-button size="small" @click="showForgot = false">取消</n-button>
+          <n-button size="small" type="primary" :loading="forgotLoading" :disabled="!forgotAccount.trim()" @click="handleForgot">发送重置邮件</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -111,6 +126,7 @@
   import { useMessage } from 'naive-ui';
   import { ResultEnum } from '@/enums/httpEnum';
   import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5';
+  import { forgotPassword } from '@/api/system/user';
   import { PageEnum } from '@/enums/pageEnum';
 
   onMounted(() => {
@@ -133,6 +149,23 @@
   import logoImage from '@/assets/images/logo.svg';
 
   const autoLogin = ref(true);
+
+  const showForgot = ref(false);
+  const forgotAccount = ref('');
+  const forgotLoading = ref(false);
+  async function handleForgot() {
+    forgotLoading.value = true;
+    try {
+      await forgotPassword(forgotAccount.value.trim());
+      message.success('如该账号存在且已绑定邮箱，重置邮件已发送');
+      showForgot.value = false;
+      forgotAccount.value = '';
+    } catch (e: any) {
+      message.error(e?.message || '发送失败');
+    } finally {
+      forgotLoading.value = false;
+    }
+  }
   const LOGIN_NAME = PageEnum.BASE_LOGIN_NAME;
 
   const formInline = reactive({
@@ -387,7 +420,21 @@
     align-items: center;
     margin-bottom: 24px;
     font-size: 14px;
+  
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
+  
+  .forgot-link {
+    font-size: 13px;
+    color: #64748b;
+    cursor: pointer;
+  
+    &:hover {
+      color: #4f6ef7;
+    }
+}
 
   .login-button {
     height: 44px;

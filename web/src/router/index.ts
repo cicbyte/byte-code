@@ -41,7 +41,19 @@ export const LoginRoute: RouteRecordRaw = {
 export const asyncRoutes = [...routeModuleList];
 
 //普通路由 无需验证权限
-export const constantRouter: RouteRecordRaw[] = [LoginRoute, RootRoute, RedirectRoute];
+// 密码重置页（邮件链接直达，免登录；token 在 query）
+export const ResetPasswordRoute: RouteRecordRaw = {
+  path: '/reset-password',
+  name: 'ResetPassword',
+  component: () => import('@/views/reset-password/index.vue'),
+  meta: {
+    title: '重置密码',
+    // 免登录（守卫 ignoreAuth 口径）
+    ignoreAuth: true,
+  },
+};
+
+export const constantRouter: RouteRecordRaw[] = [LoginRoute, ResetPasswordRoute, RootRoute, RedirectRoute];
 
 const router = createRouter({
   history: createWebHistory(),

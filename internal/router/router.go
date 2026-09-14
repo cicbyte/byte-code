@@ -17,6 +17,8 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		group.Middleware(service.Middleware().MiddlewareCORS)
 		group.Bind(
 			controller.Auth.Login,
+			controller.Auth.ForgotPassword,
+			controller.Auth.ResetPassword,
 			controller.AiUserCtrl.AiLogin,
 			// 头像文件直读（<img> 无法携带认证头；头像属非敏感展示数据）
 			controller.Setting.Avatar,

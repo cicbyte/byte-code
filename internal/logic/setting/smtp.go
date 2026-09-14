@@ -46,6 +46,13 @@ type smtpParams struct {
 
 // SendTestMail 发送测试邮件（验证 SMTP 配置可用性）
 func (s *sSetting) SendTestMail(ctx context.Context, to string) error {
+	body := fmt.Sprintf("这是一封来自 ByteCode 平台的测试邮件。\n\n如果你收到了这封邮件，说明 SMTP 配置正确。\n\n时间: %s\n",
+		time.Now().Format("2006-01-02 15:04:05"))
+	return s.SendMail(ctx, to, "ByteCode 测试邮件", body)
+}
+
+// SendMail 业务外发（忘记密码等）：与测试邮件同一配置与通道
+func (s *sSetting) SendMail(ctx context.Context, to, subject, body string) error {
 	if to == "" || !strings.Contains(to, "@") {
 		return fmt.Errorf("请输入有效的收件邮箱")
 	}
@@ -61,10 +68,6 @@ func (s *sSetting) SendTestMail(ctx context.Context, to string) error {
 	if from == "" {
 		from = cfg.User // 发件人未配置时退化为用户名
 	}
-
-	subject := "ByteCode 测试邮件"
-	body := fmt.Sprintf("这是一封来自 ByteCode 平台的测试邮件。\n\n如果你收到了这封邮件，说明 SMTP 配置正确。\n\n服务器: %s\n端口: %s\n时间: %s\n",
-		cfg.Host, cfg.Port, time.Now().Format("2006-01-02 15:04:05"))
 
 	msg := buildMime(from, to, subject, body)
 

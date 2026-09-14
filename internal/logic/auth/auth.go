@@ -2,13 +2,18 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/auth"
 	service "github.com/cicbyte/byte-code/internal/service"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 
 	"github.com/cicbyte/byte-code/utility/auditwriter"
@@ -268,6 +273,84 @@ func (s *sAuth) permissionLabel(key string) string {
 		return label
 	}
 	return key
+}
+
+// ForgotPassword 发起密码重置。防枚举：账号不存在 / 无邮箱 / 未配 SMTP /
+// 限频窗口内均静默返回成功（响应不可区分）。令牌 32 字节随机，库中只存
+// SHA-256 摘要，30 分钟单次有效；同账号 60s 限频。
+func (s *sAuth) ForgotPassword(ctx context.Context, account, origin string) (err error) {
+	row, qerr := g.DB().Model("sys_users").Ctx(ctx).
+		Where("(username = ? OR email = ?) AND type = 'human' AND status = 1", account, account).
+		Fields("id, username, email").One()
+	if qerr != nil || row.IsEmpty() || row["email"].String() == "" {
+		return nil
+	}
+	uid := row["id"].Int()
+	// 限频：同账号 60s 一封（静默——不改变响应形态）
+	if last, _ := g.DB().Model("password_resets").Ctx(ctx).
+		Where("user_id", uid).Order("id DESC").Fields("created_at").Value(); last != nil {
+		if t, e := time.ParseInLocation("2006-01-02 15:04:05", last.String(), time.Local); e == nil && time.Since(t) < time.Minute {
+			return nil
+		}
+	}
+	raw := make([]byte, 32)
+	if _, rerr := rand.Read(raw); rerr != nil {
+		return nil
+	}
+	token := hex.EncodeToString(raw)
+	sum := sha256.Sum256([]byte(token))
+	now := time.Now()
+	if _, ierr := g.DB().Model("password_resets").Ctx(ctx).Insert(g.Map{
+		"user_id":    uid,
+		"token_hash": hex.EncodeToString(sum[:]),
+		"expires_at": now.Add(30 * time.Minute).Format("2006-01-02 15:04:05"),
+		"created_at": now.Format("2006-01-02 15:04:05"),
+	}); ierr != nil {
+		return nil
+	}
+	link := strings.TrimRight(origin, "/") + "/reset-password?token=" + token
+	body := fmt.Sprintf("你（或他人）发起了 ByteCode 账号「%s」的密码重置。\n\n重置链接（30 分钟内有效，仅可使用一次）：\n%s\n\n如非本人操作，忽略本邮件即可，你的密码不会被更改。",
+		row["username"].String(), link)
+	// 发信失败也返回成功：防枚举要求存在/不存在账号响应不可区分
+	// （失败只记服务端日志，管理员应保证 SMTP 已配置）
+	if merr := service.Setting().SendMail(ctx, row["email"].String(), "ByteCode 密码重置", body); merr != nil {
+		g.Log().Warningf(ctx, "forgot-password mail send failed (user=%d): %v", uid, merr)
+	}
+	return nil
+}
+
+// ResetPassword 凭令牌重置：校验 单次/未过期 → 改密 → 该用户全部重置令牌
+// 置 used + 踢掉全部登录 token（改密即踢下线，与后台重置密码同口径）
+func (s *sAuth) ResetPassword(ctx context.Context, token, newPassword string) (err error) {
+	sum := sha256.Sum256([]byte(token))
+	row, qerr := g.DB().Model("password_resets").Ctx(ctx).
+		Where("token_hash", hex.EncodeToString(sum[:])).One()
+	if qerr != nil || row.IsEmpty() {
+		return fmt.Errorf("重置链接无效")
+	}
+	if row["used"].Int() == 1 {
+		return fmt.Errorf("重置链接已使用，请重新发起")
+	}
+	exp, e := time.ParseInLocation("2006-01-02 15:04:05", row["expires_at"].String(), time.Local)
+	if e != nil || time.Now().After(exp) {
+		return fmt.Errorf("重置链接已过期，请重新发起")
+	}
+	uid := row["user_id"].Int()
+	hash, herr := bcrypt.GenerateFromPassword([]byte(newPassword), 10)
+	if herr != nil {
+		return fmt.Errorf("密码加密失败")
+	}
+	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, uerr := tx.Exec("UPDATE sys_users SET password = ?, updated_at = ? WHERE id = ?",
+			string(hash), time.Now().Format("2006-01-02 15:04:05"), uid); uerr != nil {
+			return uerr
+		}
+		if _, uerr := tx.Exec("UPDATE password_resets SET used = 1 WHERE user_id = ?", uid); uerr != nil {
+			return uerr
+		}
+		_, derr := tx.Exec("DELETE FROM sys_tokens WHERE user_id = ?", uid)
+		return derr
+	})
 }
 
 func (s *sAuth) Logout(ctx context.Context) (err error) {

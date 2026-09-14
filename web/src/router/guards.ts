@@ -11,7 +11,7 @@ import { RedirectName } from './constant';
 
 const LOGIN_PATH = PageEnum.BASE_LOGIN;
 
-const whitePathList = [LOGIN_PATH]; // no redirect whitelist
+const whitePathList = [LOGIN_PATH, '/reset-password']; // no redirect whitelist（重置页登录态也可直达）
 
 export function createRouterGuards(router: Router) {
   const userStore = useUser();
