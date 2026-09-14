@@ -45,6 +45,7 @@
             <td>{{ item.createdAt }}</td>
             <td>
                 <n-space size="small">
+                  <n-button text type="info" @click="handleBindings(item)">绑定</n-button>
                   <n-button text type="info" @click="handleEdit(item)">编辑</n-button>
                   <n-button text type="warning" @click="handleResetKey(item)">重置 Key</n-button>
                   <n-button text type="error" @click="handleDelete(item)">删除</n-button>
@@ -55,6 +56,31 @@
         </n-table>
       </n-spin>
     </n-card>
+
+    <!-- 项目绑定总览（含各项目能力集；调整入口在各项目成员页） -->
+    <n-modal v-model:show="showBindings" preset="dialog" :title="`项目绑定 · ${bindingsTarget?.username || ''}`" :show-icon="false" style="width: 620px">
+      <n-spin :show="bindingsLoading">
+        <EmptyState type="generic" title="未接入任何项目" v-if="!bindingsLoading && bindingList.length === 0" compact />
+        <n-table v-else :bordered="false" :single-line="false" size="small">
+          <thead><tr><th>项目</th><th>能力集</th><th>接入时间</th></tr></thead>
+          <tbody>
+            <tr v-for="b in bindingList" :key="b.projectId">
+              <td>{{ b.projectName }}（{{ b.projectCode }}）</td>
+              <td>
+                <n-tag v-if="!b.capabilities" size="small" type="success" :bordered="false">全部能力</n-tag>
+                <n-space v-else :size="4" style="display: inline-flex">
+                  <n-tag v-for="c in b.capabilities.split(',')" :key="c" size="small" :bordered="false" type="warning">{{ capLabel(c) }}</n-tag>
+                </n-space>
+              </td>
+              <td>{{ (b.joinedAt || '').slice(0, 16) }}</td>
+            </tr>
+          </tbody>
+        </n-table>
+      </n-spin>
+      <template #action>
+        <n-button size="small" @click="showBindings = false">关闭</n-button>
+      </template>
+    </n-modal>
 
     <!-- 创建/编辑弹窗 -->
     <n-modal
@@ -109,11 +135,35 @@
     resetAiUserKey,
   } from '@/api/ai/index';
   import type { AiUserItem } from '@/api/ai/index';
+  import { getAgentBindings } from '@/api/ai/index';
+  import { AGENT_CAPS } from '@/api/agent/index';
 
   const message = useMessage();
   const dialog = useDialog();
   const loading = ref(false);
   const userList = ref<AiUserItem[]>([]);
+
+  // ==================== 项目绑定总览 ====================
+  const showBindings = ref(false);
+  const bindingsLoading = ref(false);
+  const bindingsTarget = ref<AiUserItem | null>(null);
+  const bindingList = ref<Array<{ projectId: number; projectName: string; projectCode: string; capabilities: string; joinedAt: string }>>([]);
+  function capLabel(key: string) {
+    return AGENT_CAPS.find((c) => c.key === key)?.label || key;
+  }
+  async function handleBindings(item: AiUserItem) {
+    bindingsTarget.value = item;
+    showBindings.value = true;
+    bindingsLoading.value = true;
+    try {
+      const res = await getAgentBindings(item.id);
+      bindingList.value = res?.list || [];
+    } catch {
+      bindingList.value = [];
+    } finally {
+      bindingsLoading.value = false;
+    }
+  }
   const showModal = ref(false);
   const showKeyModal = ref(false);
   const isEdit = ref(false);

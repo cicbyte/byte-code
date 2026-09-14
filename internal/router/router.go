@@ -178,6 +178,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AiUserCtrl.Delete,
 				controller.AiUserCtrl.List,
 				controller.AiUserCtrl.ResetKey,
+				controller.AiUserCtrl.AgentBindings,
 			)
 
 			// S3 存储配置（含凭据）

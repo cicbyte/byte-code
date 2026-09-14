@@ -171,6 +171,26 @@ func (s *sAiUser) List(ctx context.Context, req *api.AiUserListReq) (res *api.Ai
 	return
 }
 
+// Bindings Agent 的项目绑定总览：项目名/短码 + 能力集 + 接入时间，
+// 平台侧一屏看清（能力调整仍在各项目成员页）
+func (s *sAiUser) Bindings(ctx context.Context, id int) (res *api.AgentBindingsRes, err error) {
+	res = &api.AgentBindingsRes{List: []api.AgentBindingItem{}}
+	var rows []api.AgentBindingItem
+	err = g.DB().Model("agent_project_bindings b").Ctx(ctx).
+		InnerJoin("projects p", "p.id = b.project_id").
+		Fields("p.id AS project_id, p.name AS project_name, p.code AS project_code, COALESCE(b.capabilities, '') AS capabilities, b.joined_at").
+		Where("b.agent_id", id).
+		Order("p.id ASC").Scan(&rows)
+	if err != nil {
+		return nil, fmt.Errorf("查询绑定失败")
+	}
+	if len(rows) == 0 {
+		rows = []api.AgentBindingItem{}
+	}
+	res.List = rows
+	return res, nil
+}
+
 func (s *sAiUser) ResetKey(ctx context.Context, id int) (apiKey string, err error) {
 	apiKey = generateApiKey()
 	salt := generateSalt()

@@ -63,6 +63,13 @@ export function deleteAiUser(id: number) {
 }
 
 /** 重置 API Key */
+/** Agent 项目绑定总览（含能力集；admin） */
+export function getAgentBindings(id: number) {
+  return Alova.Get<{
+    list: Array<{ projectId: number; projectName: string; projectCode: string; capabilities: string; joinedAt: string }>;
+  }>(`/v1/admin/agents/${id}/bindings`);
+}
+
 export function resetAiUserKey(id: number) {
   return Alova.Post<{ apiKey: string }>(`/v1/ai-users/${id}/reset-key`);
 }

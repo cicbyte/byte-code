@@ -12,6 +12,7 @@ type IAiUser interface {
 	Delete(ctx context.Context, id int) (err error)
 	List(ctx context.Context, req *api.AiUserListReq) (res *api.AiUserListRes, err error)
 	ResetKey(ctx context.Context, id int) (apiKey string, err error)
+	Bindings(ctx context.Context, id int) (res *api.AgentBindingsRes, err error)
 	LoginByApiKey(ctx context.Context, apiKey string) (token string, err error)
 	// VerifyApiKey API Key 直认证（不签发 JWT），供 TokenAuth 的 bc_ 前缀分支
 	VerifyApiKey(ctx context.Context, apiKey string) (userId int64, err error)

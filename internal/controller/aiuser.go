@@ -41,6 +41,10 @@ func (c *aiUserController) List(ctx context.Context, req *api.AiUserListReq) (re
 	return service.AiUser().List(ctx, req)
 }
 
+func (c *aiUserController) AgentBindings(ctx context.Context, req *api.AgentBindingsReq) (res *api.AgentBindingsRes, err error) {
+	return service.AiUser().Bindings(ctx, req.Id)
+}
+
 func (c *aiUserController) ResetKey(ctx context.Context, req *api.AiUserResetKeyReq) (res *api.AiUserResetKeyRes, err error) {
 	apiKey, err := service.AiUser().ResetKey(ctx, req.Id)
 	if err != nil {

@@ -49,6 +49,24 @@ type AiUserListRes struct {
 	Total int          `json:"total"`
 }
 
+type AgentBindingsReq struct {
+	g.Meta `path:"/admin/agents/{id}/bindings" method:"get" tags:"AI用户" summary:"Agent 项目绑定总览（含能力集）"`
+	Id     int `json:"id" v:"required" in:"path"`
+}
+
+type AgentBindingItem struct {
+	ProjectId    int    `json:"projectId"`
+	ProjectName  string `json:"projectName"`
+	ProjectCode  string `json:"projectCode"`
+	Capabilities string `json:"capabilities" dc:"逗号分隔能力 key；空=全部能力"`
+	JoinedAt     string `json:"joinedAt"`
+}
+
+type AgentBindingsRes struct {
+	g.Meta `mime:"application/json"`
+	List   []AgentBindingItem `json:"list"`
+}
+
 type AiUserItem struct {
 	Id           int    `json:"id"`
 	Username     string `json:"username"`
