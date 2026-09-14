@@ -52,10 +52,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 
 		// v1 版本 API（需要认证）
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
-			// 分类读侧全员（写侧在下方管理组——全局共享数据不开放给普通成员/agent）
 			group.Bind(
-				controller.Categories.List,
-				controller.Categories.Get,
 				controller.Health,
 			)
 
@@ -164,15 +161,6 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		)
 
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
-			// 全局共享数据写操作：分类定义（影响所有项目，仅管理员；
-			// 标签定义已改为权限字典放行，移至上方认证组）
-			group.Bind(
-				controller.Categories.Add,
-				controller.Categories.Edit,
-				controller.Categories.Delete,
-				controller.Categories.BatchDelete,
-			)
-
 			// 全局记忆写操作（影响所有项目的 AI 上下文，仅管理员）
 			group.Bind(
 				controller.GlobalMemories.Set,

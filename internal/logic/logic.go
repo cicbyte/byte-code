@@ -4,7 +4,6 @@ import (
 	_ "github.com/cicbyte/byte-code/internal/logic/aiuser"
 	_ "github.com/cicbyte/byte-code/internal/logic/attachment"
 	_ "github.com/cicbyte/byte-code/internal/logic/auth"
-	_ "github.com/cicbyte/byte-code/internal/logic/categories"
 	_ "github.com/cicbyte/byte-code/internal/logic/dashboard"
 	_ "github.com/cicbyte/byte-code/internal/logic/health"
 	_ "github.com/cicbyte/byte-code/internal/logic/menu"
