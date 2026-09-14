@@ -37,8 +37,8 @@ func (s *sProject) ListRelations(ctx context.Context, projectId int) (res *api.R
 }
 
 func (s *sProject) AddRelation(ctx context.Context, req *api.RelationAddReq) (err error) {
-	// 关联是项目级治理动作：仅 owner 可添加（不能任意项目都加）
-	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, req.ProjectId) {
+	// 关联是项目级治理动作：owner/maintainer 可添加（不能任意项目都加）
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, req.ProjectId) {
 		return fmt.Errorf("仅项目管理员可管理关联项目")
 	}
 	if req.RelatedProjectId == req.ProjectId {
@@ -65,7 +65,7 @@ func (s *sProject) AddRelation(ctx context.Context, req *api.RelationAddReq) (er
 }
 
 func (s *sProject) RemoveRelation(ctx context.Context, projectId, relationId int) (err error) {
-	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, projectId) {
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, projectId) {
 		return fmt.Errorf("仅项目管理员可管理关联项目")
 	}
 	result, err := g.DB().Model("project_relations").Ctx(ctx).

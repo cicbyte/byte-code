@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
+	"github.com/cicbyte/byte-code/internal/consts"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/notify"
 	"github.com/cicbyte/byte-code/utility/perm"
@@ -15,14 +16,21 @@ import (
 // 项目成员管理
 
 func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err error) {
-	// 成员管理属管理级操作，仅 owner 或超管可执行
-	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, req.ProjectId) {
+	// 成员管理属管理级操作，owner/maintainer 可执行（超管直通）
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, req.ProjectId) {
 		return fmt.Errorf("仅项目管理员可管理成员")
 	}
-	// owner 只能由项目创建流程产生：API 传 owner 会凭空造出第二个 owner，
-	// 绕过 IsProjectOwner 的唯一性假设
-	if req.Role != "" && req.Role != "member" {
-		return fmt.Errorf("仅支持添加普通成员（role=member）")
+	// owner 只能由项目创建流程/转交产生；maintainer 档仅 owner 可授予
+	// （maintainer 不可拉平级：与移除侧「仅 owner 可动 maintainer」对称）
+	role := req.Role
+	if role == "" {
+		role = consts.MemberRoleMember
+	}
+	if role != consts.MemberRoleMember && role != consts.MemberRoleMaintainer {
+		return fmt.Errorf("不支持的角色（可选 member/maintainer）")
+	}
+	if role == consts.MemberRoleMaintainer && !perm.IsProjectOwner(ctx, perm.UserId(ctx), req.ProjectId) {
+		return fmt.Errorf("仅项目负责人可添加维护者")
 	}
 	// 用户必须真实存在（表无 FK 强制），且不允许把 AI 账号加为项目成员
 	uType, uerr := g.DB().Model("sys_users").Ctx(ctx).Where("id", req.UserId).Fields("type").Value()
@@ -40,7 +48,7 @@ func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err er
 	_, err = g.DB().Model("project_members").Ctx(ctx).Insert(g.Map{
 		"project_id": req.ProjectId,
 		"user_id":    req.UserId,
-		"role":       "member",
+		"role":       role,
 	})
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "添加成员失败")
@@ -52,17 +60,28 @@ func (s *sProject) AddMember(ctx context.Context, req *api.MemberAddReq) (err er
 }
 
 func (s *sProject) RemoveMember(ctx context.Context, projectId, userId int) (err error) {
-	// 成员管理属管理级操作，仅 owner 或超管可执行
-	if uid := perm.UserId(ctx); !perm.IsProjectOwner(ctx, uid, projectId) {
+	// 成员管理属管理级操作，owner/maintainer 可执行（超管直通）
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, projectId) {
 		return fmt.Errorf("仅项目管理员可管理成员")
 	}
-	// 不能移除项目 owner（避免最后一个 owner 被移走后项目无主）
-	if perm.IsProjectOwner(ctx, userId, projectId) && !perm.IsAdmin(ctx, perm.UserId(ctx)) {
-		if userId == perm.UserId(ctx) {
-			// owner 自己移自己 = 退出，暂不允许（避免无主项目）
-			return fmt.Errorf("项目管理员不能移除自己")
+	// 目标按档位保护：owner 不可被移除（避免无主项目）；maintainer 仅
+	// owner/超管可移除（maintainer 不能动平级，PRD §4.1）
+	if v, _ := g.DB().Model("project_members").Ctx(ctx).
+		Where("project_id", projectId).Where("user_id", userId).Fields("role").Value(); v != nil {
+		switch v.String() {
+		case consts.MemberRoleOwner:
+			if !perm.IsAdmin(ctx, perm.UserId(ctx)) {
+				if userId == perm.UserId(ctx) {
+					// owner 自己移自己 = 退出，暂不允许（避免无主项目）
+					return fmt.Errorf("项目管理员不能移除自己")
+				}
+				return fmt.Errorf("不能移除项目负责人")
+			}
+		case consts.MemberRoleMaintainer:
+			if !perm.IsProjectOwner(ctx, perm.UserId(ctx), projectId) {
+				return fmt.Errorf("仅项目负责人可移除维护者")
+			}
 		}
-		return fmt.Errorf("不能移除项目管理员")
 	}
 	_, err = g.DB().Model("project_members").Ctx(ctx).
 		Where("project_id", projectId).

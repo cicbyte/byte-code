@@ -73,6 +73,7 @@ const (
 // ==================== 成员角色 ====================
 
 const (
-	MemberRoleOwner  = "owner"
-	MemberRoleMember = "member"
+	MemberRoleOwner      = "owner"
+	MemberRoleMaintainer = "maintainer"
+	MemberRoleMember     = "member"
 )

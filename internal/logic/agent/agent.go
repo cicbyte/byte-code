@@ -176,10 +176,10 @@ func Register(ctx context.Context, req *api.RegisterReq) (*api.RegisterRes, erro
 
 // ==================== 项目接入码 ====================
 
-// JoinCodeCreate 项目 owner/超管生成一次性接入码（24h）
+// JoinCodeCreate 项目 owner/maintainer/超管生成一次性接入码（24h）
 func JoinCodeCreate(ctx context.Context, projectId int) (*api.JoinCodeCreateRes, error) {
 	uid := perm.UserId(ctx)
-	if !perm.IsProjectOwner(ctx, uid, projectId) {
+	if !perm.IsProjectMaintainer(ctx, uid, projectId) {
 		return nil, fmt.Errorf("仅项目管理员可生成接入码")
 	}
 	code := generateJoinCode()
@@ -468,7 +468,7 @@ func fillTaskBriefTags(ctx context.Context, briefs []api.TaskBrief) {
 // RemoveAgentProject owner 移除 agent 的项目准入：binding 与该项目的会话一并清除
 // （会话只做路由不做权限，但清除可让免参端点立即 403 而非等到过期）
 func RemoveAgentProject(ctx context.Context, projectId, agentId, operator int) error {
-	if !perm.IsProjectOwner(ctx, operator, projectId) {
+	if !perm.IsProjectMaintainer(ctx, operator, projectId) {
 		return fmt.Errorf("仅项目管理员可移除 Agent 准入")
 	}
 	return g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {

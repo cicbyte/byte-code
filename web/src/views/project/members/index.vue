@@ -2,7 +2,8 @@
   <div>
     <n-card :bordered="false" title="项目成员" class="proCard">
       <template #header-extra>
-        <n-space>
+        <!-- 管理级入口（owner/maintainer/超管）：member 不显示，后端同口径兜底 -->
+        <n-space v-if="canManage">
           <n-button @click="handleGenAgentCode">Agent 接入码</n-button>
           <n-button type="primary" @click="showAddModal = true">添加成员</n-button>
         </n-space>
@@ -41,9 +42,9 @@
                     type="warning"
                     @click="handleTransfer(member)"
                   >转交负责人</n-button>
-                  <n-button text type="error" @click="handleRemove(member)">移除</n-button>
+                  <n-button v-if="canRemoveRow(member)" text type="error" @click="handleRemove(member)">移除</n-button>
                 </n-space>
-                <n-button v-else text type="error" @click="handleRemove(member)">移除</n-button>
+                <n-button v-else-if="canManage" text type="error" @click="handleRemove(member)">移除</n-button>
               </td>
             </tr>
           </tbody>
@@ -127,7 +128,7 @@
           <n-input-number v-model:value="formData.userId" placeholder="请输入用户ID" style="width: 100%" />
         </n-form-item>
         <n-form-item label="角色" path="role">
-          <n-input v-model:value="formData.role" placeholder="请输入角色" />
+          <n-select v-model:value="formData.role" :options="roleOptions" placeholder="请选择角色" />
         </n-form-item>
       </n-form>
     </n-modal>
@@ -201,12 +202,36 @@
   const showAddModal = ref(false);
   const formRef = ref<any>(null);
   // 角色显示映射：表单历史数据可能是自由文本，回落原值
-  const MEMBER_ROLE_LABELS: Record<string, string> = { owner: '负责人', member: '成员' };
+  const MEMBER_ROLE_LABELS: Record<string, string> = { owner: '负责人', maintainer: '维护者', member: '成员' };
 
-  const formData = reactive({ userId: null as number | null, role: '' });
+  // 本人在本项目的角色（未入本项目时为空）
+  const myRole = computed(() => {
+    const myId = Number((userStore?.info as any)?.userId || 0);
+    const meRow = memberList.value.find((m) => m.userType !== 'ai' && m.userId === myId);
+    return (meRow?.role as string) || '';
+  });
+  // 管理级（owner/maintainer/超管）：成员管理、接入码入口（后端 IsProjectMaintainer 同口径）
+  const canManage = computed(() => ['owner', 'maintainer'].includes(myRole.value) || isAdmin.value);
+  // 移除按钮按档位：owner 行仅超管可动；maintainer 行仅 owner/超管；member 行管理级即可
+  function canRemoveRow(member: MemberItem) {
+    if (member.userType === 'ai') return canManage.value;
+    if (member.role === 'owner') return isAdmin.value;
+    if (member.role === 'maintainer') return myRole.value === 'owner' || isAdmin.value;
+    return canManage.value;
+  }
+  // 添加成员角色选项：maintainer 档仅 owner/超管可授予（后端对称校验）
+  const roleOptions = computed(() => {
+    const opts = [{ label: '成员', value: 'member' }];
+    if (myRole.value === 'owner' || isAdmin.value) {
+      opts.push({ label: '维护者（可管任务/成员/接入码）', value: 'maintainer' });
+    }
+    return opts;
+  });
+
+  const formData = reactive({ userId: null as number | null, role: 'member' });
   const formRules = {
     userId: { required: true, type: 'number', message: '请输入用户ID', trigger: 'blur' },
-    role: { required: true, message: '请输入角色', trigger: 'blur' },
+    role: { required: true, message: '请选择角色', trigger: ['blur', 'change'] },
   };
 
   async function loadMembers() {
@@ -223,9 +248,9 @@
       await addMember(projectId.value, { userId: formData.userId!, role: formData.role });
       message.success('成员添加成功');
       showAddModal.value = false;
-      formData.userId = null; formData.role = '';
+      formData.userId = null; formData.role = 'member';
       loadMembers();
-    } catch { message.error('添加失败'); return false; }
+    } catch (e: any) { message.error(e?.message || '添加失败'); return false; }
   }
 
   function handleRemove(member: MemberItem) {
@@ -246,7 +271,7 @@
             await removeMember(projectId.value, member.userId);
           }
           message.success('移除成功'); loadMembers();
-        } catch { message.error('移除失败'); }
+        } catch (e: any) { message.error(e?.message || '移除失败'); }
       },
     });
   }

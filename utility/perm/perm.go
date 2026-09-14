@@ -101,6 +101,21 @@ func IsProjectOwner(ctx context.Context, userId, projectId int) bool {
 	return err == nil && count > 0
 }
 
+// IsProjectMaintainer 项目管理级判定（PRD §4）：owner、maintainer 或超管。
+// 成员管理/接入码/关联与分组治理等管理入口走此档；转交负责人、删除项目
+// 等危险操作仍用 IsProjectOwner
+func IsProjectMaintainer(ctx context.Context, userId, projectId int) bool {
+	if IsAdmin(ctx, userId) {
+		return true
+	}
+	count, err := g.DB().Model("project_members").
+		Where("user_id", userId).
+		Where("project_id", projectId).
+		WhereIn("role", []string{consts.MemberRoleOwner, consts.MemberRoleMaintainer}).
+		Count()
+	return err == nil && count > 0
+}
+
 // EntityFieldInt 取实体表指定整型列的值，记录不存在返回 0
 func EntityFieldInt(ctx context.Context, table string, entityId int, column string) int {
 	v, _ := g.DB().Model(table).Where("id", entityId).Fields(column).Value()

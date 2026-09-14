@@ -1,9 +1,9 @@
 <template>
   <div>
-    <!-- 关联项目（owner 治理反馈投递面） -->
+    <!-- 关联项目（owner/maintainer 治理反馈投递面，PRD §4.1） -->
     <n-card title="关联项目" :bordered="false" class="proCard">
       <template #header-extra>
-        <n-button size="small" @click="showRelation = true">添加关联</n-button>
+        <n-button v-if="canGovern" size="small" @click="showRelation = true">添加关联</n-button>
       </template>
       <n-spin :show="relationsLoading">
         <EmptyState v-if="!relationsLoading && relations.length === 0" type="member" title="未关联其他项目" description="建立关联后可互相投递跨项目反馈（线索由对方 Agent 分析是否建任务）" compact />
@@ -13,22 +13,22 @@
             <tr v-for="r in relations" :key="r.id">
               <td>{{ r.name }}（#{{ r.projectId }}）</td>
               <td>{{ (r.createdAt || '').slice(0, 16) }}</td>
-              <td><n-button text type="error" size="small" @click="handleRemoveRelation(r)">移除</n-button></td>
+              <td><n-button v-if="canGovern" text type="error" size="small" @click="handleRemoveRelation(r)">移除</n-button></td>
             </tr>
           </tbody>
         </n-table>
       </n-spin>
     </n-card>
 
-    <!-- 项目分组 -->
+    <!-- 项目分组（owner/maintainer 治理） -->
     <n-card title="项目分组" :bordered="false" class="mt-4">
       <template #header-extra>
-        <n-button size="small" @click="showGroupAdd = true">加入分组</n-button>
+        <n-button v-if="canGovern" size="small" @click="showGroupAdd = true">加入分组</n-button>
       </template>
       <n-spin :show="groupsLoading">
         <EmptyState v-if="!groupsLoading && myGroups.length === 0" type="generic" title="未加入任何分组" description="同分组的项目自动互为关联（反馈/引用免准入），比手动建关联更省事" compact />
         <n-space v-else :size="8">
-          <n-tag v-for="g in myGroups" :key="g.id" closable size="small" type="success" @close="handleRemoveGroup(g)">
+          <n-tag v-for="g in myGroups" :key="g.id" :closable="canGovern" size="small" type="success" @close="handleRemoveGroup(g)">
             {{ g.name }}
             <span class="text-xs opacity-60 ml-1">({{ (g.projects || []).length }}个项目)</span>
           </n-tag>
@@ -51,7 +51,8 @@
     <n-modal v-model:show="showGroupAdd" preset="dialog" title="加入分组" :show-icon="false">
       <n-radio-group v-model:value="groupAddMode" size="small" class="mb-3">
         <n-radio-button value="existing">加入已有分组</n-radio-button>
-        <n-radio-button value="new">新建分组</n-radio-button>
+        <!-- 新建分组定义属平台级权限（platform_groups），未授予者只加入已有分组 -->
+        <n-radio-button v-if="canCreateGroup" value="new">新建分组</n-radio-button>
       </n-radio-group>
       <n-select
         v-if="groupAddMode === 'existing'"
@@ -76,14 +77,33 @@
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage } from 'naive-ui';
-  import { getRelations, addRelation, removeRelation, getProjects } from '@/api/project/index';
+  import { getRelations, addRelation, removeRelation, getProjects, getMembers } from '@/api/project/index';
   import { getGroups, createGroup, addProjectToGroup, removeProjectFromGroup } from '@/api/project/group';
   import type { GroupItem } from '@/api/project/group';
+  import { useUserStore } from '@/store/modules/user';
+  import { usePerm } from '@/composables/usePerm';
 
   const route = useRoute();
   const message = useMessage();
+  const userStore = useUserStore();
+  const { has, isAdmin } = usePerm();
 
   const projectId = computed(() => Number(route.params.projectId));
+
+  // ==================== 治理权限（PRD §4.1：关联/分组治理 owner+maintainer） ====================
+  const myRole = ref('');
+  const canGovern = computed(() => ['owner', 'maintainer'].includes(myRole.value) || isAdmin.value);
+  // 新建分组定义走平台字典 platform_groups（P1-2 后端同口径）
+  const canCreateGroup = computed(() => isAdmin.value || has('platform_groups'));
+
+  async function loadMyRole() {
+    try {
+      const res = await getMembers(projectId.value);
+      const myId = Number((userStore?.info as any)?.userId || 0);
+      const meRow = (res?.list || []).find((m: any) => m.userType !== 'ai' && m.userId === myId);
+      myRole.value = meRow?.role || '';
+    } catch { myRole.value = ''; }
+  }
 
   // ==================== 关联项目 ====================
   const relationsLoading = ref(false);
@@ -187,6 +207,7 @@
   }
 
   onMounted(() => {
+    loadMyRole();
     loadRelations();
     loadGroups();
   });

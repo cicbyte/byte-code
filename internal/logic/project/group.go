@@ -110,6 +110,10 @@ func (s *sProject) DeleteGroup(ctx context.Context, id int) (err error) {
 }
 
 func (s *sProject) AddProjectToGroup(ctx context.Context, req *api.GroupMemberAddReq) (err error) {
+	// 把项目挂进分组是项目级治理动作：owner/maintainer 可执行（超管直通）
+	if !perm.IsProjectMaintainer(ctx, perm.UserId(ctx), req.ProjectId) {
+		return fmt.Errorf("仅项目管理员可调整分组")
+	}
 	// 校验项目存在
 	if cnt, _ := g.DB().Model("projects").Ctx(ctx).Where("id", req.ProjectId).Count(); cnt == 0 {
 		return fmt.Errorf("项目不存在")
@@ -130,6 +134,9 @@ func (s *sProject) AddProjectToGroup(ctx context.Context, req *api.GroupMemberAd
 }
 
 func (s *sProject) RemoveProjectFromGroup(ctx context.Context, groupId, projectId int) (err error) {
+	if !perm.IsProjectMaintainer(ctx, perm.UserId(ctx), projectId) {
+		return fmt.Errorf("仅项目管理员可调整分组")
+	}
 	_, err = g.DB().Model("project_group_members").Ctx(ctx).
 		Where("group_id", groupId).Where("project_id", projectId).Delete()
 	if err != nil {
