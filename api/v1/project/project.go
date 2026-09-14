@@ -94,6 +94,16 @@ type MemberRemoveRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+type OwnerTransferReq struct {
+	g.Meta    `path:"/projects/{projectId}/owner" method:"put" tags:"项目成员" summary:"转移项目负责人"`
+	ProjectId int `json:"projectId" v:"required" in:"path"`
+	UserId    int `json:"userId" v:"required#目标负责人用户ID不能为空"`
+}
+
+type OwnerTransferRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 type MemberListReq struct {
 	g.Meta    `path:"/projects/{projectId}/members" method:"get" tags:"项目成员" summary:"成员列表"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`

@@ -34,7 +34,16 @@
               <td>{{ MEMBER_ROLE_LABELS[member.role] || member.role }}</td>
               <td>{{ member.joinedAt }}</td>
               <td>
-                <n-button text type="error" @click="handleRemove(member)">移除</n-button>
+                <n-space v-if="member.userType !== 'ai'" size="small">
+                  <n-button
+                    v-if="canTransfer && member.role !== 'owner'"
+                    text
+                    type="warning"
+                    @click="handleTransfer(member)"
+                  >转交负责人</n-button>
+                  <n-button text type="error" @click="handleRemove(member)">移除</n-button>
+                </n-space>
+                <n-button v-else text type="error" @click="handleRemove(member)">移除</n-button>
               </td>
             </tr>
           </tbody>
@@ -108,13 +117,42 @@
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
-  import { getMembers, addMember, removeMember, removeAgentProject } from '@/api/project/index';
+  import { useUserStore } from '@/store/modules/user';
+  import { getMembers, addMember, removeMember, removeAgentProject, transferOwner } from '@/api/project/index';
   import { createAgentJoinCode } from '@/api/agent/index';
   import type { MemberItem } from '@/api/project/index';
 
   const route = useRoute();
   const message = useMessage();
   const dialog = useDialog();
+  const userStore = useUserStore();
+
+  // 转交权限：本人在本项目是 owner，或平台管理员（后端同口径兜底）
+  const canTransfer = computed(() => {
+    const myId = Number((userStore?.info as any)?.userId || 0);
+    const meRow = memberList.value.find((m) => m.userType !== 'ai' && m.userId === myId);
+    if (meRow?.role === 'owner') return true;
+    const perms = new Set((userStore.permissions || []).map((p: any) => p?.value || p));
+    return perms.has('system_menu') || perms.has('system_role');
+  });
+
+  function handleTransfer(member: MemberItem) {
+    dialog.warning({
+      title: '转交项目负责人',
+      content: `确定将项目负责人转交给「${member.realName || member.username}」吗？转交后您将成为普通成员，对方获得成员管理与项目设置权限。`,
+      positiveText: '转交',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await transferOwner(projectId.value, member.userId);
+          message.success(`负责人已转交给 ${member.realName || member.username}`);
+          loadMembers();
+        } catch (e: any) {
+          message.error(e?.message || '转交失败');
+        }
+      },
+    });
+  }
   const projectId = computed(() => Number(route.params.projectId));
 
   const loading = ref(false);

@@ -8,6 +8,7 @@ import (
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/notify"
 	"github.com/cicbyte/byte-code/utility/perm"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
 
@@ -100,4 +101,66 @@ func (s *sProject) ListMembers(ctx context.Context, projectId int) (res *api.Mem
 	}
 	res.List = list
 	return res, nil
+}
+
+// TransferOwner 转移项目负责人：owner 终身制的唯一出口。
+// 约束：仅当前 owner 或超管可执行（IsProjectOwner 同口径）；目标必须是已存在的
+// 项目人类成员（agent 不能担任负责人）；事务内换主——旧 owner 降为 member、
+// 新 owner 升为 owner，维持 project_members 中 owner 唯一的不变量
+func (s *sProject) TransferOwner(ctx context.Context, req *api.OwnerTransferReq) (err error) {
+	uid := perm.UserId(ctx)
+	if !perm.IsProjectOwner(ctx, uid, req.ProjectId) {
+		return fmt.Errorf("仅项目负责人可转移负责人")
+	}
+	if req.UserId == uid {
+		return fmt.Errorf("不能转移给自己")
+	}
+
+	// 目标校验：必须是 project_members 里的真人（绑定 agent 不在 members 表，
+	// 此处一并挡掉早期手动加入的 ai 账号）
+	var target struct {
+		Role     string `json:"role"`
+		UserType string `json:"user_type"`
+		Name     string `json:"name"`
+	}
+	terr := g.DB().Model("project_members pm").Ctx(ctx).
+		Fields("pm.role, COALESCE(u.type,'human') AS user_type, COALESCE(u.real_name, u.username) AS name").
+		LeftJoin("sys_users u", "u.id = pm.user_id").
+		Where("pm.project_id", req.ProjectId).
+		Where("pm.user_id", req.UserId).
+		Scan(&target)
+	if terr != nil || target.Role == "" {
+		return fmt.Errorf("目标用户不是项目成员")
+	}
+	if target.UserType == "ai" {
+		return fmt.Errorf("Agent 不能担任项目负责人")
+	}
+	if target.Role == "owner" {
+		return fmt.Errorf("目标已是项目负责人")
+	}
+
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 先降旧再升新：owner 唯一性没有 DB 约束（role 无 UNIQUE），靠顺序保证
+		if _, e := tx.Model("project_members").Ctx(ctx).
+			Where("project_id", req.ProjectId).
+			Where("role", "owner").
+			Data(g.Map{"role": "member"}).Update(); e != nil {
+			return e
+		}
+		if _, e := tx.Model("project_members").Ctx(ctx).
+			Where("project_id", req.ProjectId).
+			Where("user_id", req.UserId).
+			Data(g.Map{"role": "owner"}).Update(); e != nil {
+			return e
+		}
+		return nil
+	})
+	if err != nil {
+		return liberr.WrapDb(ctx, err, "转移负责人失败")
+	}
+
+	name := target.Name
+	s.recordActivity(ctx, uid, "project.owner_transfer", "project", req.ProjectId, name, req.ProjectId, fmt.Sprintf("负责人转移给 %s", name))
+	notify.Send(ctx, req.UserId, "成为项目负责人", "项目负责人已转移给您，您现在可以管理成员与项目设置", "info", "project", req.ProjectId)
+	return nil
 }

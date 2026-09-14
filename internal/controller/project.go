@@ -66,6 +66,14 @@ func (c *projectController) RemoveMember(ctx context.Context, req *api.MemberRem
 	return &api.MemberRemoveRes{}, nil
 }
 
+func (c *projectController) TransferOwner(ctx context.Context, req *api.OwnerTransferReq) (res *api.OwnerTransferRes, err error) {
+	err = service.Project().TransferOwner(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.OwnerTransferRes{}, nil
+}
+
 func (c *projectController) MemberList(ctx context.Context, req *api.MemberListReq) (res *api.MemberListRes, err error) {
 	return service.Project().ListMembers(ctx, req.ProjectId)
 }
