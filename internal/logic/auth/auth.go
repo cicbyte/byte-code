@@ -252,6 +252,17 @@ func (s *sAuth) permissionLabel(key string) string {
 		"dashboard_workplace": "工作台",
 		"basic_list":          "基础列表",
 		"basic_list_delete":   "基础列表删除",
+		// 权限字典（sys_menus.name）现行 10 项的显示名
+		"system_menu":           "菜单管理",
+		"system_role":           "角色管理",
+		"ai_users":              "Agent 账号",
+		"setting_system":        "系统设置",
+		"setting_global_memory": "全局记忆",
+		"platform_audit":        "审计日志",
+		"platform_usage":        "使用分析",
+		"platform_tags":         "标签管理",
+		"platform_groups":       "项目分组",
+		"project_create":        "创建项目",
 	}
 	if label, ok := labels[key]; ok {
 		return label
