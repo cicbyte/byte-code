@@ -379,9 +379,9 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 		res.AiStats = append(res.AiStats, api.AiStatItem{AiName: s.AiName, TaskCount: s.TaskCount})
 	}
 
-	// 最近任务
+	// 最近任务（project_id 供前端跳转任务详情）
 	recentM := g.DB().Model("tasks").Ctx(ctx).
-		Fields("id, title, status, updated_at").
+		Fields("id, project_id, title, status, updated_at").
 		Order("updated_at DESC").Limit(5)
 	if memberOnly {
 		recentM = recentM.Where(taskScope, uid)

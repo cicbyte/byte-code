@@ -87,7 +87,9 @@
           </thead>
           <tbody>
             <tr v-for="task in stats.recentTasks" :key="task.id">
-              <td>{{ task.title }}</td>
+              <td>
+                <n-button text type="info" @click="gotoTask(task)">{{ task.title }}</n-button>
+              </td>
               <td>
                 <n-tag :type="statusTagType(task.status)" size="small">
                   {{ statusLabel(task.status) }}
@@ -105,6 +107,7 @@
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+  import { useRouter } from 'vue-router';
   import echarts from '@/utils/lib/echarts';
   import { getDashboardStats } from '@/api/platform/index';
   import type { DashboardStatsResult, RecentTaskItem, AiStatItem } from '@/api/platform/index';
@@ -137,6 +140,12 @@
   // 任务状态字典统一出口：enums/task.ts（原本地 statusMap 缺 closed）
   const statusLabel = enumsStatusLabel;
   const statusTagType = enumsStatusTagType;
+
+  const router = useRouter();
+  // 跳任务详情：走任务列表页 ?task= 自动开抽屉的既有入口
+  function gotoTask(task: RecentTaskItem) {
+    if (task.projectId) router.push(`/project/${task.projectId}/tasks?task=${task.id}`);
+  }
 
   // 图表实例提级持有：匿名 resize 监听与 echarts 实例不清理，
   // 反复进出仪表盘会持续叠加（内存泄漏；清理模式对齐 sprints.vue）

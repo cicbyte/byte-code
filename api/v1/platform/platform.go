@@ -205,6 +205,7 @@ type AiStatItem struct {
 
 type RecentTaskItem struct {
 	Id        int    `json:"id"`
+	ProjectId int    `json:"projectId"`
 	Title     string `json:"title"`
 	Status    string `json:"status"`
 	UpdatedAt string `json:"updatedAt"`

@@ -118,6 +118,7 @@ export interface AiStatItem {
 
 export interface RecentTaskItem {
   id: number;
+  projectId: number;
   title: string;
   status: string;
   updatedAt: string;
