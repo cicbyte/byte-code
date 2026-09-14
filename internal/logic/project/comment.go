@@ -198,7 +198,7 @@ func (s *sProject) DeleteComment(ctx context.Context, id int) (err error) {
 	if rec["user_id"].Int() != uid {
 		// 查任务所属项目，看是否 owner
 		taskProject := perm.EntityProjectId(ctx, "tasks", rec["task_id"].Int())
-		if !perm.IsProjectOwner(ctx, uid, taskProject) {
+		if !perm.IsProjectMaintainer(ctx, uid, taskProject) {
 			return fmt.Errorf("只能删除自己的评论")
 		}
 	}

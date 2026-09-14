@@ -106,7 +106,7 @@ func (s *sProject) CompleteTask(ctx context.Context, req *api.TaskCompleteReq) (
 	// 完成限任务的 assignee 本人或项目管理员：任意项目成员/绑定 agent
 	// 可完成任意任务会破坏执行归属（claim 的意义）
 	uid := perm.UserId(ctx)
-	if task.AssigneeId != uid && !perm.IsProjectOwner(ctx, uid, task.ProjectId) {
+	if task.AssigneeId != uid && !perm.IsProjectMaintainer(ctx, uid, task.ProjectId) {
 		return fmt.Errorf("仅任务负责人或项目管理员可完成任务")
 	}
 
@@ -159,7 +159,7 @@ func (s *sProject) BlockTask(ctx context.Context, req *api.TaskBlockReq) (err er
 	if err := perm.AgentRequire(ctx, task.ProjectId, "tasks_write"); err != nil {
 		return err
 	}
-	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectOwner(ctx, perm.UserId(ctx), task.ProjectId) {
+	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectMaintainer(ctx, perm.UserId(ctx), task.ProjectId) {
 		return fmt.Errorf("仅任务负责人或项目管理员可上报阻塞")
 	}
 	result, err := g.DB().Model("tasks").Ctx(ctx).
@@ -194,7 +194,7 @@ func (s *sProject) UnblockTask(ctx context.Context, req *api.TaskUnblockReq) (er
 	if err := perm.AgentRequire(ctx, task.ProjectId, "tasks_write"); err != nil {
 		return err
 	}
-	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectOwner(ctx, perm.UserId(ctx), task.ProjectId) {
+	if task.AssigneeId != perm.UserId(ctx) && !perm.IsProjectMaintainer(ctx, perm.UserId(ctx), task.ProjectId) {
 		return fmt.Errorf("仅任务负责人或项目管理员可解除阻塞")
 	}
 	result, err := g.DB().Model("tasks").Ctx(ctx).

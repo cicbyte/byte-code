@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
+	api "github.com/cicbyte/byte-code/api/v1/project"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -278,6 +279,25 @@ func newAgile(t *testing.T, table, title string) int {
 	}
 	id, _ := res.LastInsertId()
 	return int(id)
+}
+
+func TestMaintainerTaskBypass(t *testing.T) {
+	// assignee 之外，maintainer 也可完成/阻塞/解除（P2 #419 补齐口径）
+	tid := newTask(t, 101)
+	if err := s.CompleteTask(ctxAs(102), &api.TaskCompleteReq{Id: tid}); err != nil {
+		t.Errorf("maintainer 完成他人任务应放行: %v", err)
+	}
+	tid2 := newTask(t, 101)
+	if _, err := g.DB().Model("tasks").Ctx(ctxAs(102)).Where("id", tid2).
+		Data(g.Map{"assignee_id": 102, "status": "in_progress"}).Update(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BlockTask(ctxAs(102), &api.TaskBlockReq{Id: tid2, Reason: "x"}); err != nil {
+		t.Errorf("maintainer 上报阻塞应放行: %v", err)
+	}
+	if err := s.UnblockTask(ctxAs(102), &api.TaskUnblockReq{Id: tid2}); err != nil {
+		t.Errorf("maintainer 解除阻塞应放行: %v", err)
+	}
 }
 
 func TestDeleteAgileGates(t *testing.T) {
