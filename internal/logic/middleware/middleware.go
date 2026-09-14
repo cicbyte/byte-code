@@ -226,14 +226,27 @@ func (s *sMiddleware) MiddlewareProjectAuth(r *ghttp.Request) {
 		r.Middleware.Next()
 		return
 	}
-	if perm.CanAccessProject(r.Context(), uid, projectId) {
-		r.Middleware.Next()
+	if !perm.CanAccessProject(r.Context(), uid, projectId) {
+		r.Response.WriteHeader(http.StatusOK)
+		r.Response.Header().Set("Content-Type", "application/json")
+		r.Response.Write(jsonStr(403, nil, "无权限访问该项目资源"))
+		r.ExitAll()
 		return
 	}
-	r.Response.WriteHeader(http.StatusOK)
-	r.Response.Header().Set("Content-Type", "application/json")
-	r.Response.Write(jsonStr(403, nil, "无权限访问该项目资源"))
-	r.ExitAll()
+	// 归档项目只读（status=3）：写操作对成员/绑定 agent 一律拒绝；
+	// owner/超管放行以便解档与整理。读操作与反馈投递（上方放行）不受限
+	if r.Method == "POST" || r.Method == "PUT" || r.Method == "DELETE" {
+		if v, _ := g.DB().Model("projects").Ctx(r.Context()).Where("id", projectId).Fields("status").Value(); v != nil && v.Int() == 3 {
+			if !perm.IsProjectOwner(r.Context(), uid, projectId) {
+				r.Response.WriteHeader(http.StatusOK)
+				r.Response.Header().Set("Content-Type", "application/json")
+				r.Response.Write(jsonStr(403, nil, "项目已归档（只读），如需修改请联系项目负责人解档"))
+				r.ExitAll()
+				return
+			}
+		}
+	}
+	r.Middleware.Next()
 }
 
 // passwordChangeAllowed 强制改密状态下仍可访问的接口：修改密码、登出、获取用户信息

@@ -36,6 +36,21 @@
       </n-spin>
     </n-card>
 
+    <!-- Danger Zone：归档/解档 + 删除（owner/超管可见；转交在成员页） -->
+    <n-card title="危险操作" :bordered="false" class="mt-4">
+      <template #header-extra><n-tag size="small" :bordered="false" type="warning">owner 专属</n-tag></template>
+      <n-space vertical :size="12">
+        <n-alert type="info" :show-icon="false">
+          归档后项目对成员与 Agent 只读（任务/文档/记忆均不可写），你仍可编辑与解档；删除为硬删除且连带全部数据，不可恢复。
+        </n-alert>
+        <n-space>
+          <n-button v-if="projectStatus !== 3" type="warning" secondary @click="handleArchive(true)">归档项目</n-button>
+          <n-button v-else type="success" secondary @click="handleArchive(false)">解除归档</n-button>
+          <n-button type="error" secondary @click="handleDeleteProject">删除项目</n-button>
+        </n-space>
+      </n-space>
+    </n-card>
+
     <!-- 添加关联弹窗 -->
     <n-modal v-model:show="showRelation" preset="dialog" title="添加关联项目" :show-icon="false">
       <n-select v-model:value="relationTarget" :options="relationOptions" placeholder="选择项目（须为你可访问的项目）" size="small" />
@@ -76,15 +91,18 @@
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
-  import { useMessage } from 'naive-ui';
-  import { getRelations, addRelation, removeRelation, getProjects, getMembers } from '@/api/project/index';
+  import { useMessage, useDialog } from 'naive-ui';
+  import { useRouter } from 'vue-router';
+  import { getRelations, addRelation, removeRelation, getProjects, getMembers, updateProject, deleteProject } from '@/api/project/index';
   import { getGroups, createGroup, addProjectToGroup, removeProjectFromGroup } from '@/api/project/group';
   import type { GroupItem } from '@/api/project/group';
   import { useUserStore } from '@/store/modules/user';
   import { usePerm } from '@/composables/usePerm';
 
   const route = useRoute();
+  const router = useRouter();
   const message = useMessage();
+  const dialog = useDialog();
   const userStore = useUserStore();
   const { has, isAdmin } = usePerm();
 
@@ -95,6 +113,54 @@
   const canGovern = computed(() => ['owner', 'maintainer'].includes(myRole.value) || isAdmin.value);
   // 新建分组定义走平台字典 platform_groups（P1-2 后端同口径）
   const canCreateGroup = computed(() => isAdmin.value || has('platform_groups'));
+
+  // ==================== Danger Zone（归档/删除） ====================
+  const projectStatus = ref<number>(1);
+  async function loadProjectStatus() {
+    try {
+      const res = await getProjects({ keyword: '', status: null as any });
+      const cur = (res?.list || []).find((p: any) => p.id === projectId.value);
+      projectStatus.value = cur?.status ?? 1;
+    } catch { /* 列表接口口径兜底 */ }
+  }
+
+  function handleArchive(archive: boolean) {
+    dialog.warning({
+      title: archive ? '归档项目' : '解除归档',
+      content: archive
+        ? '归档后成员与 Agent 只读（含任务认领/文档写入），确定归档吗？'
+        : '解档后项目恢复全员可写，确定吗？',
+      positiveText: '确定',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await updateProject(projectId.value, { status: archive ? 3 : 1 });
+          message.success(archive ? '项目已归档' : '已解除归档');
+          loadProjectStatus();
+        } catch (e: any) {
+          message.error(e?.message || '操作失败');
+        }
+      },
+    });
+  }
+
+  function handleDeleteProject() {
+    dialog.warning({
+      title: '删除项目',
+      content: '删除将连带清除任务/文档/记忆/成员关系等全部数据，且不可恢复。确定删除吗？',
+      positiveText: '确认删除',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await deleteProject(projectId.value);
+          message.success('项目已删除');
+          router.push('/project/list');
+        } catch (e: any) {
+          message.error(e?.message || '删除失败');
+        }
+      },
+    });
+  }
 
   async function loadMyRole() {
     try {
@@ -208,6 +274,7 @@
 
   onMounted(() => {
     loadMyRole();
+    loadProjectStatus();
     loadRelations();
     loadGroups();
   });

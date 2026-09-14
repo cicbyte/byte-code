@@ -81,6 +81,7 @@ export const MEMORY_STATUS = buildDict([
 const PROJECT_ROWS: Array<{ value: number; label: string; tagType: TagType }> = [
   { value: 1, label: '进行中', tagType: 'success' },
   { value: 2, label: '已结束', tagType: 'default' },
+  { value: 3, label: '已归档', tagType: 'warning' },
 ];
 const projectMap = new Map(PROJECT_ROWS.map((r) => [r.value, r]));
 export const PROJECT_STATUS = {
