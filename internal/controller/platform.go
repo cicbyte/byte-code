@@ -131,6 +131,14 @@ func (c *platformController) DashboardStats(ctx context.Context, req *api.Dashbo
 
 // ========== 审计日志 ==========
 
+func (c *platformController) AuditLogExport(ctx context.Context, req *api.AuditLogExportReq) (res *api.AuditLogExportRes, err error) {
+	// CSV 直出（ServeFileDownload 绕开 JSON 封装），错误走统一响应
+	if err := service.Platform().ExportAuditLogs(ctx, g.RequestFromCtx(ctx), req); err != nil {
+		return nil, err
+	}
+	return &api.AuditLogExportRes{}, nil
+}
+
 func (c *platformController) ListAuditLogs(ctx context.Context, req *api.AuditLogListReq) (res *api.AuditLogListRes, err error) {
 	return service.Platform().ListAuditLogs(ctx, req)
 }

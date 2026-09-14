@@ -4,6 +4,7 @@ import (
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/platform"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 type IPlatform interface {
@@ -33,6 +34,7 @@ type IPlatform interface {
 
 	// 审计日志
 	ListAuditLogs(ctx context.Context, req *api.AuditLogListReq) (res *api.AuditLogListRes, err error)
+	ExportAuditLogs(ctx context.Context, r *ghttp.Request, req *api.AuditLogExportReq) error
 	UsageOverview(ctx context.Context, req *api.UsageOverviewReq) (res *api.UsageOverviewRes, err error)
 }
 

@@ -3,7 +3,9 @@ package platform
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
+	"strings"
 	"time"
 
 	liberr "github.com/cicbyte/byte-code/library/liberr"
@@ -14,6 +16,7 @@ import (
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 func init() {
@@ -404,6 +407,67 @@ func (s *sPlatform) DashboardStats(ctx context.Context) (res *api.DashboardStats
 }
 
 // ========== 审计日志 ==========
+
+// ExportAuditLogs 审计日志 CSV 导出：复用列表筛选口径，上限 10000 行。
+// 走临时文件 + ServeFileDownload 直出（绕开 JSON 响应封装），BOM 保证
+// Excel 直接打开不乱码
+func (s *sPlatform) ExportAuditLogs(ctx context.Context, r *ghttp.Request, req *api.AuditLogExportReq) error {
+	m := g.DB().Model("audit_logs").Ctx(ctx)
+	if req.TargetType != "" {
+		m = m.Where("target_type", req.TargetType)
+	}
+	if req.ActorId > 0 {
+		m = m.Where("actor_id", req.ActorId)
+	}
+	if req.Action != "" {
+		m = m.Where("action", req.Action)
+	}
+	if req.ProjectId > 0 {
+		m = m.Where("project_id", req.ProjectId)
+	}
+	var rows []struct {
+		Id         int
+		ActorId    int
+		ActorType  string
+		Action     string
+		TargetType string
+		TargetId   int
+		TargetName string
+		IpAddress  string
+		UserAgent  string
+		CreatedAt  string
+	}
+	if err := m.Order("id DESC").Limit(10000).Scan(&rows); err != nil {
+		return liberr.WrapDb(ctx, err, "查询审计日志失败")
+	}
+	var b strings.Builder
+	b.WriteString("\ufeff" + "id,时间,操作者ID,操作者类型,动作,目标类型,目标ID,目标明细,IP,User-Agent\n")
+	for _, x := range rows {
+		b.WriteString(fmt.Sprintf("%d,%s,%d,%s,%s,%s,%d,%s,%s,%s\n",
+			x.Id, x.CreatedAt, x.ActorId, x.ActorType, x.Action, x.TargetType,
+			x.TargetId, csvField(x.TargetName), csvField(x.IpAddress), csvField(x.UserAgent)))
+	}
+	tmp, err := os.CreateTemp("", "audit-*.csv")
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败")
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.WriteString(b.String()); err != nil {
+		tmp.Close()
+		return fmt.Errorf("写入临时文件失败")
+	}
+	tmp.Close()
+	r.Response.ServeFileDownload(tmp.Name(), fmt.Sprintf("audit-logs-%s.csv", time.Now().Format("20060102-150405")))
+	return nil
+}
+
+// csvField RFC4180：含逗号/引号/换行的字段加引号并转义内部引号
+func csvField(v string) string {
+	if strings.ContainsAny(v, ",\"\r\n") {
+		return "\"" + strings.ReplaceAll(v, "\"", "\"\"") + "\""
+	}
+	return v
+}
 
 func (s *sPlatform) ListAuditLogs(ctx context.Context, req *api.AuditLogListReq) (res *api.AuditLogListRes, err error) {
 	res = &api.AuditLogListRes{}

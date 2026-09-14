@@ -185,9 +185,10 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 				controller.AttachmentCtrl.StorageTest,
 			)
 
-			// 审计日志 + 使用分析（均管理员）
+			// 审计日志 + 使用分析 + 审计导出（均管理员）
 			group.Bind(
 				controller.PlatformCtrl.ListAuditLogs,
+				controller.PlatformCtrl.AuditLogExport,
 				controller.PlatformCtrl.UsageOverview,
 			)
 

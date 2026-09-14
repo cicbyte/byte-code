@@ -20,6 +20,7 @@
           @update:value="onFilterChange"
         />
         <n-button type="primary" @click="onFilterChange">查询</n-button>
+        <n-button :loading="exporting" @click="handleExport">导出 CSV</n-button>
       </n-space>
 
       <n-spin :show="loading">
@@ -78,12 +79,42 @@
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { ref, reactive, onMounted } from 'vue';
   import { getAuditLogs } from '@/api/platform/index';
+  import { storage } from '@/utils/Storage';
+  import { ACCESS_TOKEN } from '@/store/mutation-types';
   import type { AuditLogItem } from '@/api/platform/index';
 
   const loading = ref(false);
   const logList = ref<AuditLogItem[]>([]);
   const total = ref(0);
   const pagination = reactive({ page: 1, size: 20 });
+  const exporting = ref(false);
+
+  async function handleExport() {
+    exporting.value = true;
+    try {
+      const qs = new URLSearchParams();
+      if (filters.action) qs.set('action', filters.action);
+      if (filters.targetType) qs.set('targetType', filters.targetType);
+      const token = (storage.get(ACCESS_TOKEN, '') as string) || '';
+      const resp = await fetch(`/api/v1/admin/audit-logs/export?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error(`导出失败（${resp.status}）`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `audit-logs-${Date.now()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      window.$message?.success('已导出');
+    } catch (e: any) {
+      window.$message?.error(e?.message || '导出失败');
+    } finally {
+      exporting.value = false;
+    }
+  }
+
   const filters = reactive({
     action: '',
     targetType: null as string | null,

@@ -35,6 +35,13 @@ func (s *sMiddleware) MiddlewareAuditLog(r *ghttp.Request) {
 		action = "update"
 	} else if r.Method == "DELETE" {
 		action = "delete"
+	} else {
+		// POST 到动作端点（/tasks/{id}/claim 等）时，动作词比笼统的 create
+		// 更有信息量：审计里 claim/complete/release 一眼可辨
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) > 0 && postEntityVerbs[parts[len(parts)-1]] {
+			action = parts[len(parts)-1]
+		}
 	}
 
 	var target targetInfo
@@ -91,11 +98,12 @@ func createdIdFromBody(buf []byte) int {
 }
 
 // lastResourceSegment 取路径最后的资源段作为目标类型：/api/v1/projects -> projects，
-// /api/v1/projects/5/tasks -> tasks（末段为数字时取前一段）
+// /api/v1/projects/5/tasks -> tasks（末段为数字或动作词时取前一段——
+// claim/complete 等紧跟实体 id 的动作词不是目标类型）
 func lastResourceSegment(path string) string {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	for i := len(parts) - 1; i >= 0; i-- {
-		if !isNumeric(parts[i]) {
+		if !isNumeric(parts[i]) && !postEntityVerbs[parts[i]] {
 			return parts[i]
 		}
 	}
@@ -144,6 +152,13 @@ func enrichVaultTarget(r *ghttp.Request, t *targetInfo, path string) {
 var postEntityVerbs = map[string]bool{
 	"claim":    true,
 	"burndown": true,
+	// 任务生命周期动作词（#420 审计导出时发现缺失：complete 被当作目标类型）
+	"complete": true,
+	"release":  true,
+	"reopen":   true,
+	"block":    true,
+	"unblock":  true,
+	"log":      true,
 }
 
 func parseTarget(path string) targetInfo {

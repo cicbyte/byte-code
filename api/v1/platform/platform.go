@@ -222,6 +222,18 @@ type AuditLogListReq struct {
 	Size       int    `json:"size" in:"query" d:"20"`
 }
 
+type AuditLogExportReq struct {
+	g.Meta     `path:"/admin/audit-logs/export" method:"get" tags:"审计日志" summary:"审计日志导出 CSV（复用列表筛选，上限 10000 行）"`
+	TargetType string `json:"targetType" in:"query"`
+	ActorId    int    `json:"actorId" in:"query"`
+	Action     string `json:"action" in:"query"`
+	ProjectId  int    `json:"projectId" in:"query"`
+}
+
+type AuditLogExportRes struct {
+	g.Meta `mime:"text/csv"`
+}
+
 type AuditLogListRes struct {
 	List  []AuditLogItem `json:"list"`
 	Total int            `json:"total"`
