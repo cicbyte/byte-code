@@ -2,10 +2,12 @@ package project
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -91,6 +93,9 @@ func (s *sProject) UpdateMilestone(ctx context.Context, req *api.MilestoneUpdate
 }
 
 func (s *sProject) DeleteMilestone(ctx context.Context, id int) (err error) {
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, perm.EntityProjectId(ctx, "milestones", id)) {
+		return fmt.Errorf("仅项目管理员可删除里程碑")
+	}
 	// 解除关联的需求（milestone_id 置 0，需求保留）与删除同事务——
 	// 分开执行时第二步失败会让关联信息已丢而里程碑还在
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {

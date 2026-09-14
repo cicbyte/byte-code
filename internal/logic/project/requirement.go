@@ -6,6 +6,7 @@ import (
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -77,6 +78,10 @@ func (s *sProject) UpdateRequirement(ctx context.Context, req *api.RequirementUp
 }
 
 func (s *sProject) DeleteRequirement(ctx context.Context, id int) (err error) {
+	// 删除需求属治理级动作：owner/maintainer 可执行（agent 不在成员表，天然被拒）
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, perm.EntityProjectId(ctx, "requirements", id)) {
+		return fmt.Errorf("仅项目管理员可删除需求")
+	}
 	// 递归 CTE 收集整棵子树（含自身），一并清理关联数据
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		subtree := `WITH RECURSIVE sub(id) AS (

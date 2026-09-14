@@ -84,6 +84,9 @@ func (s *sProject) UpdateSprint(ctx context.Context, req *api.SprintUpdateReq) (
 }
 
 func (s *sProject) DeleteSprint(ctx context.Context, id int) (err error) {
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, perm.EntityProjectId(ctx, "sprints", id)) {
+		return fmt.Errorf("仅项目管理员可删除迭代")
+	}
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// 将 Sprint 下的任务的 sprint_id 置 0（解除绑定，任务保留）
 		if _, err := tx.Model("tasks").Where("sprint_id", id).Data(g.Map{"sprint_id": 0}).Update(); err != nil {
@@ -176,6 +179,10 @@ func (s *sProject) AddTaskToSprint(ctx context.Context, sprintId, taskId int) (e
 func (s *sProject) RemoveTaskFromSprint(ctx context.Context, sprintId, taskId int) (err error) {
 	if err := assertSprintTaskSameProject(ctx, sprintId, taskId); err != nil {
 		return err
+	}
+	// 迭代治理（任务出入迭代）同 maintainer 档
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, perm.EntityProjectId(ctx, "sprints", sprintId)) {
+		return fmt.Errorf("仅项目管理员可调整迭代任务")
 	}
 	_, err = g.DB().Model("tasks").Ctx(ctx).
 		Where("id", taskId).

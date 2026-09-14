@@ -265,6 +265,16 @@ func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err 
 }
 
 func (s *sProject) DeleteTask(ctx context.Context, id int) (err error) {
+	// 删除属破坏性操作（2026-09-16 审查实测越权）：agent 需 tasks_write 能力；
+	// 人类与 agent 同一口径——任务创建者或项目管理级（owner/maintainer/超管）
+	pid := perm.EntityProjectId(ctx, "tasks", id)
+	if err := perm.AgentRequire(ctx, pid, "tasks_write"); err != nil {
+		return err
+	}
+	if creator := perm.EntityFieldInt(ctx, "tasks", id, "creator_id"); creator != perm.UserId(ctx) &&
+		!perm.IsProjectMaintainer(ctx, perm.UserId(ctx), pid) {
+		return fmt.Errorf("仅任务创建者或项目管理员可删除任务")
+	}
 	// 事务内清理任务的评论、AI 日志、标签与附件关联，最后删任务本身
 	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Delete("comments", "task_id", id); err != nil {

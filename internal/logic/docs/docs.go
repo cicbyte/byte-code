@@ -489,6 +489,9 @@ func (s *sVault) Upload(ctx context.Context, projectId int64, dir string, file *
 }
 
 func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_write"); err != nil {
+		return err
+	}
 	fromAbs, err := docs.SafeJoin(projectId, from)
 	if err != nil {
 		return gerror.New(err.Error())
@@ -539,6 +542,9 @@ func (s *sVault) Move(ctx context.Context, projectId int64, from, to string) err
 }
 
 func (s *sVault) Delete(ctx context.Context, projectId int64, rel string) error {
+	if err := perm.AgentRequire(ctx, int(projectId), "docs_write"); err != nil {
+		return err
+	}
 	abs, err := docs.SafeJoin(projectId, rel)
 	if err != nil {
 		return gerror.New(err.Error())

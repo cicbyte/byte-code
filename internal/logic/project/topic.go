@@ -374,6 +374,9 @@ func (s *sProject) UpdateTopicPhase(ctx context.Context, req *api.TopicPhaseUpda
 
 // DeleteTopicPhase 删除阶段（已转出任务的历史阶段保血缘不可删）
 func (s *sProject) DeleteTopicPhase(ctx context.Context, projectId, topicId, phaseId int) (err error) {
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, projectId) {
+		return fmt.Errorf("仅项目管理员可删除阶段")
+	}
 	if _, err = s.topicRow(ctx, projectId, topicId); err != nil {
 		return err
 	}

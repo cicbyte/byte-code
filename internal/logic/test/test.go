@@ -8,6 +8,7 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/test"
 	service "github.com/cicbyte/byte-code/internal/service"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/cicbyte/byte-code/utility/activity"
 	"github.com/cicbyte/byte-code/utility/escape"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -128,6 +129,10 @@ func (s *sTest) UpdateCase(ctx context.Context, req *api.TestCaseUpdateReq) (err
 }
 
 func (s *sTest) DeleteCase(ctx context.Context, id int) (err error) {
+	// 删除测试资产属治理级动作：owner/maintainer 可执行
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, perm.EntityProjectId(ctx, "test_cases", id)) {
+		return fmt.Errorf("仅项目管理员可删除测试用例")
+	}
 	userId := ctx.Value("userId")
 	uid, _ := userId.(int)
 	if _, err = s.GetCase(ctx, id); err != nil {
@@ -310,6 +315,9 @@ func (s *sTest) UpdatePlan(ctx context.Context, req *api.TestPlanUpdateReq) (err
 }
 
 func (s *sTest) DeletePlan(ctx context.Context, id int) (err error) {
+	if uid := perm.UserId(ctx); !perm.IsProjectMaintainer(ctx, uid, perm.EntityProjectId(ctx, "test_plans", id)) {
+		return fmt.Errorf("仅项目管理员可删除测试计划")
+	}
 	err = g.Try(ctx, func(ctx context.Context) {
 		// 两步删除在事务中执行
 		userId := ctx.Value("userId")
