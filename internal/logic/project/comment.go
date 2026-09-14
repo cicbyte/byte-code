@@ -30,6 +30,11 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 	if v, _ := g.DB().Model("sys_users").Ctx(ctx).Where("id", userId).Fields("type").Value(); v != nil && v.String() == "ai" {
 		userType = "ai"
 	}
+	// @全员广播仅限人类：agent 评论里的 @全员直接拒绝（明确报错优于静默不广播
+	// ——agent 会以为已全员送达）
+	if userType == "ai" && mentionHit(req.Content, "全员") {
+		return 0, fmt.Errorf("@全员仅限人类用户使用")
+	}
 
 	result, err := g.DB().Model("comments").Ctx(ctx).Insert(g.Map{
 		"task_id":   req.TaskId,
@@ -40,9 +45,9 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 	})
 	// 评论通知（评论本身不阻塞）：通知任务负责人与创建者（排除自己）；
 	// 回复时额外通知被回复评论的作者；内容中 @用户名 精确匹配触发提及通知
-	if err == nil {
-		taskRow, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.TaskId).
-			Fields("title, assignee_id, creator_id").One()
+		if err == nil {
+			taskRow, _ := g.DB().Model("tasks").Ctx(ctx).Where("id", req.TaskId).
+				Fields("title, assignee_id, creator_id, project_id").One()
 		if !taskRow.IsEmpty() {
 			title := taskRow["title"].String()
 			notified := map[int]bool{userId: true}
@@ -72,6 +77,15 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 			// 关注者兜底收「新评论」：被 @ 的 watcher 上一行已按提及文案通知并进去重表
 			fanOutWatchers(ctx, req.TaskId, notified, "任务新评论",
 				fmt.Sprintf("任务「%s」有新评论", title), "info")
+			// @全员广播：项目全体成员（human+agent）收一条，作者与已通知者去重
+			if userType == "human" && mentionHit(req.Content, "全员") {
+				who := authorName
+				if who == "" {
+					who = "有人"
+				}
+				notifyAllMembers(ctx, taskRow["project_id"].Int(), notified,
+					fmt.Sprintf("%s 在任务「%s」的评论中提及了全员", who, title), req.TaskId)
+			}
 		}
 	}
 	if err != nil {
@@ -79,6 +93,36 @@ func (s *sProject) CreateComment(ctx context.Context, req *api.CommentCreateReq)
 	}
 	lastId, _ := result.LastInsertId()
 	return int(lastId), nil
+}
+
+// notifyAllMembers @全员广播：项目全体成员（human 成员 + 绑定 agent）各收
+// 一条通知；notified 去重表沿用调用方上下文（作者与已定向通知者不重复打扰）
+func notifyAllMembers(ctx context.Context, projectId int, notified map[int]bool, content string, taskId int) {
+	if projectId <= 0 {
+		return
+	}
+	ids := map[int]bool{}
+	memberRows, err := g.DB().Model("project_members").Ctx(ctx).
+		Fields("user_id").Where("project_id", projectId).All()
+	if err == nil {
+		for _, r := range memberRows {
+			ids[r["user_id"].Int()] = true
+		}
+	}
+	agentRows, err := g.DB().Model("agent_project_bindings").Ctx(ctx).
+		Fields("agent_id").Where("project_id", projectId).All()
+	if err == nil {
+		for _, r := range agentRows {
+			ids[r["agent_id"].Int()] = true
+		}
+	}
+	for uid := range ids {
+		if uid <= 0 || notified[uid] {
+			continue
+		}
+		notified[uid] = true
+		notify.Send(ctx, uid, "评论提及了全员", content, "info", "task", taskId)
+	}
 }
 
 // notifyMentions @提及通知：评论内容与 @用户名 比对时要求命中处下一字节是边界

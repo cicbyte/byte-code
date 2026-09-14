@@ -350,7 +350,7 @@
             <n-mention
               v-model:value="newComment"
               type="textarea"
-              placeholder="输入评论，@ 可提及成员或 Agent（实时送达通知）"
+              placeholder="输入评论，@ 可提及成员/Agent，@全员 广播全体（仅人类）"
               :rows="2"
               :options="mentionOptions"
               :prefix="['@']"
@@ -570,19 +570,23 @@
   // 一致——显示名仅在候选列表里辅助识别）
   const mentionOptions = ref<Array<{ label: string; value: string }>>([]);
   async function loadMentionOptions(projectId: number) {
+    // @全员 常驻首项：仅人类可用（agent 发送会被后端拒），全体成员收通知
+    const allOption = [{ label: '👥 全员（@所有人）', value: '全员' }];
     try {
       const res = await getMembers(projectId);
       // human 与 Agent 都可被 @：Agent 头像标识区分，选中即发通知
-      mentionOptions.value = (res?.list || [])
-        .filter((m) => !m.userType || m.userType === 'human' || m.userType === 'ai')
-        .map((m) => ({
-          label: m.userType === 'ai'
-            ? `✦ ${m.realName || m.username}（${m.username}·Agent）`
-            : `${m.realName || m.username}（${m.username}）`,
-          value: m.username,
-        }));
+      mentionOptions.value = allOption.concat(
+        (res?.list || [])
+          .filter((m) => !m.userType || m.userType === 'human' || m.userType === 'ai')
+          .map((m) => ({
+            label: m.userType === 'ai'
+              ? `✦ ${m.realName || m.username}（${m.username}·Agent）`
+              : `${m.realName || m.username}（${m.username}）`,
+            value: m.username,
+          })),
+      );
     } catch {
-      mentionOptions.value = [];
+      mentionOptions.value = allOption;
     }
   }
 

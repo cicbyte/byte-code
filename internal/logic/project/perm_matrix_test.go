@@ -406,3 +406,48 @@ func TestTaskWatchers(t *testing.T) {
 		t.Errorf("删除任务应级联清理 watcher, 残留 %d 行", n)
 	}
 }
+
+// ---------- P3 @全员（#429） ----------
+
+func TestMentionAll(t *testing.T) {
+	tid := newTask(t, 101)
+
+	// 人类评论带 @全员：项目全体成员（103）与绑定 agent（108）各收一条
+	if _, err := s.CreateComment(ctxAs(101), &api.CommentCreateReq{
+		TaskId: tid, Content: "通知 @全员 今晚发版",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	n103 := watchNotifCount(t, 103, tid, "评论提及了全员")
+	n108 := watchNotifCount(t, 108, tid, "评论提及了全员")
+	n101 := watchNotifCount(t, 101, tid, "评论提及了全员")
+	if n103 != 1 || n108 != 1 {
+		t.Errorf("@全员应通知成员103与agent108, got 103:%d 108:%d", n103, n108)
+	}
+	if n101 != 0 {
+		t.Errorf("评论作者不应收到自己的@全员通知, got %d", n101)
+	}
+
+	// agent 评论带 @全员：整条拒绝（明确报错优于静默不广播）
+	if _, err := s.CreateComment(ctxAs(108), &api.CommentCreateReq{
+		TaskId: tid, Content: "agent 也 @全员 试试",
+	}); err == nil {
+		t.Error("agent 评论带 @全员 应被拒绝")
+	}
+
+	// 宽口径：@全员后跟汉字（非 ASCII 词字节）按边界处理——仍算提及（与
+	// @用户名 的宁可多命中不漏报口径一致），103 再收一条累计 2
+	if _, err := s.CreateComment(ctxAs(101), &api.CommentCreateReq{
+		TaskId: tid, Content: "这个 @全员通知 功能不错",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if n := watchNotifCount(t, 103, tid, "评论提及了全员"); n != 2 {
+		t.Errorf("第二次 @全员（后跟汉字）后 103 应累计 2 条, got %d", n)
+	}
+
+	// 清理：本测试产生的评论与通知
+	g.DB().Model("comments").Ctx(ctxAs(101)).Where("task_id", tid).Delete()
+	g.DB().Model("notifications").Ctx(ctxAs(101)).Where("source_type", "task").Where("source_id", tid).Delete()
+	g.DB().Model("tasks").Ctx(ctxAs(101)).Where("id", tid).Delete()
+}
