@@ -61,8 +61,20 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 			panic("用户未登录")
 		}
 
+		// 实体定位：整数 id 实体用 EntityId；doc 走 EntityKey（路径型 vault
+		// 无整数 id），格式 "{projectId}:{path}"，entity_id 恒 0
+		entityKey := strings.TrimSpace(req.EntityKey)
+		if req.EntityType == "doc" {
+			if entityKey == "" {
+				panic("文档附件必须指定 entityKey")
+			}
+			req.EntityId = 0
+		} else if req.EntityId <= 0 {
+			panic("实体ID不能为空")
+		}
+
 		// 实体归属校验：附件必须挂在当前用户可访问的项目实体上
-		if !attachmentEntityAccessible(ctx, uid, req.EntityType, req.EntityId) {
+		if !attachmentEntityAccessible(ctx, uid, req.EntityType, req.EntityId, entityKey) {
 			panic("无权向该实体上传附件")
 		}
 
@@ -94,9 +106,13 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		}
 		defer f.Close()
 
-		// 生成 S3 key
+		// 生成 S3 key：doc 用项目 id 段（entity_id 恒 0），其余用实体 id
 		monthStr := time.Now().Format("2006-01")
-		s3Key := fmt.Sprintf("%s/%d/%s/%s%s", req.EntityType, req.EntityId, monthStr, uuid.New().String(), fileExt)
+		entitySeg := fmt.Sprintf("%d", req.EntityId)
+		if req.EntityType == "doc" {
+			entitySeg = fmt.Sprintf("p%d", docKeyProject(entityKey))
+		}
+		s3Key := fmt.Sprintf("%s/%s/%s/%s%s", req.EntityType, entitySeg, monthStr, uuid.New().String(), fileExt)
 
 		// 获取 S3 存储实例
 		st, err := storage.NewStorageFromCtx(ctx)
@@ -123,6 +139,7 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 			"file_ext":       fileExt,
 			"entity_type":    req.EntityType,
 			"entity_id":      req.EntityId,
+			"entity_key":     entityKey,
 			"uploader_id":    uid,
 			"description":    "",
 			"download_count": 0,
@@ -259,17 +276,27 @@ func (s *sAttachment) Delete(ctx context.Context, id int) (err error) {
 }
 
 func (s *sAttachment) List(ctx context.Context, req *api.AttachmentListReq) (list []api.AttachmentItem, err error) {
-	if !attachmentEntityAccessible(ctx, perm.UserId(ctx), req.EntityType, req.EntityId) {
+	entityKey := strings.TrimSpace(req.EntityKey)
+	if req.EntityType == "doc" && entityKey == "" {
+		return nil, fmt.Errorf("文档附件查询必须指定 entityKey")
+	}
+	if req.EntityType != "doc" && req.EntityId <= 0 {
+		return nil, fmt.Errorf("实体ID不能为空")
+	}
+	if !attachmentEntityAccessible(ctx, perm.UserId(ctx), req.EntityType, req.EntityId, entityKey) {
 		return nil, fmt.Errorf("无权访问该实体的附件")
 	}
 	err = g.Try(ctx, func(ctx context.Context) {
-		err := g.DB().Model("attachments a").Ctx(ctx).
+		m := g.DB().Model("attachments a").Ctx(ctx).
 			LeftJoin("sys_users u", "a.uploader_id = u.id").
 			Fields("a.*, u.real_name as uploader_name").
-			Where("a.entity_type", req.EntityType).
-			Where("a.entity_id", req.EntityId).
-			Order("a.created_at desc").
-			Scan(&list)
+			Where("a.entity_type", req.EntityType)
+		if entityKey != "" {
+			m = m.Where("a.entity_key", entityKey)
+		} else {
+			m = m.Where("a.entity_id", req.EntityId)
+		}
+		err := m.Order("a.created_at desc").Scan(&list)
 		liberr.ErrIsNil(ctx, err, "获取附件列表失败")
 	})
 	return
@@ -375,15 +402,30 @@ func gconvExport(m g.Map) string {
 
 // attachmentEntityAccessible 校验当前用户是否有权操作指定实体的附件。
 // entityType 必须与白名单一致，且目标实体所属项目须为当前用户可访问的项目。
-func attachmentEntityAccessible(ctx context.Context, userId int, entityType string, entityId int) bool {
-	if entityId <= 0 || userId <= 0 {
+// doc 类型走 entityKey（"{projectId}:{path}"）：按解析出的项目校验
+func attachmentEntityAccessible(ctx context.Context, userId int, entityType string, entityId int, entityKey string) bool {
+	if userId <= 0 {
+		return false
+	}
+	if entityType == "doc" {
+		pid := docKeyProject(entityKey)
+		if pid <= 0 {
+			return false
+		}
+		// 项目存在性前置：超管在 CanAccessProject 恒放行，不查存在会把
+		// 附件挂到不存在项目的键上（垃圾键行）
+		if v, err := g.DB().Model("projects").Where("id", pid).Fields("id").Value(); err != nil || v == nil {
+			return false
+		}
+		return perm.CanAccessProject(ctx, userId, pid)
+	}
+	if entityId <= 0 {
 		return false
 	}
 	// 实体类型到含 project_id 列的表映射（与上传白名单一致）
 	entityTable := map[string]string{
 		"task":        "tasks",
 		"requirement": "requirements",
-		"doc":         "docs",
 		"test_case":   "test_cases",
 		"project":     "projects",
 	}
@@ -403,13 +445,35 @@ func attachmentEntityAccessible(ctx context.Context, userId int, entityType stri
 	return perm.CanAccessProject(ctx, userId, pid)
 }
 
+// docKeyProject 解析文档附件键 "N:/path" 的项目 id；格式非法返回 0
+func docKeyProject(entityKey string) int {
+	if entityKey == "" {
+		return 0
+	}
+	i := strings.Index(entityKey, ":")
+	if i <= 0 {
+		return 0
+	}
+	pid := 0
+	for _, ch := range entityKey[:i] {
+		if ch < '0' || ch > '9' {
+			return 0
+		}
+		pid = pid*10 + int(ch-'0')
+		if pid > 1<<30 {
+			return 0
+		}
+	}
+	return pid
+}
+
 // attachmentByIdAccessible 按附件 id 解析其实体归属再校验
 func attachmentByIdAccessible(ctx context.Context, userId, attachmentId int) bool {
-	rec, err := g.DB().Model("attachments").Where("id", attachmentId).Fields("entity_type, entity_id").One()
+	rec, err := g.DB().Model("attachments").Where("id", attachmentId).Fields("entity_type, entity_id, entity_key").One()
 	if err != nil || rec == nil {
 		return false
 	}
-	return attachmentEntityAccessible(ctx, userId, rec["entity_type"].String(), rec["entity_id"].Int())
+	return attachmentEntityAccessible(ctx, userId, rec["entity_type"].String(), rec["entity_id"].Int(), rec["entity_key"].String())
 }
 
 

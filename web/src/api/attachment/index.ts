@@ -12,6 +12,8 @@ export interface AttachmentItem {
   fileExt: string;
   entityType: string;
   entityId: number;
+  /** 文档附件路径键（仅 doc 类型有值） */
+  entityKey?: string;
   uploaderId: number;
   description: string;
   downloadCount: number;
@@ -25,7 +27,10 @@ export interface AttachmentListResult {
 
 export interface AttachmentUploadData {
   entityType: 'task' | 'requirement' | 'doc' | 'test_case' | 'project';
+  /** 整数 id 实体用；doc 类型传 0 并带 entityKey */
   entityId: number;
+  /** 文档附件路径键 "{projectId}:{path}"（仅 doc 类型） */
+  entityKey?: string;
   file: File;
 }
 
@@ -58,6 +63,7 @@ export function uploadAttachment(data: AttachmentUploadData) {
   const formData = new FormData();
   formData.append('entityType', data.entityType);
   formData.append('entityId', String(data.entityId));
+  if (data.entityKey) formData.append('entityKey', data.entityKey);
   formData.append('file', data.file);
   // 不显式设 Content-Type：浏览器需自动补 boundary，显式设置会导致后端解析失败
   return Alova.Post<{ id: number }>('/v1/attachments/upload', formData);
@@ -83,11 +89,11 @@ export function deleteAttachment(id: number) {
   return Alova.Delete(`/v1/attachments/${id}`);
 }
 
-/** 实体附件列表 */
-export function getAttachments(entityType: string, entityId: number) {
-  return Alova.Get<AttachmentListResult>('/v1/attachments', {
-    params: { entityType, entityId },
-  });
+/** 实体附件列表（doc 类型传 entityId=0 + entityKey="{projectId}:{path}"） */
+export function getAttachments(entityType: string, entityId: number, entityKey?: string) {
+  const params: Record<string, string | number> = { entityType, entityId };
+  if (entityKey) params.entityKey = entityKey;
+  return Alova.Get<AttachmentListResult>('/v1/attachments', { params });
 }
 
 /** 更新附件描述 */

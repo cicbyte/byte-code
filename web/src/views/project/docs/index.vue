@@ -132,6 +132,28 @@
                 <span class="bin-meta">{{ currentFile.path }} · {{ formatSize(currentFile.size) }}</span>
               </n-space>
             </template>
+
+            <!-- 附件：挂文档路径键（entity_key = projectId:path），与任务附件同款交互 -->
+            <n-divider style="margin: 14px 0 8px" />
+            <n-space :size="8" align="center" class="mb-2">
+              <span class="text-sm font-medium">附件（{{ docAttachments.length }}）</span>
+              <n-button size="tiny" :loading="uploadingDocAtt" @click="docAttInputRef?.click()">
+                上传附件
+              </n-button>
+              <span class="text-xs text-gray-400">截图/设计稿/参考资料挂在本文档上</span>
+            </n-space>
+            <div v-if="docAttachments.length === 0" class="text-xs text-gray-400 mb-2">暂无附件</div>
+            <n-space v-for="a in docAttachments" :key="a.id" justify="space-between" align="center" class="w-full doc-att-row">
+              <n-space :size="8" align="center">
+                <span class="text-sm">{{ a.originalName }}</span>
+                <span class="text-xs text-gray-400">{{ formatSize(a.fileSize) }}</span>
+                <span class="text-xs text-gray-400">{{ a.uploaderName || '' }}</span>
+              </n-space>
+              <n-space :size="2">
+                <n-button text type="info" size="tiny" @click="downloadDocAtt(a)">下载</n-button>
+                <n-button text type="error" size="tiny" @click="removeDocAtt(a)">删除</n-button>
+              </n-space>
+            </n-space>
           </template>
           <EmptyState v-else type="doc" title="未选择文档" description="从左侧目录选择一个文件开始阅读" compact />
         </n-card>
@@ -205,6 +227,7 @@
 
     <!-- 上传：隐藏 input -->
     <input ref="uploadInputRef" type="file" style="display: none" multiple @change="handleUpload" />
+    <input ref="docAttInputRef" type="file" style="display: none" multiple @change="onDocAttFiles" />
 
     <!-- 树右键菜单：按空白区/目录/文件场景渲染 -->
     <n-dropdown
@@ -244,6 +267,7 @@
     refreshDocs,
   } from '@/api/docs/index';
   import type { DocsTreeNode, DocsFile } from '@/api/docs/index';
+  import { getAttachments, uploadAttachment, downloadAttachment, deleteAttachment } from '@/api/attachment/index';
   import { useInlineEdit } from '../composables/useInlineEdit';
   import { useCtxMenu } from '../composables/useCtxMenu';
   import { useBinaryPreview } from '../composables/useBinaryPreview';
@@ -389,8 +413,68 @@
         await loadBinObjectUrl();
         if (path.toLowerCase().endsWith('.docx')) loadDocxPreview();
       }
+      loadDocAttachments();
     } catch {
       message.error('加载文件失败');
+    }
+  }
+
+  // ==================== 文档附件（#430：挂路径键 projectId:path） ====================
+  const docAttInputRef = ref<HTMLInputElement | null>(null);
+  const docAttachments = ref<any[]>([]);
+  const uploadingDocAtt = ref(false);
+
+  function docEntityKey(): string {
+    return currentFile.value ? `${projectId.value}:${currentFile.value.path}` : '';
+  }
+
+  async function loadDocAttachments() {
+    const key = docEntityKey();
+    if (!key) {
+      docAttachments.value = [];
+      return;
+    }
+    try {
+      const res = await getAttachments('doc', 0, key);
+      docAttachments.value = res?.list || [];
+    } catch {
+      docAttachments.value = [];
+    }
+  }
+
+  async function onDocAttFiles(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+    const key = docEntityKey();
+    if (!files.length || !key) return;
+    uploadingDocAtt.value = true;
+    for (const f of files) {
+      try {
+        await uploadAttachment({ entityType: 'doc', entityId: 0, entityKey: key, file: f });
+      } catch {
+        message.error(`上传失败：${f.name}`);
+      }
+    }
+    uploadingDocAtt.value = false;
+    input.value = '';
+    loadDocAttachments();
+  }
+
+  async function downloadDocAtt(a: any) {
+    try {
+      const res = await downloadAttachment(a.id);
+      if (res?.url) window.open(res.url, '_blank');
+    } catch {
+      message.error('获取下载链接失败');
+    }
+  }
+
+  async function removeDocAtt(a: any) {
+    try {
+      await deleteAttachment(a.id);
+      docAttachments.value = docAttachments.value.filter((x: any) => x.id !== a.id);
+    } catch {
+      message.error('删除附件失败');
     }
   }
 
