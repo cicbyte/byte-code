@@ -37,6 +37,26 @@ type PermissionItem struct {
 }
 
 // LogoutReq 登出
+type ForgotPasswordReq struct {
+	g.Meta `path:"/auth/forgot-password" method:"post" tags:"认证" summary:"发起密码重置（防枚举：恒定成功）"`
+	// 用户名或绑定邮箱
+	Account string `json:"account" v:"required#请输入用户名或邮箱"`
+}
+
+type ForgotPasswordRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+type ResetPasswordReq struct {
+	g.Meta      `path:"/auth/reset-password" method:"post" tags:"认证" summary:"凭重置令牌设置新密码（单次/30min）"`
+	Token       string `json:"token" v:"required#重置令牌不能为空"`
+	NewPassword string `json:"newPassword" v:"required|length:8,20#新密码不能为空|新密码长度8-20位"`
+}
+
+type ResetPasswordRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 type LogoutReq struct {
 	g.Meta `path:"/login/logout" method:"post" tags:"认证" summary:"用户登出"`
 }
