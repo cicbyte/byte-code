@@ -61,6 +61,11 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			)
 			// 项目导出单独绑（同控制器整绑也行，但导出是重接口，显式列出便于审计路由表）
 
+			// 审核中心（跨项目聚合待审 + 批量审核；动作语义复用任务 ReviewTask）
+			group.Bind(
+				controller.Review,
+			)
+
 			// 数据库模型管理
 			group.Bind()
 

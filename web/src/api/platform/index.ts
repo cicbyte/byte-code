@@ -134,6 +134,27 @@ export interface DashboardStatsResult {
   recentTasks: RecentTaskItem[];
 }
 
+/** 审核中心：跨项目待审聚合 */
+export interface PendingReviewItem {
+  id: number;
+  projectId: number;
+  projectName: string;
+  title: string;
+  description: string;
+  type: string;
+  priority: number;
+  source: string;
+  status: string;
+  assigneeName: string;
+  requiresHumanReview: number;
+  updatedAt: string;
+}
+
+export interface BatchReviewResult {
+  succeeded: number;
+  failed: Array<{ id: number; title: string; error: string }>;
+}
+
 /** 审计日志 */
 export interface AuditLogItem {
   id: number;
@@ -244,6 +265,21 @@ export function search(params: SearchParams) {
 export function getDashboardStats() {
   return Alova.Get<DashboardStatsResult>('/v1/stats/dashboard');
 }
+
+// ==================== 审核中心 API ====================
+
+/** 跨项目待审任务聚合 */
+export function getPendingReviews(size = 200) {
+  return Alova.Get<{ list: PendingReviewItem[]; total: number }>('/v1/reviews/pending', {
+    params: { size },
+  });
+}
+
+/** 批量通过/驳回（单条失败不阻断整批，明细在 failed 中返回） */
+export function batchReview(data: { ids: number[]; status: 'approved' | 'rejected'; comment?: string }) {
+  return Alova.Post<BatchReviewResult>('/v1/reviews/batch', data);
+}
+
 
 // ==================== 审计日志 API ====================
 

@@ -42,14 +42,14 @@
       </n-grid-item>
 
       <n-grid-item>
-        <n-card title="待审核" size="small" :bordered="false">
+        <n-card title="待审核" size="small" :bordered="false" class="stat-link" @click="gotoReviews">
           <template #header-extra>
             <n-icon size="24" color="#ffc069"><AuditOutlined /></n-icon>
           </template>
           <n-skeleton v-if="loading" :width="60" size="medium" />
           <CountTo v-else :startVal="0" :endVal="stats.reviewTasks" class="text-3xl" />
           <template #footer>
-            <span class="text-gray-400">等待审核的任务</span>
+            <span class="text-gray-400">等待审核的任务 · 点击进入审核中心</span>
           </template>
         </n-card>
       </n-grid-item>
@@ -146,6 +146,10 @@
   function gotoTask(task: RecentTaskItem) {
     if (task.projectId) router.push(`/project/${task.projectId}/tasks?task=${task.id}`);
   }
+  // 待审统计卡直达审核中心
+  function gotoReviews() {
+    router.push('/reviews');
+  }
 
   // 图表实例提级持有：匿名 resize 监听与 echarts 实例不清理，
   // 反复进出仪表盘会持续叠加（内存泄漏；清理模式对齐 sprints.vue）
@@ -208,3 +212,14 @@
 
   onUnmounted(disposeChart);
 </script>
+
+<style lang="less" scoped>
+  .stat-link {
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+
+    &:hover {
+      box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
+    }
+  }
+</style>

@@ -11,6 +11,7 @@ import (
 	_ "github.com/cicbyte/byte-code/internal/logic/middleware"
 	_ "github.com/cicbyte/byte-code/internal/logic/platform"
 	_ "github.com/cicbyte/byte-code/internal/logic/project"
+	_ "github.com/cicbyte/byte-code/internal/logic/review"
 	_ "github.com/cicbyte/byte-code/internal/logic/role"
 	_ "github.com/cicbyte/byte-code/internal/logic/setting"
 	_ "github.com/cicbyte/byte-code/internal/logic/test"
