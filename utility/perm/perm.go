@@ -102,9 +102,11 @@ var AgentCaps = map[string]string{
 }
 
 // AgentRequire Agent 能力门禁（PRD §5.2）：人类调用直通（受角色/成员体系
-// 约束）；agent 按 agent_project_bindings.capabilities 校验。无绑定行
-// （members 表手工加的早期 agent）与空能力集均视为全能力——只有管理侧
-// 显式设置过能力集的 agent 才受限，存量行为不变。调整即时生效（无缓存）
+// 约束）；agent 按 agent_project_bindings.capabilities 校验。空能力集视为
+// 全能力（只有管理侧显式设置过能力集的 agent 才受限）。无绑定行不再放行
+// （#443）：仅当存在 project_members 行（早期手工加的存量 agent）按成员
+// 资格放行，否则明确拒绝——未接入项目的 agent 不应能操作其任务。
+// 调整即时生效（无缓存）
 func AgentRequire(ctx context.Context, projectId int, cap string) error {
 	uid := UserId(ctx)
 	if uid == 0 {
@@ -118,8 +120,20 @@ func AgentRequire(ctx context.Context, projectId int, cap string) error {
 		Where("agent_id", uid).
 		Where("project_id", projectId).
 		Fields("capabilities").Value()
-	if cerr != nil || caps == nil {
-		return nil
+	if cerr != nil {
+		// 查询失败 fail-closed：静默放行会让门禁形同虚设
+		return fmt.Errorf("校验 Agent 能力失败: %w", cerr)
+	}
+	if caps == nil {
+		// 无绑定行：members 行兼容存量手工 agent（全能力），两边都没有 = 未接入
+		cnt, merr := g.DB().Model("project_members").
+			Where("user_id", uid).
+			Where("project_id", projectId).
+			Count()
+		if merr == nil && cnt > 0 {
+			return nil
+		}
+		return fmt.Errorf("无权限：Agent 未接入该项目，请向项目 owner 申请接入码加入")
 	}
 	list := strings.TrimSpace(caps.String())
 	if list == "" {
@@ -135,6 +149,50 @@ func AgentRequire(ctx context.Context, projectId int, cap string) error {
 		label = cap
 	}
 	return fmt.Errorf("无权限：Agent 未被授予「%s」能力", label)
+}
+
+// SessionProjectId 认证阶段（TokenAuth bc_ 分支）解析的会话项目：
+// X-Session（bcsh_，键=agent+project）。0=未携带会话（人类 token 或
+// 无会话直连 API），此时不做会话级项目约束
+func SessionProjectId(ctx context.Context) int {
+	if v := ctx.Value("sessionProjectId"); v != nil {
+		if p, ok := v.(int); ok {
+			return p
+		}
+	}
+	return 0
+}
+
+// AgentSessionGuard 「当前项目」约束（#443）：agent 请求携带会话时，任务类
+// 操作的目标项目必须与会话项目一致——同一 agent 多项目绑定时防跨会话/
+// 跨项目错领（在 A 项目会话里认领/操作 B 项目任务）。人类与无会话请求
+// 不约束（后者由 AgentRequire 的准入门禁兜底）
+func AgentSessionGuard(ctx context.Context, projectId int) error {
+	uid := UserId(ctx)
+	if uid == 0 {
+		return nil
+	}
+	sp := SessionProjectId(ctx)
+	if sp == 0 {
+		return nil
+	}
+	v, err := g.DB().Model("sys_users").Where("id", uid).Fields("type").Value()
+	if err != nil || v == nil || v.String() != "ai" {
+		return nil
+	}
+	if sp != projectId {
+		return fmt.Errorf("该任务属于其它项目：当前会话绑定项目 %d，请在对应该项目的目录/会话中操作", sp)
+	}
+	return nil
+}
+
+// AgentTaskGate 任务类操作门禁 = 准入/能力（AgentRequire）+ 会话项目约束
+// （AgentSessionGuard）。任务域写操作统一走这里
+func AgentTaskGate(ctx context.Context, projectId int, cap string) error {
+	if err := AgentRequire(ctx, projectId, cap); err != nil {
+		return err
+	}
+	return AgentSessionGuard(ctx, projectId)
 }
 
 // IsProjectOwner 判断用户是否为项目 owner（或超管）——

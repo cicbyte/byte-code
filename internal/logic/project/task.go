@@ -27,7 +27,7 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 	uid := userId.(int)
 
 	// Agent 能力门禁：任务类写操作（建/改/流转/留痕）需 tasks_write（人类直通）
-	if err := perm.AgentRequire(ctx, req.ProjectId, "tasks_write"); err != nil {
+	if err := perm.AgentTaskGate(ctx, req.ProjectId, "tasks_write"); err != nil {
 		return 0, err
 	}
 
@@ -109,7 +109,7 @@ func (s *sProject) CreateTask(ctx context.Context, req *api.TaskCreateReq) (id i
 
 func (s *sProject) UpdateTask(ctx context.Context, req *api.TaskUpdateReq) (err error) {
 	// 引用变更延迟到 Update 成功后再通知（写库失败不应发通知）
-	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", req.Id), "tasks_write"); err != nil {
+	if err := perm.AgentTaskGate(ctx, perm.EntityProjectId(ctx, "tasks", req.Id), "tasks_write"); err != nil {
 		return err
 	}
 	var deferredRefs []relatedRef
@@ -268,7 +268,7 @@ func (s *sProject) DeleteTask(ctx context.Context, id int) (err error) {
 	// 删除属破坏性操作（2026-09-16 审查实测越权）：agent 需 tasks_write 能力；
 	// 人类与 agent 同一口径——任务创建者或项目管理级（owner/maintainer/超管）
 	pid := perm.EntityProjectId(ctx, "tasks", id)
-	if err := perm.AgentRequire(ctx, pid, "tasks_write"); err != nil {
+	if err := perm.AgentTaskGate(ctx, pid, "tasks_write"); err != nil {
 		return err
 	}
 	if creator := perm.EntityFieldInt(ctx, "tasks", id, "creator_id"); creator != perm.UserId(ctx) &&

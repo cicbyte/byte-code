@@ -11,6 +11,7 @@ package project
 
 import (
 	"context"
+	"strings"
 	"io"
 	"os"
 	"path/filepath"
@@ -129,6 +130,8 @@ func seed() {
 		{"project_id": 501, "user_id": 101, "role": "owner"},
 		{"project_id": 501, "user_id": 102, "role": "maintainer"},
 		{"project_id": 501, "user_id": 103, "role": "member"},
+		// 107：members 表手工加的早期 agent（无 bindings 行）——兼容路径的真实建模
+		{"project_id": 501, "user_id": 107, "role": "member"},
 	} {
 		_, err := db.Model("project_members").Ctx(ctx).Data(m).Insert()
 		must(err, "seed member")
@@ -534,4 +537,79 @@ func TestMyTaskStats(t *testing.T) {
 	// 清理
 	db.Model("tasks").Ctx(ctx).Where("title", "mx-stat").Delete()
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
+}
+
+// ---------- 认领门禁收紧（#443：未接入拒绝 + 会话项目约束） ----------
+
+func ctxAsAgent(uid, sessionProject int) context.Context {
+	ctx := ctxAs(uid)
+	if sessionProject > 0 {
+		ctx = context.WithValue(ctx, "sessionProjectId", sessionProject)
+	}
+	return ctx
+}
+
+func TestClaimGates(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	// 未接入 agent：110 无 bindings 行也无 members 行
+	if _, err := db.Model("sys_users").Ctx(ctx).Data(g.Map{
+		"id": 110, "username": "mx-ai-orphan", "password": "x", "type": "ai", "status": 1,
+	}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+	tid := newTask(t, 101)
+
+	// ① 未接入项目的 agent：claim / 评论 / 关注全部拒绝（此前是无绑定=全能力放行）
+	if err := s.ClaimTask(ctxAs(110), &api.TaskClaimReq{Id: tid}); err == nil || !strings.Contains(err.Error(), "未接入") {
+		t.Errorf("未接入 agent 认领应拒（含文案）: %v", err)
+	}
+	if _, err := s.CreateComment(ctxAs(110), &api.CommentCreateReq{TaskId: tid, Content: "orphan"}); err == nil {
+		t.Error("未接入 agent 评论应拒")
+	}
+	if err := s.WatchTask(ctxAs(110), tid); err == nil {
+		t.Error("未接入 agent 关注应拒")
+	}
+
+	// ② 兼容存量：手工加进 members 的 agent（无 bindings）保持全能力
+	if _, err := db.Model("project_members").Ctx(ctx).Data(g.Map{
+		"project_id": 501, "user_id": 110, "role": "member",
+	}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClaimTask(ctxAs(110), &api.TaskClaimReq{Id: tid}); err != nil {
+		t.Errorf("members 存量 agent 认领应放行: %v", err)
+	}
+	if err := s.ReleaseTask(ctxAs(110), &api.TaskReleaseReq{Id: tid}); err != nil {
+		t.Fatalf("释放回池失败: %v", err)
+	}
+
+	// ③ 会话项目不符：109 绑定 501（空能力=全能力），会话指向 502 → 拒
+	if err := s.ClaimTask(ctxAsAgent(109, 502), &api.TaskClaimReq{Id: tid}); err == nil || !strings.Contains(err.Error(), "其它项目") {
+		t.Errorf("跨会话项目认领应拒（含文案）: %v", err)
+	}
+	// ④ 会话项目一致 → 放行
+	if err := s.ClaimTask(ctxAsAgent(109, 501), &api.TaskClaimReq{Id: tid}); err != nil {
+		t.Errorf("会话项目一致认领应放行: %v", err)
+	}
+	if err := s.ReleaseTask(ctxAs(109), &api.TaskReleaseReq{Id: tid}); err != nil {
+		t.Fatalf("释放回池失败: %v", err)
+	}
+	// ⑤ 无会话（直连 API）→ 仅准入门禁约束，正常放行
+	if err := s.ClaimTask(ctxAs(109), &api.TaskClaimReq{Id: tid}); err != nil {
+		t.Errorf("无会话直连认领应放行: %v", err)
+	}
+	if err := s.ReleaseTask(ctxAs(109), &api.TaskReleaseReq{Id: tid}); err != nil {
+		t.Fatalf("释放回池失败: %v", err)
+	}
+	// ⑥ 人类不受会话约束（即便 ctx 混入会话值也直通）
+	if err := s.ClaimTask(ctxAsAgent(101, 502), &api.TaskClaimReq{Id: tid}); err != nil {
+		t.Errorf("人类认领应不受会话约束: %v", err)
+	}
+
+	// 清理：任务、110 的成员行与账号（本测试自建）
+	db.Model("tasks").Ctx(ctx).Where("id", tid).Delete()
+	db.Model("project_members").Ctx(ctx).Where("user_id", 110).Delete()
+	db.Model("sys_users").Ctx(ctx).Where("id", 110).Delete()
 }

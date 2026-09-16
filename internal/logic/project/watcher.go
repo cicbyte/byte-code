@@ -13,7 +13,7 @@ import (
 // 关注是读订阅：读能力即可 watch；通知扇出见 fanOutWatchers
 
 func (s *sProject) WatchTask(ctx context.Context, id int) (err error) {
-	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", id), "tasks_read"); err != nil {
+	if err := perm.AgentTaskGate(ctx, perm.EntityProjectId(ctx, "tasks", id), "tasks_read"); err != nil {
 		return err
 	}
 	uid := perm.UserId(ctx)
@@ -35,7 +35,7 @@ func (s *sProject) WatchTask(ctx context.Context, id int) (err error) {
 }
 
 func (s *sProject) UnwatchTask(ctx context.Context, id int) (err error) {
-	if err := perm.AgentRequire(ctx, perm.EntityProjectId(ctx, "tasks", id), "tasks_read"); err != nil {
+	if err := perm.AgentTaskGate(ctx, perm.EntityProjectId(ctx, "tasks", id), "tasks_read"); err != nil {
 		return err
 	}
 	if _, err := g.DB().Model("task_watchers").Ctx(ctx).

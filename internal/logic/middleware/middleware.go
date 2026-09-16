@@ -11,6 +11,7 @@ import (
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/net/ghttp"
 )
 
@@ -106,6 +107,19 @@ func (s *sMiddleware) MiddlewareTokenAuth(r *ghttp.Request) {
 		}
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, "userId", int(aiUid))
+		// X-Session（bcsh_，键=agent+project）：解析会话项目入 ctx，任务操作
+		// 的「当前项目」约束（perm.AgentSessionGuard）据此收窄。此处不做严格
+		// 校验——无效/过期会话视为未携带，严格校验仍在 /agent/* 会话端点
+		if sid := r.GetHeader("X-Session"); sid != "" {
+			sv, serr := g.DB().Model("agent_sessions").
+				Where("session_id", sid).
+				Where("agent_id", int(aiUid)).
+				Where("expires_at > ?", gtime.Now()).
+				Fields("project_id").Value()
+			if serr == nil && sv != nil {
+				ctx = context.WithValue(ctx, "sessionProjectId", sv.Int())
+			}
+		}
 		r.SetCtx(ctx)
 		r.Middleware.Next()
 		return
