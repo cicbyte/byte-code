@@ -195,3 +195,45 @@ func (s *sProject) DismissFeedback(ctx context.Context, req *api.FeedbackDismiss
 }
 
 func gtimeNow() string { return time.Now().Format("2006-01-02 15:04:05") }
+
+// ListSentFeedbacks 发件侧视图（#447）：当前用户发出的反馈跨项目列表——
+// 「发成功了吗/对方处理了没」主动可查（此前只能被动等 convert/dismiss
+// 通知）。收件箱读取按目标项目准入，发件人不一定有；本端点只按
+// created_by=当前用户过滤，天然自限定，无需项目准入
+func (s *sProject) ListSentFeedbacks(ctx context.Context, req *api.FeedbackSentReq) (res *api.FeedbackSentRes, err error) {
+	res = &api.FeedbackSentRes{List: []api.FeedbackSentItem{}}
+	uid := perm.UserId(ctx)
+	if uid == 0 {
+		return res, nil
+	}
+	m := g.DB().Model("project_feedbacks f").Ctx(ctx).
+		LeftJoin("projects tp", "tp.id = f.project_id").
+		LeftJoin("projects sp", "sp.id = f.source_project_id").
+		Where("f.created_by", uid)
+	if req.Status != "all" {
+		st := req.Status
+		if st == "" {
+			st = "open" // d:"open" 只在 HTTP 绑定生效，直调兜底同语义
+		}
+		m = m.Where("f.status", st)
+	}
+	rows, err := m.Fields(`f.id, f.title, f.status, f.project_id, tp.name AS target_project_name,
+		f.source_project_id, sp.name AS source_project_name, f.source_task_id,
+		f.converted_task_id, f.dismiss_reason, f.created_at`).
+		Order("f.id DESC").
+		Limit(100).
+		All()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询已发反馈失败")
+	}
+	for _, r := range rows {
+		res.List = append(res.List, api.FeedbackSentItem{
+			Id: r["id"].Int(), Title: r["title"].String(), Status: r["status"].String(),
+			TargetProjectId: r["project_id"].Int(), TargetProjectName: r["target_project_name"].String(),
+			SourceProjectId: r["source_project_id"].Int(), SourceProjectName: r["source_project_name"].String(),
+			SourceTaskId: r["source_task_id"].Int(), ConvertedTaskId: r["converted_task_id"].Int(),
+			DismissReason: r["dismiss_reason"].String(), CreatedAt: r["created_at"].String(),
+		})
+	}
+	return res, nil
+}

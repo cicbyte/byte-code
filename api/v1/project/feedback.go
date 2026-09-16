@@ -70,3 +70,29 @@ type FeedbackDismissReq struct {
 type FeedbackDismissRes struct {
 	g.Meta `mime:"application/json"`
 }
+
+// ==================== 发件侧：我发出的反馈（跨项目） ====================
+
+type FeedbackSentReq struct {
+	g.Meta `path:"/feedbacks/sent" method:"get" tags:"跨项目反馈" summary:"我发出的反馈（跨项目；含处理状态）"`
+	Status string `json:"status" in:"query" d:"open" dc:"缺省=open；all=全部"`
+}
+
+type FeedbackSentItem struct {
+	Id                int    `json:"id"`
+	Title             string `json:"title"`
+	Status            string `json:"status"`
+	TargetProjectId   int    `json:"targetProjectId"`
+	TargetProjectName string `json:"targetProjectName"`
+	SourceProjectId   int    `json:"sourceProjectId"`
+	SourceProjectName string `json:"sourceProjectName"`
+	SourceTaskId      int    `json:"sourceTaskId"`
+	ConvertedTaskId   int    `json:"convertedTaskId"`
+	DismissReason     string `json:"dismissReason"`
+	CreatedAt         string `json:"createdAt"`
+}
+
+type FeedbackSentRes struct {
+	g.Meta `mime:"application/json"`
+	List   []FeedbackSentItem `json:"list"`
+}

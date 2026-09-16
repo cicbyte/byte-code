@@ -240,6 +240,10 @@ func (c *projectController) ListFeedbacks(ctx context.Context, req *api.Feedback
 	return service.Project().ListFeedbacks(ctx, req)
 }
 
+func (c *projectController) ListSentFeedbacks(ctx context.Context, req *api.FeedbackSentReq) (res *api.FeedbackSentRes, err error) {
+	return service.Project().ListSentFeedbacks(ctx, req)
+}
+
 func (c *projectController) ConvertFeedback(ctx context.Context, req *api.FeedbackConvertReq) (res *api.FeedbackConvertRes, err error) {
 	taskId, err := service.Project().ConvertFeedback(ctx, req)
 	if err != nil {

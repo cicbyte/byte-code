@@ -50,6 +50,7 @@ type IProject interface {
 	RemoveRelation(ctx context.Context, projectId, relationId int) (err error)
 	CreateFeedback(ctx context.Context, req *api.FeedbackCreateReq) (id int, err error)
 	ListFeedbacks(ctx context.Context, req *api.FeedbackListReq) (res *api.FeedbackListRes, err error)
+	ListSentFeedbacks(ctx context.Context, req *api.FeedbackSentReq) (res *api.FeedbackSentRes, err error)
 	ConvertFeedback(ctx context.Context, req *api.FeedbackConvertReq) (taskId int, err error)
 	DismissFeedback(ctx context.Context, req *api.FeedbackDismissReq) (err error)
 	CreateTopic(ctx context.Context, req *api.TopicCreateReq) (id int, err error)

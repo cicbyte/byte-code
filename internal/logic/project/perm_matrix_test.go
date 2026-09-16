@@ -613,3 +613,58 @@ func TestClaimGates(t *testing.T) {
 	db.Model("project_members").Ctx(ctx).Where("user_id", 110).Delete()
 	db.Model("sys_users").Ctx(ctx).Where("id", 110).Delete()
 }
+
+// ---------- 发件侧反馈视图（#447） ----------
+
+func TestFeedbackSent(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+	ins := func(createdBy int, status, reason string) int {
+		r, err := db.Model("project_feedbacks").Ctx(ctx).Data(g.Map{
+			"project_id": 501, "source_project_id": 501,
+			"title": "mx-sent", "content": "x", "status": status,
+			"dismiss_reason": reason, "created_by": createdBy,
+		}).Insert()
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := r.LastInsertId()
+		return int(id)
+	}
+	id1 := ins(103, "open", "")
+	id2 := ins(103, "dismissed", "mx-reason")
+	ins(101, "open", "") // 他人发出的，不应出现（断言隐含在长度检查里）
+
+	// 缺省 open：只见自己未处理的
+	res, err := s.ListSentFeedbacks(ctxAs(103), &api.FeedbackSentReq{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.List) != 1 || res.List[0].Id != id1 {
+		t.Fatalf("open 过滤应只见自己的未处理项, got %+v", res.List)
+	}
+	item := res.List[0]
+	if item.TargetProjectId != 501 || item.TargetProjectName != "mx-proj" || item.Status != "open" {
+		t.Errorf("字段回填不符: %+v", item)
+	}
+
+	// all：自己的两条（他人 id3 不出现）
+	resAll, err := s.ListSentFeedbacks(ctxAs(103), &api.FeedbackSentReq{Status: "all"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resAll.List) != 2 {
+		t.Fatalf("all 应见自己两条, got %d", len(resAll.List))
+	}
+	var dismissed *api.FeedbackSentItem
+	for i := range resAll.List {
+		if resAll.List[i].Id == id2 {
+			dismissed = &resAll.List[i]
+		}
+	}
+	if dismissed == nil || dismissed.DismissReason != "mx-reason" {
+		t.Errorf("dismissed 项应带回忽略理由: %+v", dismissed)
+	}
+
+	db.Model("project_feedbacks").Ctx(ctx).Where("title", "mx-sent").Delete()
+}
