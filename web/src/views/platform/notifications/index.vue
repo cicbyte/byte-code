@@ -196,14 +196,14 @@
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--line, #f0f0f0);
 
     &:last-child {
       border-bottom: none;
     }
 
     &:hover {
-      background: #fafafa;
+      background: var(--hover-bg, #fafafa);
     }
 
     &.unread {
@@ -219,7 +219,7 @@
 
   .notice-title {
     font-size: 14px;
-    color: #333;
+    color: var(--text-1, #333);
 
     &.bold {
       font-weight: 600;
@@ -229,7 +229,7 @@
   .notice-content {
     margin-top: 2px;
     font-size: 13px;
-    color: #666;
+    color: var(--text-2, #666);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -240,6 +240,6 @@
   .notice-time {
     flex: none;
     font-size: 12px;
-    color: #999;
+    color: var(--text-3, #999);
   }
 </style>

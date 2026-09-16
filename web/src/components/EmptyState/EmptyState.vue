@@ -93,7 +93,7 @@
     justify-content: center;
     padding: 32px 16px;
     text-align: center;
-    color: #b8c0cc; // 插画描边主色（浅灰蓝）
+    color: var(--empty-icon, #b8c0cc); // 插画描边主色（浅灰蓝/暗色深灰蓝）
 
     &.compact {
       padding: 18px 12px;
@@ -148,7 +148,7 @@
     top: -4px;
     width: 22px;
     height: 22px;
-    background-image: radial-gradient(#c8d0da 1.2px, transparent 1.2px);
+    background-image: radial-gradient(var(--empty-dots, #c8d0da) 1.2px, transparent 1.2px);
     background-size: 6px 6px;
     opacity: 0.8;
   }
@@ -157,13 +157,13 @@
     margin-top: 12px;
     font-size: 14px;
     font-weight: 500;
-    color: #4b5563;
+    color: var(--text-2, #4b5563);
   }
 
   .empty-desc {
     margin-top: 4px;
     font-size: 12.5px;
-    color: #9ca3af;
+    color: var(--text-3, #9ca3af);
     max-width: 320px;
     line-height: 1.6;
   }

@@ -52,6 +52,11 @@
       Button: {
         borderRadiusMedium: '8px',
       },
+      // 抽屉表面与卡片同色：naive 暗色默认抽屉色（#2c2c32）亮于应用卡片
+      // token，会让「吸顶条=panel-bg」的任务详情抽屉出现色带
+      Drawer: {
+        color: surface.cardColor,
+      },
       LoadingBar: {
         colorLoading: appTheme,
       },

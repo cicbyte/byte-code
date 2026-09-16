@@ -1137,11 +1137,11 @@
     flex-wrap: wrap;
     padding: 8px 0;
     margin-bottom: 4px;
-    // 显式白底：sticky 需不透明遮底；勿用 --n-color（项目主题 primaryColor
-    // 为绿色，该变量在此上下文解析为主题绿——实测踩坑）。暗色主题适配
-    // 与 notifications.vue 一并处理（见 status 文档 F 项）
-    background: #fff;
-    border-bottom: 1px solid var(--border-color, #efeff5);
+    // sticky 需不透明遮底：--panel-bg 与抽屉表面同色（两主题各自成立）；
+    // 勿用 --n-color（项目主题 primaryColor 为绿色，该变量在此上下文
+    // 解析为主题绿——实测踩坑）
+    background: var(--panel-bg, #fff);
+    border-bottom: 1px solid var(--line, #efeff5);
 
     .nav-chip {
       border: none;
@@ -1290,16 +1290,16 @@
 
   .chat-name {
     font-weight: 500;
-    color: #333;
+    color: var(--text-1, #333);
   }
 
   .chat-time {
-    color: #999;
+    color: var(--text-3, #999);
   }
 
   .chat-bubble {
-    background: #f2f3f5;
-    color: #333;
+    background: var(--bubble-bg, #f2f3f5);
+    color: var(--text-1, #333);
     border-radius: 2px 12px 12px 12px;
     padding: 6px 10px;
     font-size: 13px;
