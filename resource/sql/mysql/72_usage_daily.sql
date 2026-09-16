@@ -1,5 +1,5 @@
 -- 同 sqlite/72：使用分析 P2——CLI 版本列 + 日汇总物化表
-ALTER TABLE `usage_events` ADD COLUMN `client_version` TEXT NULL;
+ALTER TABLE `usage_events` ADD COLUMN `client_version` TEXT NOT NULL DEFAULT ('');
 
 CREATE TABLE IF NOT EXISTS `usage_daily` (
     `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
