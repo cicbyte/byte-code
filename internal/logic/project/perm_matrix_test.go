@@ -143,6 +143,18 @@ func seed() {
 		_, err := db.Model("agent_project_bindings").Ctx(ctx).Data(b).Insert()
 		must(err, "seed binding")
 	}
+	// 111：迁移 69 前的存量绑定——capabilities 为 NULL（非空串）。
+	// v0.3.0 曾把 NULL 误判为无绑定行锁死存量 agent（v0.3.1 修正），此处锚定
+	if _, err := db.Model("sys_users").Ctx(ctx).Data(g.Map{
+		"id": 111, "username": "mx-ai-nullcaps", "password": "x", "type": "ai", "status": 1,
+	}).Insert(); err != nil {
+		panic("seed user 111: " + err.Error())
+	}
+	if _, err := db.Model("agent_project_bindings").Ctx(ctx).Data(g.Map{
+		"agent_id": 111, "project_id": 501, "role": "member",
+	}).Insert(); err != nil {
+		panic("seed binding 111: " + err.Error())
+	}
 }
 
 func newTask(t *testing.T, creator int) int {
@@ -232,6 +244,7 @@ func TestAgentRequire(t *testing.T) {
 		{103, "tasks_write", true},  // 人类直通
 		{107, "tasks_write", true},  // 无绑定行（members 表手工 agent）= 全能力兼容
 		{109, "tasks_write", true},  // 空能力集 = 全能力
+		{111, "tasks_write", true},  // 存量 NULL capabilities（迁移69前）= 全能力
 		{108, "tasks_read", true},   // 授予项
 		{108, "tasks_write", false}, // 未授予
 		{108, "docs_write", false},

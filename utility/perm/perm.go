@@ -103,7 +103,9 @@ var AgentCaps = map[string]string{
 
 // AgentRequire Agent 能力门禁（PRD §5.2）：人类调用直通（受角色/成员体系
 // 约束）；agent 按 agent_project_bindings.capabilities 校验。空能力集视为
-// 全能力（只有管理侧显式设置过能力集的 agent 才受限）。无绑定行不再放行
+// 全能力（只有管理侧显式设置过能力集的 agent 才受限；NULL 与空串同义——
+// 迁移 69 之前的存量绑定 capabilities 为 NULL，v0.3.0 曾把 NULL 误判成
+// 无绑定行导致存量 agent 被锁，v0.3.1 修正）。无绑定行不再放行
 // （#443）：仅当存在 project_members 行（早期手工加的存量 agent）按成员
 // 资格放行，否则明确拒绝——未接入项目的 agent 不应能操作其任务。
 // 调整即时生效（无缓存）
@@ -116,15 +118,17 @@ func AgentRequire(ctx context.Context, projectId int, cap string) error {
 	if err != nil || v == nil || v.String() != "ai" {
 		return nil
 	}
-	caps, cerr := g.DB().Model("agent_project_bindings").
+	// COALESCE 把 NULL 归一为空串；One() 的空行才真正代表「无绑定行」——
+	// Value() 的 nil 同时覆盖两种情况，无法区分（v0.3.0 回归根因）
+	row, cerr := g.DB().Model("agent_project_bindings").
 		Where("agent_id", uid).
 		Where("project_id", projectId).
-		Fields("capabilities").Value()
+		Fields("COALESCE(capabilities, '') AS capabilities").One()
 	if cerr != nil {
 		// 查询失败 fail-closed：静默放行会让门禁形同虚设
 		return fmt.Errorf("校验 Agent 能力失败: %w", cerr)
 	}
-	if caps == nil {
+	if row.IsEmpty() {
 		// 无绑定行：members 行兼容存量手工 agent（全能力），两边都没有 = 未接入
 		cnt, merr := g.DB().Model("project_members").
 			Where("user_id", uid).
@@ -133,9 +137,9 @@ func AgentRequire(ctx context.Context, projectId int, cap string) error {
 		if merr == nil && cnt > 0 {
 			return nil
 		}
-		return fmt.Errorf("无权限：Agent 未接入该项目，请向项目 owner 申请接入码加入")
+		return fmt.Errorf("无权限：Agent 未接入该项目，请向 project owner 申请接入码加入")
 	}
-	list := strings.TrimSpace(caps.String())
+	list := strings.TrimSpace(row["capabilities"].String())
 	if list == "" {
 		return nil
 	}
