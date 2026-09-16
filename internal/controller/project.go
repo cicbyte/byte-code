@@ -128,6 +128,10 @@ func (c *projectController) MyTaskList(ctx context.Context, req *api.MyTaskListR
 	return service.Project().MyTaskList(ctx, req)
 }
 
+func (c *projectController) MyTaskStats(ctx context.Context, req *api.MyTaskStatsReq) (res *api.MyTaskStatsRes, err error) {
+	return service.Project().MyTaskStats(ctx, req)
+}
+
 // ==================== 任务特殊操作 ====================
 
 func (c *projectController) ClaimTask(ctx context.Context, req *api.TaskClaimReq) (res *api.TaskClaimRes, err error) {

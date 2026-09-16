@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	api "github.com/cicbyte/byte-code/api/v1/project"
@@ -450,4 +451,87 @@ func TestMentionAll(t *testing.T) {
 	g.DB().Model("comments").Ctx(ctxAs(101)).Where("task_id", tid).Delete()
 	g.DB().Model("notifications").Ctx(ctxAs(101)).Where("source_type", "task").Where("source_id", tid).Delete()
 	g.DB().Model("tasks").Ctx(ctxAs(101)).Where("id", tid).Delete()
+}
+
+// ---------- 我的任务统计（个人效率视图） ----------
+
+func TestMyTaskStats(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+	ago := func(days int, hourOffset int) string {
+		return time.Now().AddDate(0, 0, -days).Add(time.Duration(hourOffset) * time.Hour).Format("2006-01-02 15:04:05")
+	}
+	// 独立项目：103 非成员（非管理员作用域应排除该项目任务），104 管理员不受限
+	if _, err := db.Model("projects").Ctx(ctx).Data(g.Map{"id": 502, "name": "mx-proj2", "code": "MXP2", "status": 1, "creator_id": 101}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+	ins := func(assignee, project int, status, due, created, completed string) {
+		t.Helper()
+		if _, err := db.Model("tasks").Ctx(ctx).Data(g.Map{
+			"project_id": project, "title": "mx-stat", "creator_id": 101,
+			"assignee_id": assignee, "status": status, "due_date": due,
+			"created_at": created, "completed_at": completed,
+		}).Insert(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	yday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	tmrw := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	ins(103, 501, "open", yday, ago(3, 0), "")            // 逾期
+	ins(103, 501, "open", tmrw, ago(3, 0), "")            // 未逾期
+	ins(103, 501, "in_progress", "", ago(2, 0), "")
+	ins(103, 501, "blocked", "", ago(2, 0), "")
+	ins(103, 501, "done", "", ago(1, -1), ago(0, -1))     // 24h 周期，进 30 天趋势
+	ins(103, 501, "done", "", ago(35, -2), ago(35, 0))    // 2h 周期，出趋势进 90 天均值
+	ins(103, 501, "done", "", ago(102, 0), ago(100, 0))   // 双窗口外
+	ins(103, 502, "open", "", ago(1, 0), "")              // 非成员项目：非管理员不计
+	ins(104, 502, "review", "", ago(1, 0), "")            // 管理员跨项目计数
+
+	res, err := s.MyTaskStats(ctxAs(103), &api.MyTaskStatsReq{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byStatus := map[string]int{}
+	for _, sc := range res.StatusCounts {
+		byStatus[sc.Status] = sc.Count
+	}
+	if byStatus["open"] != 2 || byStatus["in_progress"] != 1 || byStatus["blocked"] != 1 || byStatus["done"] != 3 {
+		t.Errorf("状态计数不符: %+v", byStatus)
+	}
+	if res.ActiveTotal != 4 {
+		t.Errorf("活跃合计应 4, got %d", res.ActiveTotal)
+	}
+	if res.Overdue != 1 {
+		t.Errorf("逾期应 1, got %d", res.Overdue)
+	}
+	if len(res.Trend) != 30 {
+		t.Fatalf("趋势应 30 天零填充, got %d", len(res.Trend))
+	}
+	sum := 0
+	for _, p := range res.Trend {
+		sum += p.Done
+	}
+	if res.Completed30d != 1 || sum != 1 {
+		t.Errorf("近30天完成应 1（sum=%d completed30d=%d）", sum, res.Completed30d)
+	}
+	// 均值 = (24h + 2h) / 2 = 13
+	if res.AvgLeadHours != 13 {
+		t.Errorf("平均周期应 13h, got %v", res.AvgLeadHours)
+	}
+	if len(res.ByProject) != 1 || res.ByProject[0].ProjectId != 501 || res.ByProject[0].Active != 4 {
+		t.Errorf("项目分布不符: %+v", res.ByProject)
+	}
+
+	// 管理员（104）：无成员资格限制，502 的 review 任务计入
+	resAdm, err := s.MyTaskStats(ctxAs(104), &api.MyTaskStatsReq{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resAdm.ActiveTotal != 1 || len(resAdm.ByProject) != 1 || resAdm.ByProject[0].ProjectId != 502 {
+		t.Errorf("管理员统计不符: active=%d byProject=%+v", resAdm.ActiveTotal, resAdm.ByProject)
+	}
+
+	// 清理
+	db.Model("tasks").Ctx(ctx).Where("title", "mx-stat").Delete()
+	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
 }

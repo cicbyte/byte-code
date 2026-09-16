@@ -141,6 +141,39 @@ export function getMyTasks(params?: MyTaskListParams) {
   return Alova.Get<MyTaskListResult>('/v1/my-tasks', { params });
 }
 
+// ==================== 我的任务统计（个人效率） ====================
+
+export interface MyStatusCount {
+  status: string;
+  count: number;
+}
+
+export interface MyTrendPoint {
+  day: string;
+  done: number;
+}
+
+export interface MyProjectActive {
+  projectId: number;
+  projectName: string;
+  active: number;
+}
+
+export interface MyTaskStats {
+  statusCounts: MyStatusCount[];
+  activeTotal: number;
+  overdue: number;
+  completed30d: number;
+  trend: MyTrendPoint[];
+  avgLeadHours: number;
+  byProject: MyProjectActive[];
+}
+
+/** 我的任务统计（当前用户个人效率：状态分布/逾期/完成趋势/交付周期/项目分布） */
+export function getMyTaskStats() {
+  return Alova.Get<MyTaskStats>('/v1/my-tasks/stats');
+}
+
 export interface TaskListParams {
   status?: string;
   type?: string;

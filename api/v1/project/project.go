@@ -232,6 +232,44 @@ type MyTaskListRes struct {
 	Total int          `json:"total"`
 }
 
+// ==================== 我的任务统计（个人效率视图） ====================
+
+type MyTaskStatsReq struct {
+	g.Meta `path:"/my-tasks/stats" method:"get" tags:"任务管理" summary:"我的任务统计（当前用户个人效率）"`
+}
+
+type MyStatusCount struct {
+	Status string `json:"status"`
+	Count  int    `json:"count"`
+}
+
+type MyTrendPoint struct {
+	Day  string `json:"day"`
+	Done int    `json:"done"`
+}
+
+type MyProjectActive struct {
+	ProjectId   int    `json:"projectId"`
+	ProjectName string `json:"projectName"`
+	Active      int    `json:"active"`
+}
+
+type MyTaskStatsRes struct {
+	// 全状态计数（含 done/closed；活跃四态 open/in_progress/blocked/review）
+	StatusCounts []MyStatusCount `json:"statusCounts"`
+	ActiveTotal  int             `json:"activeTotal"`
+	// 活跃任务中 due_date 非空且早于今天的条数
+	Overdue int `json:"overdue"`
+	// 近 30 天完成数与逐日趋势（零填充）
+	Completed30d int            `json:"completed30d"`
+	Trend        []MyTrendPoint `json:"trend"`
+	// 近 90 天完成任务的创建→完成平均小时数（与管理员效率报告同口径）
+	AvgLeadHours float64 `json:"avgLeadHours"`
+	// 活跃任务按项目分布
+	ByProject []MyProjectActive `json:"byProject"`
+}
+
+
 type TaskItem struct {
 	Id                  int    `json:"id"`
 	ProjectId           int    `json:"projectId"`
