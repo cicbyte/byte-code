@@ -48,6 +48,29 @@
       />
     </n-card>
 
+    <!-- 提案队列（仅管理员）：agent/用户提交的全局记忆提案，审核后才进读者视野 -->
+    <n-card v-if="isAdmin" :bordered="false" :segmented="{ content: true }" class="mt-4">
+      <template #header>
+        全局记忆提案
+        <n-tag v-if="pendingCount > 0" size="small" type="warning" :bordered="false" style="margin-left: 8px">
+          {{ pendingCount }} 待审
+        </n-tag>
+      </template>
+      <template #header-extra>
+        <n-radio-group v-model:value="proposalStatus" size="small" @update:value="loadProposals">
+          <n-radio-button value="submitted">待审</n-radio-button>
+          <n-radio-button value="all">全部</n-radio-button>
+        </n-radio-group>
+      </template>
+      <n-data-table
+        :columns="proposalColumns"
+        :data="proposals"
+        :loading="proposalLoading"
+        :row-key="(row: GlobalMemoryProposalItem) => row.id"
+        size="small"
+      />
+    </n-card>
+
     <!-- 新增/编辑抽屉（大文本 + markdown 编辑器适合抽屉；宽度与任务详情对齐） -->
     <n-drawer v-model:show="showModal" :width="drawerWidth" placement="right">
       <n-drawer-content :title="editingKey ? `编辑全局记忆：${editingKey}` : '新增全局记忆'" closable>
@@ -109,8 +132,10 @@
     verifyGlobalMemory,
     expireGlobalMemory,
     deleteGlobalMemory,
+    getGlobalMemoryProposals,
+    reviewGlobalMemoryProposal,
   } from '@/api/docs/index';
-  import type { MemoryItem } from '@/api/docs/index';
+  import type { MemoryItem, GlobalMemoryProposalItem } from '@/api/docs/index';
   import { usePerm } from '@/composables/usePerm';
 
   const message = useMessage();
@@ -279,8 +304,112 @@
     });
   }
 
+  // ---- 全局记忆提案（人人可发 + 管理员审核） ----
+  const proposals = ref<GlobalMemoryProposalItem[]>([]);
+  const proposalLoading = ref(false);
+  const proposalStatus = ref<'submitted' | 'all'>('submitted');
+  const pendingCount = computed(() => proposals.value.filter((x) => x.status === 'submitted').length);
+
+  const GMP_STATUS: Record<string, { label: string; type: 'warning' | 'success' | 'error' }> = {
+    submitted: { label: '待审', type: 'warning' },
+    approved: { label: '已采纳', type: 'success' },
+    rejected: { label: '已拒绝', type: 'error' },
+  };
+
+  const proposalColumns = computed<DataTableColumns<GlobalMemoryProposalItem>>(() => {
+    const cols: DataTableColumns<GlobalMemoryProposalItem> = [
+      { title: 'key', key: 'key', width: 220, ellipsis: { tooltip: true } },
+      { title: 'value', key: 'value', ellipsis: { tooltip: true } },
+      { title: '说明', key: 'note', width: 180, ellipsis: { tooltip: true } },
+      { title: '提交者', key: 'proposedByName', width: 110, ellipsis: { tooltip: true } },
+      {
+        title: '状态',
+        key: 'status',
+        width: 130,
+        render: (row) =>
+          h(NSpace, { size: 4, align: 'center' }, () => [
+            h(NTag, { size: 'small', type: GMP_STATUS[row.status]?.type || 'default' }, () => GMP_STATUS[row.status]?.label || row.status),
+            row.status === 'rejected' && row.reviewReason
+              ? h('span', { style: 'font-size:12px;color:var(--text-3,#999)' }, () => row.reviewReason)
+              : null,
+          ]),
+      },
+      { title: '提交时间', key: 'createdAt', width: 160 },
+    ];
+    if (isAdmin.value) {
+      cols.push({
+        title: '操作',
+        key: 'actions',
+        width: 140,
+        render: (row) =>
+          row.status === 'submitted'
+            ? h(NSpace, { size: 4 }, () => [
+                h(NButton, { size: 'tiny', type: 'success', ghost: true, onClick: () => handleApprove(row) }, () => '采纳'),
+                h(NButton, { size: 'tiny', type: 'error', ghost: true, onClick: () => handleReject(row) }, () => '拒绝'),
+              ])
+            : null,
+      });
+    }
+    return cols;
+  });
+
+  async function loadProposals() {
+    proposalLoading.value = true;
+    try {
+      const res = await getGlobalMemoryProposals(proposalStatus.value);
+      proposals.value = res?.list || [];
+    } catch {
+      // http 层统一提示
+    } finally {
+      proposalLoading.value = false;
+    }
+  }
+
+  function handleApprove(row: GlobalMemoryProposalItem) {
+    dialog.warning({
+      title: '采纳提案',
+      content: `将「${row.key}」落为全局 active 记忆？采纳后即刻对所有项目的 agent 生效。`,
+      positiveText: '采纳',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await reviewGlobalMemoryProposal(row.id, 'approved');
+          message.success(`已采纳：${row.key}`);
+          loadProposals();
+        } catch {
+          message.error('操作失败');
+        }
+      },
+    });
+  }
+
+  function handleReject(row: GlobalMemoryProposalItem) {
+    dialog.warning({
+      title: '拒绝提案',
+      content: `拒绝「${row.key}」？理由将回告提交者（${row.proposedByName || `#${row.proposedBy}`}）。`,
+      positiveText: '确认拒绝',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        // 用输入弹窗收理由：n-dialog 无输入位，借用 window.prompt 简洁达成
+        const reason = window.prompt('拒绝理由（必填，回告提交者）：');
+        if (!reason || !reason.trim()) {
+          message.warning('拒绝必须给理由');
+          return;
+        }
+        try {
+          await reviewGlobalMemoryProposal(row.id, 'rejected', reason.trim());
+          message.success('已拒绝并回告提交者');
+          loadProposals();
+        } catch {
+          message.error('操作失败');
+        }
+      },
+    });
+  }
+
   onMounted(() => {
     load();
+    if (isAdmin.value) loadProposals();
   });
 </script>
 

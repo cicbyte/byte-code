@@ -118,6 +118,12 @@ func AgentRequire(ctx context.Context, projectId int, cap string) error {
 	if err != nil || v == nil || v.String() != "ai" {
 		return nil
 	}
+	// 全局资源（project_id=0，如全局记忆读）：无「项目 0 的绑定」概念，
+	// 以前靠无行兜底放行（#443 关洞时误伤 agent 全局读，此处显式豁免）；
+	// 全局写操作由管理路由 AdminAuth 把关，不经过这里
+	if projectId <= 0 {
+		return nil
+	}
 	// COALESCE 把 NULL 归一为空串；One() 的空行才真正代表「无绑定行」——
 	// Value() 的 nil 同时覆盖两种情况，无法区分（v0.3.0 回归根因）
 	row, cerr := g.DB().Model("agent_project_bindings").

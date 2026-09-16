@@ -38,6 +38,11 @@ type IDocs interface {
 	MemDelete(ctx context.Context, projectId int64, key string) error
 	// MemMaterialize 物化腐化状态：TTL 到期→expired、超阈值未验证→stale（定时 + 读取惰性调用）
 	MemMaterialize(ctx context.Context) error
+
+	// 全局记忆提案（人人可发 + 管理员审核，独立队列不进读者视野）
+	GlobalMemoryPropose(ctx context.Context, req *api.GlobalMemoryProposeReq) (id int, err error)
+	GlobalMemoryProposalList(ctx context.Context, req *api.GlobalMemoryProposalListReq) (res *api.GlobalMemoryProposalListRes, err error)
+	GlobalMemoryProposalReview(ctx context.Context, req *api.GlobalMemoryProposalReviewReq) error
 }
 
 var localDocs IDocs

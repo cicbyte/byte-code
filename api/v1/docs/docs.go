@@ -395,3 +395,57 @@ type DocsHistoryRestoreReq struct {
 type DocsHistoryRestoreRes struct {
 	g.Meta `mime:"application/json"`
 }
+
+// ==================== 全局记忆提案（人人可发 + 管理员审核） ====================
+// 独立提案队列：project_memories 的 pending 是「未确认推测」（对读者可见、
+// 腐化更快），不是审核队列——未审内容绝不能进读者视野，故另立一张表。
+// 批准时由审核端走既有 MemSet(project_id=0, active) 落正式记忆。
+
+type GlobalMemoryProposeReq struct {
+	g.Meta `path:"/global-memories/propose" method:"post" tags:"全局记忆" summary:"提交全局记忆提案（任何认证用户；待管理员审核）"`
+	Key    string `json:"key" v:"required|max-length:191#key不能为空|上限191字"`
+	Value  string `json:"value" v:"max-length:65536#单值上限64KB"`
+	Ttl    string `json:"ttl" dc:"有效期：30m/12h/7d，缺省永不过期"`
+	Note   string `json:"note" v:"max-length:1000#提案说明上限1000字" dc:"提案说明：为什么值得全局沉淀"`
+}
+
+type GlobalMemoryProposeRes struct {
+	g.Meta `mime:"application/json"`
+	Id     int `json:"id"`
+}
+
+type GlobalMemoryProposalItem struct {
+	Id               int    `json:"id"`
+	Key              string `json:"key"`
+	Value            string `json:"value"`
+	Ttl              string `json:"ttl"`
+	Note             string `json:"note"`
+	Status           string `json:"status"`
+	ProposedBy       int    `json:"proposedBy"`
+	ProposedByName   string `json:"proposedByName"`
+	ReviewedBy       int    `json:"reviewedBy"`
+	ReviewReason     string `json:"reviewReason"`
+	CreatedAt        string `json:"createdAt"`
+	ReviewedAt       string `json:"reviewedAt"`
+}
+
+type GlobalMemoryProposalListReq struct {
+	g.Meta `path:"/global-memories/proposals" method:"get" tags:"全局记忆" summary:"全局记忆提案列表（仅管理员）"`
+	Status string `json:"status" in:"query" d:"submitted" dc:"缺省=submitted；all=全部"`
+}
+
+type GlobalMemoryProposalListRes struct {
+	g.Meta `mime:"application/json"`
+	List   []GlobalMemoryProposalItem `json:"list"`
+}
+
+type GlobalMemoryProposalReviewReq struct {
+	g.Meta   `path:"/global-memories/proposals/{id}/review" method:"post" tags:"全局记忆" summary:"审核全局记忆提案（仅管理员）"`
+	Id       int    `json:"id" v:"required" in:"path"`
+	Decision string `json:"decision" v:"required|in:approved,rejected#审核决定不能为空|只支持 approved/rejected"`
+	Reason   string `json:"reason" v:"max-length:500#理由上限500字" dc:"拒绝理由（拒绝时回告提交者；采纳时可留空）"`
+}
+
+type GlobalMemoryProposalReviewRes struct {
+	g.Meta `mime:"application/json"`
+}

@@ -87,6 +87,7 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 			group.Bind(
 				controller.GlobalMemories.List,
 				controller.GlobalMemories.Get,
+				controller.GlobalMemories.Propose,
 			)
 
 			// Agent 接入协议（认证组：bc key 或人类 token；
@@ -163,9 +164,11 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		)
 
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
-			// 全局记忆写操作（影响所有项目的 AI 上下文，仅管理员）
+			// 全局记忆写操作 + 提案审核（影响所有项目的 AI 上下文，仅管理员）
 			group.Bind(
 				controller.GlobalMemories.Set,
+				controller.GlobalMemories.ProposalList,
+				controller.GlobalMemories.ProposalReview,
 				controller.GlobalMemories.Verify,
 				controller.GlobalMemories.Expire,
 				controller.GlobalMemories.Delete,

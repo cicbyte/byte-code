@@ -54,3 +54,23 @@ func (c *globalMemoryController) Delete(ctx context.Context, req *api.GlobalMemo
 	err = service.Docs().MemDelete(ctx, 0, req.Key)
 	return
 }
+
+func (c *globalMemoryController) Propose(ctx context.Context, req *api.GlobalMemoryProposeReq) (res *api.GlobalMemoryProposeRes, err error) {
+	id, err := service.Docs().GlobalMemoryPropose(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.GlobalMemoryProposeRes{Id: id}, nil
+}
+
+func (c *globalMemoryController) ProposalList(ctx context.Context, req *api.GlobalMemoryProposalListReq) (res *api.GlobalMemoryProposalListRes, err error) {
+	return service.Docs().GlobalMemoryProposalList(ctx, req)
+}
+
+func (c *globalMemoryController) ProposalReview(ctx context.Context, req *api.GlobalMemoryProposalReviewReq) (res *api.GlobalMemoryProposalReviewRes, err error) {
+	err = service.Docs().GlobalMemoryProposalReview(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.GlobalMemoryProposalReviewRes{}, nil
+}

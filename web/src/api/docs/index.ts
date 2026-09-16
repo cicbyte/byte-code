@@ -244,6 +244,49 @@ export function setGlobalMemory(
   return Alova.Put(`/v1/global-memories/${encodeURIComponent(key)}`, data);
 }
 
+// ==================== 全局记忆提案（人人可发 + 管理员审核） ====================
+
+export interface GlobalMemoryProposalItem {
+  id: number;
+  key: string;
+  value: string;
+  ttl: string;
+  note: string;
+  status: 'submitted' | 'approved' | 'rejected';
+  proposedBy: number;
+  proposedByName: string;
+  reviewedBy: number;
+  reviewReason: string;
+  createdAt: string;
+  reviewedAt: string;
+}
+
+/** 提交全局记忆提案（任何认证用户；待管理员审核） */
+export function proposeGlobalMemory(data: {
+  key: string;
+  value: string;
+  ttl?: string;
+  note?: string;
+}) {
+  return Alova.Post<{ id: number }>('/v1/global-memories/propose', data);
+}
+
+/** 提案列表（仅管理员；缺省 submitted，all=全部） */
+export function getGlobalMemoryProposals(status?: string) {
+  return Alova.Get<{ list: GlobalMemoryProposalItem[] }>('/v1/global-memories/proposals', {
+    params: status ? { status } : {},
+  });
+}
+
+/** 审核提案（仅管理员）：approved=落正式记忆；rejected 须给理由 */
+export function reviewGlobalMemoryProposal(
+  id: number,
+  decision: 'approved' | 'rejected',
+  reason?: string
+) {
+  return Alova.Post(`/v1/global-memories/proposals/${id}/review`, { decision, reason });
+}
+
 /** 验证保鲜（仅管理员） */
 export function verifyGlobalMemory(key: string) {
   return Alova.Post(`/v1/global-memories/${encodeURIComponent(key)}/verify`);

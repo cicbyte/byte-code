@@ -21,6 +21,9 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	api "github.com/cicbyte/byte-code/api/v1/project"
+	apiDocs "github.com/cicbyte/byte-code/api/v1/docs"
+	_ "github.com/cicbyte/byte-code/internal/logic/docs"
+	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -680,4 +683,106 @@ func TestFeedbackSent(t *testing.T) {
 	}
 
 	db.Model("project_feedbacks").Ctx(ctx).Where("title", "mx-sent").Delete()
+}
+
+// ---------- 全局记忆提案（人人可发 + 管理员审核） ----------
+
+func gmpNotifCount(t *testing.T, uid int, title string) int {
+	t.Helper()
+	n, err := g.DB().Model("notifications").Where("user_id", uid).Where("title", title).Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestGlobalMemoryProposal(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	// 占用：同名全局记忆已存在（任意状态）→ 拒
+	if _, err := db.Model("project_memories").Ctx(ctx).Data(g.Map{
+		"project_id": 0, "key": "mx-taken", "value": "v", "status": "active", "updated_by": 104,
+	}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Docs().GlobalMemoryPropose(ctxAs(108), &apiDocs.GlobalMemoryProposeReq{Key: "mx-taken", Value: "x"}); err == nil || !strings.Contains(err.Error(), "已存在") {
+		t.Errorf("同名占用应拒: %v", err)
+	}
+
+	// 只读 agent 也可提案（提案是低风险入口，风险由审核兜）
+	pid, err := service.Docs().GlobalMemoryPropose(ctxAs(108), &apiDocs.GlobalMemoryProposeReq{
+		Key: "mx-prop", Value: "mx-value", Note: "跨项目通用", Ttl: "7d",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 同 key 未决防重
+	if _, err := service.Docs().GlobalMemoryPropose(ctxAs(109), &apiDocs.GlobalMemoryProposeReq{Key: "mx-prop", Value: "y"}); err == nil || !strings.Contains(err.Error(), "审核中") {
+		t.Errorf("未决重复应拒: %v", err)
+	}
+
+	// 管理员列表（缺省 submitted）含提交者名
+	lres, err := service.Docs().GlobalMemoryProposalList(ctxAs(104), &apiDocs.GlobalMemoryProposalListReq{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, it := range lres.List {
+		if it.Id == pid {
+			found = true
+			if it.ProposedByName != "mx-ai-ro" || it.Note != "跨项目通用" {
+				t.Errorf("提案字段回填不符: %+v", it)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("submitted 列表应含新提案 #%d", pid)
+	}
+
+	// 拒绝：理由必填
+	if err := service.Docs().GlobalMemoryProposalReview(ctxAs(104), &apiDocs.GlobalMemoryProposalReviewReq{Id: pid, Decision: "rejected"}); err == nil || !strings.Contains(err.Error(), "理由") {
+		t.Errorf("无理由拒绝应报错: %v", err)
+	}
+	// 拒绝（带理由）→ 状态 rejected + 提交者收拒绝通知
+	if err := service.Docs().GlobalMemoryProposalReview(ctxAs(104), &apiDocs.GlobalMemoryProposalReviewReq{Id: pid, Decision: "rejected", Reason: "mx-no"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := gmpNotifCount(t, 108, "全局记忆提案被拒绝"); n != 1 {
+		t.Errorf("提交者应收 1 条拒绝通知, got %d", n)
+	}
+
+	// 拒绝后同 key 可重新提案 → 采纳 → 正式记忆落库 + 通知
+	pid2, err := service.Docs().GlobalMemoryPropose(ctxAs(108), &apiDocs.GlobalMemoryProposeReq{Key: "mx-prop", Value: "mx-value-2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Docs().GlobalMemoryProposalReview(ctxAs(104), &apiDocs.GlobalMemoryProposalReviewReq{Id: pid2, Decision: "approved"}); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := db.Model("project_memories").Ctx(ctx).Where("project_id", 0).Where("key", "mx-prop").One()
+	if m.IsEmpty() || m["value"].String() != "mx-value-2" || m["status"].String() != "active" {
+		t.Errorf("采纳后应落 active 正式记忆: %+v", m)
+	}
+	if n := gmpNotifCount(t, 108, "全局记忆提案已采纳"); n != 1 {
+		t.Errorf("提交者应收 1 条采纳通知, got %d", n)
+	}
+	// agent 可读全局记忆（MemGet(0)——#443 曾误伤 projectId=0 的读路径）
+	gm, gerr := service.Docs().MemGet(ctxAs(108), 0, "mx-prop")
+	if gerr != nil || gm.Value != "mx-value-2" {
+		t.Errorf("agent 全局记忆读取应放行: err=%v value=%v", gerr, gm)
+	}
+	// 重复审核 → 拒
+	if err := service.Docs().GlobalMemoryProposalReview(ctxAs(104), &apiDocs.GlobalMemoryProposalReviewReq{Id: pid2, Decision: "approved"}); err == nil || !strings.Contains(err.Error(), "已处理过") {
+		t.Errorf("重复审核应报错: %v", err)
+	}
+	// 采纳后同名再提案 → 占用拒绝
+	if _, err := service.Docs().GlobalMemoryPropose(ctxAs(109), &apiDocs.GlobalMemoryProposeReq{Key: "mx-prop", Value: "z"}); err == nil || !strings.Contains(err.Error(), "已存在") {
+		t.Errorf("采纳后同名提案应拒: %v", err)
+	}
+
+	// 清理
+	db.Model("global_memory_proposals").Ctx(ctx).Where("key IN (?)", []string{"mx-prop", "mx-taken"}).Delete()
+	db.Model("project_memories").Ctx(ctx).Where("project_id", 0).Where("key IN (?)", []string{"mx-prop", "mx-taken"}).Delete()
+	db.Model("notifications").Ctx(ctx).Where("user_id", 108).Where("title LIKE ?", "全局记忆提案%").Delete()
 }
