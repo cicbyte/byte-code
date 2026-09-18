@@ -40,6 +40,7 @@ type TestCaseUpdateReq struct {
 	Category       string `json:"category"`
 	Module         string `json:"module"`
 	Priority       string `json:"priority" v:"in:P0,P1,P2,P3#优先级必须是P0/P1/P2/P3"`
+	ExternalKey    string `json:"externalKey" dc:"外部键（pytest nodeid）——CLI cases push 同步依据"`
 	Status         string `json:"status" v:"in:active,deprecated#状态必须是active/deprecated"`
 }
 

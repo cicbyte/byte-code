@@ -1162,6 +1162,11 @@ func TestTestRunReport(t *testing.T) {
 	if err != nil || tcTotal != 1 || len(tcList) != 1 || tcList[0].Title != "synced" {
 		t.Errorf("externalKey 查找应精确命中 1 条: total=%d err=%v", tcTotal, err)
 	}
+	// priority 往返必须是 P 前缀字符串：gdb 曾按 INTEGER 列型把 'P2' gconv 成 0
+	// （迁移 78 重建列型修复；MySQL 侧对应 Error 1366）
+	if tcList[0].Priority != "P2" {
+		t.Errorf("priority 往返失真: got %q want \"P2\"", tcList[0].Priority)
+	}
 
 	// 清理（501 是共享种子项目）
 	db.Model("test_runs").Ctx(ctx).Where("project_id", 501).Delete()

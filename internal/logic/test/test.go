@@ -109,6 +109,9 @@ func (s *sTest) UpdateCase(ctx context.Context, req *api.TestCaseUpdateReq) (err
 		if req.Priority != "" {
 			data["priority"] = req.Priority
 		}
+		if req.ExternalKey != "" {
+			data["external_key"] = req.ExternalKey
+		}
 		if req.Status != "" {
 			data["status"] = req.Status
 		}
