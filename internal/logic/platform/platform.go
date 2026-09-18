@@ -235,7 +235,20 @@ func (s *sPlatform) ReadNotification(ctx context.Context, id int) (err error) {
 		return fmt.Errorf("标记已读失败")
 	}
 	if rows, _ := result.RowsAffected(); rows == 0 {
-		return fmt.Errorf("通知不存在")
+		// MySQL 只计「实际变更行」：已是已读态的 1→1 更新返回 0（SQLite
+		// 计匹配行无此差异）——需存在性复核区分「已读（幂等成功）」与
+		// 「真不存在」。生产实测：移交决议后端已标读，前端补一次标读
+		// 在 MySQL 上误报「通知不存在」即此因（#496）
+		cnt, cerr := g.DB().Model("notifications").Ctx(ctx).
+			Where("id", id).
+			Where("user_id", userId).
+			Count()
+		if cerr != nil {
+			return fmt.Errorf("标记已读失败")
+		}
+		if cnt == 0 {
+			return fmt.Errorf("通知不存在")
+		}
 	}
 	return nil
 }

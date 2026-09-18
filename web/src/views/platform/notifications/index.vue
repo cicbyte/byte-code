@@ -229,7 +229,8 @@
     actingId.value = item.id;
     try {
       await respondOwnerTransfer(item.sourceId, action);
-      await readNotification(item.id);
+      // 不再补标读：后端决议时已自动标读（曾因 MySQL 变更行口径误报
+      // 「通知不存在」，#496）
       loadUnread();
       message.success(action === 'accept' ? '已接受移交，你现在是该项目负责人' : '已拒绝移交邀请');
       showTransferModal.value = false;
