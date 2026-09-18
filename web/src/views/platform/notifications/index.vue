@@ -52,13 +52,14 @@
               </n-space>
               <div class="notice-content">{{ item.content }}</div>
             </div>
-            <n-space :size="8" align="center" :wrap="false">
+            <n-space :size="8" align="center" :wrap="false" @click.stop>
               <span class="notice-time">{{ fmtTime(item.createdAt) }}</span>
-              <template v-if="item.isRead === 0 && item.sourceType === 'transfer'">
-                <n-button text type="success" size="tiny" :loading="actingId === item.id" @click="handleTransferAction(item, 'accept')">
+              <!-- 移交按钮不绑 isRead：点击消息标读后仍可响应（已处理过由后端明确报错） -->
+              <template v-if="item.sourceType === 'transfer'">
+                <n-button text type="success" size="tiny" @click="openTransferModal(item)">
                   接受
                 </n-button>
-                <n-button text type="error" size="tiny" :loading="actingId === item.id" @click="handleTransferAction(item, 'decline')">
+                <n-button text type="error" size="tiny" @click="openTransferModal(item)">
                   拒绝
                 </n-button>
               </template>
@@ -82,6 +83,25 @@
         />
       </div>
     </n-card>
+
+    <!-- 移交邀请处理弹窗：点通知行/按钮进入 -->
+    <n-modal v-model:show="showTransferModal" preset="dialog" title="项目移交邀请" :show-icon="false" style="width: 480px">
+      <div v-if="transferItem" class="py-2">
+        <p class="text-sm" style="white-space: pre-wrap; line-height: 1.7">{{ transferItem.content }}</p>
+        <n-text depth="3" style="font-size: 12px">接受后你成为该项目负责人（原负责人按其选择留在项目或退出）；拒绝将告知发起方。</n-text>
+      </div>
+      <template #action>
+        <n-space>
+          <n-button size="small" @click="showTransferModal = false">暂不处理</n-button>
+          <n-button size="small" type="error" ghost :loading="actingId === transferItem?.id" @click="transferItem && handleTransferAction(transferItem, 'decline')">
+            拒绝
+          </n-button>
+          <n-button size="small" type="primary" :loading="actingId === transferItem?.id" @click="transferItem && handleTransferAction(transferItem, 'accept')">
+            接受
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -141,8 +161,13 @@
 
 
 
-  // 行点击=已读+跳转源实体（与铃铛同款；"标为已读"按钮只读不跳）
+  // 行点击=已读+跳转源实体（与铃铛同款；"标为已读"按钮只读不跳）；
+  // 移交邀请例外——点击弹窗处理，不标读不跳转
   async function openSource(item: NotificationItem) {
+    if (item.sourceType === 'transfer') {
+      openTransferModal(item);
+      return;
+    }
     if (item.isRead === 0) await handleRead(item);
     try {
       if (item.sourceType === 'task' && item.sourceId) {
@@ -172,6 +197,14 @@
     }
   }
 
+  // 移交邀请弹窗：行/按钮点击进入，处理在弹窗内
+  const showTransferModal = ref(false);
+  const transferItem = ref<NotificationItem | null>(null);
+  function openTransferModal(item: NotificationItem) {
+    transferItem.value = item;
+    showTransferModal.value = true;
+  }
+
   // 移交邀请响应：接受/拒绝后标读刷新；已处理过的邀请后端明确报错
   const actingId = ref<number | null>(null);
   async function handleTransferAction(item: NotificationItem, action: 'accept' | 'decline') {
@@ -181,6 +214,7 @@
       await readNotification(item.id);
       loadUnread();
       message.success(action === 'accept' ? '已接受移交，你现在是该项目负责人' : '已拒绝移交邀请');
+      showTransferModal.value = false;
       load();
     } catch {
       // http 层统一提示（如邀请已被处理）

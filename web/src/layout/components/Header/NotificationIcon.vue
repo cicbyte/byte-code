@@ -31,7 +31,7 @@
             <span v-if="item.isRead === 0" class="notif-dot"></span>
           </div>
           <div class="notif-item-content">{{ item.content }}</div>
-          <div v-if="item.isRead === 0 && item.sourceType === 'transfer'" class="notif-item-actions" @click.stop>
+          <div v-if="item.sourceType === 'transfer'" class="notif-item-actions" @click.stop>
             <n-button text size="tiny" type="success" :loading="actingId === item.id" @click="handleTransferAction(item, 'accept')">接受</n-button>
             <n-button text size="tiny" type="error" :loading="actingId === item.id" @click="handleTransferAction(item, 'decline')">拒绝</n-button>
           </div>

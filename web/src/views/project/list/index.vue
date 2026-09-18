@@ -91,6 +91,37 @@
       @clickoutside="ctxMenuId = null"
     />
 
+    <!-- Agent 接入码（右键菜单直达）：一次性 24h，关闭即不再展示 -->
+    <n-modal v-model:show="showAgentCode" preset="dialog" title="Agent 项目接入" :show-icon="false" style="width: 560px">
+      <n-space vertical :size="10" class="py-2">
+        <n-alert type="info" :show-icon="false">
+          把以下信息交给 Agent 侧（或其驱动者），复制即用。接入码一次性、24 小时有效，关闭后不再展示。
+        </n-alert>
+        <div>
+          <div class="text-xs mb-1">服务器地址（写入 ~/.bc/config.toml 的 server_url）</div>
+          <n-space align="center" :size="8">
+            <n-code :code="serverUrl" language="text" style="font-size: 12px" />
+            <n-button text size="tiny" type="primary" @click="copyToClipboard(serverUrl).then(() => message.success('已复制'))">复制</n-button>
+          </n-space>
+        </div>
+        <div>
+          <div class="text-xs mb-1">项目接入码</div>
+          <n-space align="center" :size="8">
+            <n-code :code="agentCode" language="text" style="font-size: 12px" />
+            <n-button text size="tiny" type="primary" @click="copyToClipboard(agentCode).then(() => message.success('已复制'))">复制</n-button>
+          </n-space>
+          <n-text depth="3" style="font-size: 12px">有效期至：{{ agentCodeExpires }}</n-text>
+        </div>
+        <div>
+          <div class="text-xs mb-1">四步接入命令</div>
+          <n-space align="flex-start" :size="8">
+            <n-code :code="onboardCommands" language="bash" style="font-size: 12px; white-space: pre" />
+            <n-button text size="tiny" type="primary" @click="copyToClipboard(onboardCommands).then(() => message.success('已复制'))">复制</n-button>
+          </n-space>
+        </div>
+      </n-space>
+    </n-modal>
+
     <!-- 转交负责人（邀请制）：右键菜单/成员页共用组件 -->
     <TransferDialog v-model:show="showTransferDialog" :project-id="transferProjectId" />
 
@@ -124,6 +155,7 @@
   import { PlusOutlined } from '@vicons/antd';
   import { useUserStore } from '@/store/modules/user';
   import { copyToClipboard } from '@/utils/clipboard';
+  import { createAgentJoinCode } from '@/api/agent/index';
   import { usePerm } from '@/composables/usePerm';
   import TransferDialog from '@/views/project/components/TransferDialog.vue';
   import type { DropdownOption } from 'naive-ui';
@@ -235,6 +267,7 @@
       { label: '任务', key: 'tasks' },
       { label: '知识库', key: 'docs' },
       { label: '成员管理', key: 'members' },
+      { label: 'Agent 接入码…', key: 'agent-code' },
       { label: '项目设置', key: 'settings' },
       { label: `复制短码 ${item.code}`, key: 'copy-code' },
     ];
@@ -244,6 +277,38 @@
       ops.push({ label: '移交负责人…', key: 'transfer' });
     }
     return ops;
+  }
+
+  // ---- Agent 接入码（右键菜单直达；与成员页同款展示与复制） ----
+  const showAgentCode = ref(false);
+  const agentCode = ref('');
+  const agentCodeExpires = ref('');
+  const serverUrl = computed(() => window.location.origin + '/api');
+  const onboardCommands = computed(() =>
+    [
+      '# 1. 配置服务器（一次性，写入 ~/.bc/config.toml）',
+      'bcode config set server ' + serverUrl.value,
+      '',
+      '# 2. 注册身份（bc_ key 自动落本地）',
+      'bcode register <agent-name>',
+      '',
+      '# 3. 凭码加入本项目',
+      'bcode join ' + (agentCode.value || '<接入码>'),
+      '',
+      '# 4. 在项目目录建立会话（开工包）',
+      'bcode start',
+    ].join('\n')
+  );
+
+  async function handleGenAgentCode(item: ProjectItem) {
+    try {
+      const res = await createAgentJoinCode(item.id);
+      agentCode.value = res.code;
+      agentCodeExpires.value = res.expiresAt;
+      showAgentCode.value = true;
+    } catch {
+      // http 层统一提示（无管理权限等）
+    }
   }
 
   function onCtxSelect(key: string) {
@@ -265,6 +330,9 @@
         break;
       case 'settings':
         router.push(`/project/${item.id}/settings`);
+        break;
+      case 'agent-code':
+        handleGenAgentCode(item);
         break;
       case 'copy-code':
         copyToClipboard(item.code).then(
