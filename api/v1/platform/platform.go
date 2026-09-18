@@ -134,6 +134,10 @@ type NotificationItem struct {
 	SourceType string `json:"sourceType"`
 	SourceId   int    `json:"sourceId"`
 	CreatedAt  string `json:"createdAt"`
+	// transfer 类通知专用：移交邀请当前状态（pending/accepted/declined/
+	// cancelled；列表时批量回填）。空=非 transfer 或状态未知（SSE 实时
+	// 推送不带此字段，按 pending 处理）——前端仅 pending 显示接受/拒绝
+	TransferStatus string `json:"transferStatus"`
 }
 
 type NotificationReadReq struct {

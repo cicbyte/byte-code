@@ -54,14 +54,19 @@
             </div>
             <n-space :size="8" align="center" :wrap="false" @click.stop>
               <span class="notice-time">{{ fmtTime(item.createdAt) }}</span>
-              <!-- 移交按钮不绑 isRead：点击消息标读后仍可响应（已处理过由后端明确报错） -->
+              <!-- 仅 pending 可操作（列表回填 transferStatus）；已决显示结果标签 -->
               <template v-if="item.sourceType === 'transfer'">
-                <n-button text type="success" size="tiny" @click="openTransferModal(item)">
-                  接受
-                </n-button>
-                <n-button text type="error" size="tiny" @click="openTransferModal(item)">
-                  拒绝
-                </n-button>
+                <template v-if="transferPending(item)">
+                  <n-button text type="success" size="tiny" @click="openTransferModal(item)">
+                    接受
+                  </n-button>
+                  <n-button text type="error" size="tiny" @click="openTransferModal(item)">
+                    拒绝
+                  </n-button>
+                </template>
+                <n-tag v-else size="tiny" :bordered="false" :type="item.transferStatus === 'accepted' ? 'success' : 'default'">
+                  {{ item.transferStatus === 'accepted' ? '已接受' : '已拒绝' }}
+                </n-tag>
               </template>
               <n-button v-if="item.isRead === 0" text type="primary" size="tiny" @click="handleRead(item)">
                 标为已读
@@ -88,17 +93,24 @@
     <n-modal v-model:show="showTransferModal" preset="dialog" title="项目移交邀请" :show-icon="false" style="width: 480px">
       <div v-if="transferItem" class="py-2">
         <p class="text-sm" style="white-space: pre-wrap; line-height: 1.7">{{ transferItem.content }}</p>
-        <n-text depth="3" style="font-size: 12px">接受后你成为该项目负责人（原负责人按其选择留在项目或退出）；拒绝将告知发起方。</n-text>
+        <n-text v-if="transferPending(transferItem)" depth="3" style="font-size: 12px">
+          接受后你成为该项目负责人（原负责人按其选择留在项目或退出）；拒绝将告知发起方。
+        </n-text>
+        <n-alert v-else type="info" :show-icon="false" style="margin-top: 8px">
+          该邀请已处理（{{ transferItem.transferStatus === 'accepted' ? '已接受' : '已拒绝' }}）。
+        </n-alert>
       </div>
       <template #action>
         <n-space>
-          <n-button size="small" @click="showTransferModal = false">暂不处理</n-button>
-          <n-button size="small" type="error" ghost :loading="actingId === transferItem?.id" @click="transferItem && handleTransferAction(transferItem, 'decline')">
-            拒绝
-          </n-button>
-          <n-button size="small" type="primary" :loading="actingId === transferItem?.id" @click="transferItem && handleTransferAction(transferItem, 'accept')">
-            接受
-          </n-button>
+          <n-button size="small" @click="showTransferModal = false">{{ transferItem && transferPending(transferItem) ? '暂不处理' : '关闭' }}</n-button>
+          <template v-if="transferItem && transferPending(transferItem)">
+            <n-button size="small" type="error" ghost :loading="actingId === transferItem.id" @click="handleTransferAction(transferItem, 'decline')">
+              拒绝
+            </n-button>
+            <n-button size="small" type="primary" :loading="actingId === transferItem.id" @click="handleTransferAction(transferItem, 'accept')">
+              接受
+            </n-button>
+          </template>
         </n-space>
       </template>
     </n-modal>
@@ -195,6 +207,12 @@
     } catch {
       message.error('操作失败');
     }
+  }
+
+  // 移交邀请可操作性：仅 pending（transferStatus 空=未知（SSE 实时推送），
+  // 按 pending 兜底，后端仍是最终裁决）
+  function transferPending(item: NotificationItem): boolean {
+    return item.sourceType === 'transfer' && !['accepted', 'declined', 'cancelled'].includes(item.transferStatus || '');
   }
 
   // 移交邀请弹窗：行/按钮点击进入，处理在弹窗内

@@ -74,6 +74,8 @@ export interface NotificationItem {
   sourceType: string;
   sourceId: number;
   createdAt: string;
+  /** transfer 类专用：邀请当前状态（列表回填；SSE 实时推送不带，前端按 pending 兜底） */
+  transferStatus?: string;
 }
 
 export interface NotificationListResult {

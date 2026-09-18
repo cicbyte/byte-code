@@ -107,6 +107,7 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 			"对方拒绝了你的项目移交邀请（可在成员页重新发起或另选目标）", "warning", "transfer", req.Id)
 		s.recordActivity(ctx, uid, "project.transfer_declined", "project", pid,
 			fmt.Sprintf("#%d", from), pid, "拒绝移交邀请")
+		markInviteRead(ctx, uid, req.Id)
 		return nil
 	}
 
@@ -180,7 +181,18 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 		fmt.Sprintf("项目移交已完成（%s）%s。", after, groupNote), "success", "transfer", req.Id)
 	s.recordActivity(ctx, uid, "project.transferred", "project", pid,
 		fmt.Sprintf("#%d", from), pid, "移交完成，负责人变更")
+	markInviteRead(ctx, uid, req.Id)
 	return nil
+}
+
+// markInviteRead 决议后把受邀人的邀请通知标读：已读 + 列表回填的
+// transferStatus 双信号，让前端不再对已决邀请显示操作
+func markInviteRead(ctx context.Context, uid, transferId int) {
+	g.DB().Model("notifications").Ctx(ctx).
+		Where("user_id", uid).
+		Where("source_type", "transfer").
+		Where("source_id", transferId).
+		Data("is_read", 1).Update()
 }
 
 func boolToInt(b bool) int {

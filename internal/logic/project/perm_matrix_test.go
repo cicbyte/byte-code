@@ -22,8 +22,10 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	api "github.com/cicbyte/byte-code/api/v1/project"
+	platApi "github.com/cicbyte/byte-code/api/v1/platform"
 	apiDocs "github.com/cicbyte/byte-code/api/v1/docs"
 	_ "github.com/cicbyte/byte-code/internal/logic/docs"
+	_ "github.com/cicbyte/byte-code/internal/logic/platform"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/perm"
@@ -860,6 +862,22 @@ func TestOwnerTransferInvite(t *testing.T) {
 	}
 	if n := ptNotifCount(t, 101, "移交邀请已接受"); n != 1 {
 		t.Errorf("发起方应收接受通知, got %d", n)
+	}
+	// 列表回填 + 决议自动标读（#486）：受邀人视角该邀请通知应已读且
+	// transferStatus=accepted——前端据此不再渲染接受/拒绝
+	nres, nerr := service.Platform().ListNotifications(ctxAs(103), &platApi.NotificationListReq{Size: 50})
+	if nerr != nil {
+		t.Fatal(nerr)
+	}
+	for _, it := range nres.List {
+		if it.SourceType == "transfer" && it.SourceId == tid2 {
+			if it.TransferStatus != "accepted" {
+				t.Errorf("已决邀请应回填 transferStatus=accepted, got %q", it.TransferStatus)
+			}
+			if it.IsRead != 1 {
+				t.Errorf("决议后邀请通知应自动标读, got isRead=%d", it.IsRead)
+			}
+		}
 	}
 	// resolved_at 必须是 19 字符定长（YYYY-MM-DD HH:MM:SS）——gtime 对象
 	// 会被驱动带微秒写入（26 字符），MySQL VARCHAR(19) 列直接 Data too

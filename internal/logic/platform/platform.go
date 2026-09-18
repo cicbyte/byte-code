@@ -165,6 +165,35 @@ func (s *sPlatform) ListActivities(ctx context.Context, req *api.ActivityListReq
 	return
 }
 
+// enrichTransferStatus transfer 类通知回填邀请当前状态：前端据此只对
+// pending 显示接受/拒绝（已决显示结果标签），避免对已处理邀请操作报
+// 「邀请已处理过」。SSE 实时推送不带此字段，前端按 pending 兜底
+func enrichTransferStatus(ctx context.Context, list []api.NotificationItem) {
+	ids := make([]int, 0, 4)
+	for i := range list {
+		if list[i].SourceType == "transfer" && list[i].SourceId > 0 {
+			ids = append(ids, list[i].SourceId)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	rows, err := g.DB().Model("project_transfers").Ctx(ctx).
+		Where("id IN (?)", ids).Fields("id, status").All()
+	if err != nil {
+		return // 回填尽力而为，失败不阻断列表
+	}
+	st := make(map[int]string, len(rows))
+	for _, r := range rows {
+		st[r["id"].Int()] = r["status"].String()
+	}
+	for i := range list {
+		if list[i].SourceType == "transfer" {
+			list[i].TransferStatus = st[list[i].SourceId]
+		}
+	}
+}
+
 // ========== 通知 ==========
 
 func (s *sPlatform) ListNotifications(ctx context.Context, req *api.NotificationListReq) (res *api.NotificationListRes, err error) {
@@ -188,6 +217,10 @@ func (s *sPlatform) ListNotifications(ctx context.Context, req *api.Notification
 	}
 
 	err = m.Page(req.Page, req.Size).Order("id DESC").Scan(&res.List)
+	if err != nil {
+		return
+	}
+	enrichTransferStatus(ctx, res.List)
 	return
 }
 
