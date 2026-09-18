@@ -257,8 +257,10 @@ func (s *sTest) GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, 
 	var cases []api.TestRunCaseItem
 	err = g.DB().Model("test_run_cases trc").Ctx(ctx).
 		LeftJoin("test_cases tc", "trc.test_case_id = tc.id").
+		LeftJoin("tasks bt", "trc.bug_task_id = bt.id").
 		Fields("trc.id, trc.test_run_id, trc.test_case_id, tc.title AS test_case_title, "+
-			"trc.external_key, trc.title, trc.status, trc.duration_ms, trc.message").
+			"trc.external_key, trc.title, trc.status, trc.duration_ms, trc.message, "+
+			"trc.bug_task_id, bt.title AS bug_task_title").
 		Where("trc.test_run_id", id).
 		Order("trc.id ASC").
 		Scan(&cases)
@@ -268,7 +270,22 @@ func (s *sTest) GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, 
 	if cases != nil {
 		res.Cases = cases
 	}
+	// flaky 富化：窗口内同 key 既有 pass 又有 fail/error 即标（#506）
+	if flaky, ferr := flakyKeysForRun(ctx, res.TestRunItem.ProjectId); ferr == nil {
+		for i := range res.Cases {
+			res.Cases[i].Flaky = flaky[res.Cases[i].ExternalKey]
+		}
+	}
 	return res, nil
+}
+
+// flakyKeysForRun 详情页富化用窗口（固定最近 10 次，与 Flaky 面板口径一致）
+func flakyKeysForRun(ctx context.Context, pid int) (map[string]bool, error) {
+	ids, err := recentRunIds(ctx, pid, 10)
+	if err != nil {
+		return nil, err
+	}
+	return flakyKeys(ctx, ids)
 }
 
 func (s *sTest) DeleteRun(ctx context.Context, id int) (err error) {

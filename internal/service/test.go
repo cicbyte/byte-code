@@ -28,6 +28,10 @@ type ITest interface {
 	ListRuns(ctx context.Context, req *api.TestRunListReq) (total int, list []api.TestRunItem, err error)
 	GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, err error)
 	DeleteRun(ctx context.Context, id int) (err error)
+	// 失败闭环 / Flaky / 趋势（#506）
+	CaseToBug(ctx context.Context, req *api.TestRunCaseBugReq) (res *api.TestRunCaseBugRes, err error)
+	ListFlaky(ctx context.Context, req *api.TestFlakyListReq) (res *api.TestFlakyListRes, err error)
+	ListTrends(ctx context.Context, req *api.TestTrendReq) (res *api.TestTrendRes, err error)
 }
 
 var localTest ITest

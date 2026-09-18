@@ -311,12 +311,15 @@ type TestRunCaseItem struct {
 	Id            int    `json:"id"`
 	TestRunId     int    `json:"testRunId"`
 	TestCaseId    int    `json:"testCaseId"`
-	TestCaseTitle string `json:"testCaseTitle,omitempty" dc:"映射的平台用例标题（未映射为空）"`
+	TestCaseTitle string `json:"testCaseTitle,omitempty"`
 	ExternalKey   string `json:"externalKey"`
 	Title         string `json:"title"`
 	Status        string `json:"status"`
 	DurationMs    int    `json:"durationMs"`
 	Message       string `json:"message"`
+	BugTaskId     int    `json:"bugTaskId"`
+	BugTaskTitle  string `json:"bugTaskTitle,omitempty"`
+	Flaky         bool   `json:"flaky"`
 }
 
 type TestRunDeleteReq struct {
@@ -326,4 +329,75 @@ type TestRunDeleteReq struct {
 
 type TestRunDeleteRes struct {
 	g.Meta `mime:"application/json"`
+}
+
+// ==================== 失败闭环 / Flaky / 趋势（#506 P3） ====================
+
+type TestRunCaseBugReq struct {
+	g.Meta   `path:"/test-run-cases/{id}/bug" method:"post" tags:"测试管理" summary:"失败用例转缺陷任务"`
+	Id       int    `json:"-" in:"path" v:"required#记录用例ID不能为空"`
+	Title    string `json:"title" dc:"任务标题（缺省按用例标题生成）"`
+	Priority int    `json:"priority" d:"2" dc:"任务优先级 1-4"`
+	// 挂接既有任务（非 0 时跳过创建，仅回填挂钩）
+	TaskId int `json:"taskId" dc:"既有任务ID"`
+}
+
+type TestRunCaseBugRes struct {
+	g.Meta  `mime:"application/json"`
+	TaskId  int  `json:"taskId"`
+	Created bool `json:"created"`
+}
+
+type TestFlakyListReq struct {
+	g.Meta    `path:"/projects/{projectId}/test-runs/flaky" method:"get" tags:"测试管理" summary:"Flaky 用例（近期状态抖动）"`
+	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
+	// 统计窗口：最近 N 次执行记录（缺省 10）
+	Window int `json:"window" d:"10"`
+}
+
+type TestFlakyListRes struct {
+	g.Meta `mime:"application/json"`
+	Window int             `json:"window"`
+	List   []TestFlakyItem `json:"list"`
+}
+
+type TestFlakyItem struct {
+	ExternalKey string `json:"externalKey"`
+	Title       string `json:"title"`
+	PassCount   int    `json:"passCount"`
+	FailCount   int    `json:"failCount"`
+	LastStatus  string `json:"lastStatus"`
+	LastRunId   int    `json:"lastRunId"`
+}
+
+type TestTrendReq struct {
+	g.Meta    `path:"/projects/{projectId}/test-runs/trends" method:"get" tags:"测试管理" summary:"测试趋势（近期执行）"`
+	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Limit     int `json:"limit" d:"30" dc:"统计最近 N 次执行"`
+}
+
+type TestTrendRes struct {
+	g.Meta    `mime:"application/json"`
+	Runs      []TestTrendRun `json:"runs"`
+	TopFailed []TestFailTop  `json:"topFailed"`
+}
+
+type TestTrendRun struct {
+	Id         int    `json:"id"`
+	Source     string `json:"source"`
+	Branch     string `json:"branch"`
+	Total      int    `json:"total"`
+	Passed     int    `json:"passed"`
+	Failed     int    `json:"failed"`
+	Errors     int    `json:"errors"`
+	Skipped    int    `json:"skipped"`
+	DurationMs int    `json:"durationMs"`
+	FinishedAt string `json:"finishedAt"`
+}
+
+type TestFailTop struct {
+	ExternalKey string `json:"externalKey"`
+	Title       string `json:"title"`
+	FailCount   int    `json:"failCount"`
+	TotalCount  int    `json:"totalCount"`
 }

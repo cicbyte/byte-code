@@ -11,8 +11,8 @@ import (
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/os/gtime"
 )
 
 func init() {
@@ -187,6 +187,10 @@ var projectEntityRules = []struct {
 // testPlanCaseRe /test-plan-cases/{id} 需两跳解析（test_plan_cases.test_plan_id -> test_plans.project_id）
 var testPlanCaseRe = regexp.MustCompile(`^/api/v1/test-plan-cases/(\d+)`)
 
+// testRunCaseRe /test-run-cases/{id} 两跳解析（test_run_cases.test_run_id -> test_runs.project_id）：
+// 失败转缺陷端点（#506）的成员校验依据
+var testRunCaseRe = regexp.MustCompile(`^/api/v1/test-run-cases/(\d+)`)
+
 // commentRe /comments/{id} 两跳解析（comments.task_id -> tasks.project_id）：
 // 评论编辑/删除原本只靠业务层作者校验兜底，补一层项目归属防御
 var commentRe = regexp.MustCompile(`^/api/v1/comments/(\d+)`)
@@ -202,6 +206,11 @@ func resolveProjectId(ctx context.Context, path string) int {
 		id, _ := strconv.Atoi(m[1])
 		planId := perm.EntityFieldInt(ctx, "test_plan_cases", id, "test_plan_id")
 		return perm.EntityProjectId(ctx, "test_plans", planId)
+	}
+	if m := testRunCaseRe.FindStringSubmatch(path); m != nil {
+		id, _ := strconv.Atoi(m[1])
+		runId := perm.EntityFieldInt(ctx, "test_run_cases", id, "test_run_id")
+		return perm.EntityProjectId(ctx, "test_runs", runId)
 	}
 	if m := commentRe.FindStringSubmatch(path); m != nil {
 		id, _ := strconv.Atoi(m[1])

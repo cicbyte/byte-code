@@ -1173,3 +1173,155 @@ func TestTestRunReport(t *testing.T) {
 	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
 	db.Model("test_cases").Ctx(ctx).Where("title", "synced").Delete()
 }
+
+// ---------- 失败闭环 / Flaky / 趋势（#506） ----------
+
+func TestTestRunClosedLoop(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+	mk := func(k, status string) apiTest.TestRunCaseReport {
+		return apiTest.TestRunCaseReport{ExternalKey: k, Status: status, Message: "boom-trace"}
+	}
+	// 三次执行：unstable 键 pass/fail 交替（flaky），stable 键恒 pass，bad 键恒 fail
+	report := func() *apiTest.TestRunReportReq {
+		return &apiTest.TestRunReportReq{ProjectId: 501, Source: "pytest"}
+	}
+	r1 := report(); r1.Cases = []apiTest.TestRunCaseReport{mk("t::unstable", "pass"), mk("t::stable", "pass"), mk("t::bad", "fail")}
+	r2 := report(); r2.Cases = []apiTest.TestRunCaseReport{mk("t::unstable", "fail"), mk("t::stable", "pass"), mk("t::bad", "fail")}
+	r3 := report(); r3.Cases = []apiTest.TestRunCaseReport{mk("t::unstable", "pass"), mk("t::stable", "pass"), mk("t::bad", "fail")}
+	for _, r := range []*apiTest.TestRunReportReq{r1, r2, r3} {
+		if _, err := service.Test().ReportRun(ctxAs(109), r); err != nil {
+			t.Fatalf("seed run 失败: %v", err)
+		}
+	}
+
+	// ① Flaky 列表：unstable 在列（1P/1F 至少），stable/bad 不在
+	fl, err := service.Test().ListFlaky(ctx, &apiTest.TestFlakyListReq{ProjectId: 501})
+	if err != nil {
+		t.Fatalf("ListFlaky: %v", err)
+	}
+	var uni *apiTest.TestFlakyItem
+	for i := range fl.List {
+		if fl.List[i].ExternalKey == "t::unstable" {
+			uni = &fl.List[i]
+		}
+		if fl.List[i].ExternalKey == "t::stable" || fl.List[i].ExternalKey == "t::bad" {
+			t.Errorf("非抖动用例不应进 Flaky: %+v", fl.List[i])
+		}
+	}
+	if uni == nil {
+		t.Fatalf("unstable 应在 Flaky 列表: %+v", fl.List)
+	}
+	if uni.PassCount < 1 || uni.FailCount < 1 {
+		t.Errorf("flaky 计数不符: %+v", uni)
+	}
+
+	// ② 详情富化：unstable 行带 flaky 标；bad 行无
+	_, runList, _ := service.Test().ListRuns(ctx, &apiTest.TestRunListReq{ProjectId: 501, Source: "pytest"})
+	if len(runList) == 0 {
+		t.Fatal("应能列出 seeded runs")
+	}
+	lastId := runList[0].Id // id 倒序，第一行为最新
+	det, err := service.Test().GetRun(ctx, lastId)
+	if err != nil {
+		t.Fatalf("GetRun: %v", err)
+	}
+	for _, c := range det.Cases {
+		if c.ExternalKey == "t::unstable" && !c.Flaky {
+			t.Errorf("unstable 行应带 flaky 标: %+v", c)
+		}
+		if c.ExternalKey == "t::bad" && c.Flaky {
+			t.Errorf("恒败用例不应误标 flaky: %+v", c)
+		}
+	}
+
+	// 找 bad 键的执行用例 id（转缺陷对象）
+	var badCaseId int
+	for _, c := range det.Cases {
+		if c.ExternalKey == "t::bad" {
+			badCaseId = c.Id
+		}
+	}
+	if badCaseId == 0 {
+		t.Fatal("找不到 bad 用例行")
+	}
+
+	// ③ 转缺陷门禁：只读 agent（108）拒绝（走 tasks_write）
+	if _, err := service.Test().CaseToBug(ctxAs(108), &apiTest.TestRunCaseBugReq{Id: badCaseId}); err == nil || !strings.Contains(err.Error(), "写任务") {
+		t.Errorf("只读 agent 转缺陷应拒（含文案）: %v", err)
+	}
+	// ④ 人类成员转缺陷：建 bug 任务 + 挂钩 + 广播绑定 agent
+	bg, err := service.Test().CaseToBug(ctxAs(103), &apiTest.TestRunCaseBugReq{Id: badCaseId, Title: "修复 bad"})
+	if err != nil {
+		t.Fatalf("member 转缺陷应放行: %v", err)
+	}
+	if !bg.Created || bg.TaskId == 0 {
+		t.Fatalf("应新建任务: %+v", bg)
+	}
+	taskRow, _ := db.Model("tasks").Ctx(ctx).Where("id", bg.TaskId).One()
+	if taskRow.IsEmpty() || taskRow["type"].String() != "bug" || taskRow["project_id"].Int() != 501 {
+		t.Fatalf("任务形状不符: %+v", taskRow)
+	}
+	if !strings.Contains(taskRow["description"].String(), "boom-trace") {
+		t.Errorf("任务描述应含失败信息: %q", taskRow["description"].String())
+	}
+	if cnt, _ := db.Model("notifications").Ctx(ctx).Where("source_type", "task").Where("source_id", bg.TaskId).Count(); cnt == 0 {
+		t.Errorf("绑定 agent 应收到可认领广播（#109/#108 已绑定 501）")
+	}
+	linkRow, _ := db.Model("test_run_cases").Ctx(ctx).Where("id", badCaseId).One()
+	if linkRow["bug_task_id"].Int() != bg.TaskId {
+		t.Errorf("bug_task_id 应回填: %+v", linkRow)
+	}
+	// 重复转 → 明确拒绝
+	if _, err := service.Test().CaseToBug(ctxAs(103), &apiTest.TestRunCaseBugReq{Id: badCaseId}); err == nil || !strings.Contains(err.Error(), "已挂接") {
+		t.Errorf("重复转缺陷应拒（含文案）: %v", err)
+	}
+
+	// ⑤ 挂接既有任务：unstable 失败行 + 刚建的任务跨项目校验用新任务
+	var uniCaseId int
+	for _, c := range det.Cases {
+		if c.ExternalKey == "t::unstable" {
+			uniCaseId = c.Id
+		}
+	}
+	// 跨项目任务：项目 502 建一个任务再挂 → 拒
+	db.Model("projects").Ctx(ctx).Data(g.Map{"id": 502, "name": "mx-proj2", "status": 1, "creator_id": 101}).Insert()
+	foreign, _ := db.Model("tasks").Ctx(ctx).Data(g.Map{"project_id": 502, "title": "foreign", "status": "open", "creator_id": 101}).Insert()
+	fid, _ := foreign.LastInsertId()
+	if _, err := service.Test().CaseToBug(ctxAs(103), &apiTest.TestRunCaseBugReq{Id: uniCaseId, TaskId: int(fid)}); err == nil || !strings.Contains(err.Error(), "不属于该项目") {
+		t.Errorf("跨项目挂接应拒（含文案）: %v", err)
+	}
+	own, _ := db.Model("tasks").Ctx(ctx).Data(g.Map{"project_id": 501, "title": "own-bug", "status": "open", "creator_id": 101, "type": "bug"}).Insert()
+	oid, _ := own.LastInsertId()
+	lg, err := service.Test().CaseToBug(ctxAs(103), &apiTest.TestRunCaseBugReq{Id: uniCaseId, TaskId: int(oid)})
+	if err != nil || lg.Created || lg.TaskId != int(oid) {
+		t.Errorf("挂接既有任务应放行且不新建: %+v err=%v", lg, err)
+	}
+
+	// ⑥ 趋势：runs 时间升序 + topFailed 含 bad（3 败）与 unstable（窗口内 1 败）
+	tr, err := service.Test().ListTrends(ctx, &apiTest.TestTrendReq{ProjectId: 501})
+	if err != nil {
+		t.Fatalf("ListTrends: %v", err)
+	}
+	if len(tr.Runs) < 3 {
+		t.Errorf("趋势应含 3+ runs: %d", len(tr.Runs))
+	}
+	topMap := map[string]apiTest.TestFailTop{}
+	for _, tf := range tr.TopFailed {
+		topMap[tf.ExternalKey] = tf
+	}
+	if topMap["t::bad"].FailCount != 3 || topMap["t::bad"].TotalCount != 3 {
+		t.Errorf("bad 失败 Top 统计不符: %+v", topMap["t::bad"])
+	}
+	if topMap["t::unstable"].FailCount != 1 {
+		t.Errorf("unstable 失败计数应 1: %+v", topMap["t::unstable"])
+	}
+
+	// 清理（501 共享 + 本测试自建 502）
+	db.Exec(ctx, "DELETE FROM notifications WHERE source_type = 'task' AND source_id IN (SELECT id FROM tasks WHERE title IN ('修复 bad','own-bug'))")
+	db.Model("test_runs").Ctx(ctx).Where("project_id", 501).Delete()
+	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
+	db.Model("tasks").Ctx(ctx).Where("project_id IN (501,502)").Where("creator_id", 101).Delete()
+	db.Model("tasks").Ctx(ctx).Where("id", bg.TaskId).Delete()
+	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
+}

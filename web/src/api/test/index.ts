@@ -249,6 +249,9 @@ export interface TestRunCaseItem {
   status: string;
   durationMs: number;
   message: string;
+  bugTaskId: number;
+  bugTaskTitle?: string;
+  flaky: boolean;
 }
 
 export interface TestRunDetail extends TestRunItem {
@@ -268,4 +271,75 @@ export function getTestRunDetail(id: number) {
 /** 删除执行记录（owner/maintainer） */
 export function deleteTestRun(id: number) {
   return Alova.Delete(`/v1/test-runs/${id}`);
+}
+
+// ==================== 失败闭环 / Flaky / 趋势（#506） ====================
+
+/** Flaky 用例（近期窗口内 pass/fail 混现） */
+export interface TestFlakyItem {
+  externalKey: string;
+  title: string;
+  passCount: number;
+  failCount: number;
+  lastStatus: string;
+  lastRunId: number;
+}
+
+export interface TestFlakyResult {
+  window: number;
+  list: TestFlakyItem[];
+}
+
+/** 趋势：近期执行 + 失败 Top */
+export interface TestTrendRun {
+  id: number;
+  source: string;
+  branch: string;
+  total: number;
+  passed: number;
+  failed: number;
+  errors: number;
+  skipped: number;
+  durationMs: number;
+  finishedAt: string;
+}
+
+export interface TestFailTop {
+  externalKey: string;
+  title: string;
+  failCount: number;
+  totalCount: number;
+}
+
+export interface TestTrendResult {
+  runs: TestTrendRun[];
+  topFailed: TestFailTop[];
+}
+
+/** 失败用例转缺陷（TestRunCaseItem 补字段见上） */
+export interface TestRunCaseBugResult {
+  taskId: number;
+  created: boolean;
+}
+
+/** Flaky 用例列表 */
+export function getTestFlaky(projectId: number, window = 10) {
+  return Alova.Get<TestFlakyResult>(`/v1/projects/${projectId}/test-runs/flaky`, {
+    params: { window },
+  });
+}
+
+/** 测试趋势（近期执行 + 失败 Top） */
+export function getTestTrends(projectId: number, limit = 30) {
+  return Alova.Get<TestTrendResult>(`/v1/projects/${projectId}/test-runs/trends`, {
+    params: { limit },
+  });
+}
+
+/** 失败用例转缺陷任务（建任务并挂接；taskId 非 0 时挂接既有） */
+export function caseToBug(
+  runCaseId: number,
+  data: { title?: string; priority?: number; taskId?: number }
+) {
+  return Alova.Post<TestRunCaseBugResult>(`/v1/test-run-cases/${runCaseId}/bug`, data);
 }

@@ -145,3 +145,17 @@ func (c *testController) TestRunDelete(ctx context.Context, req *api.TestRunDele
 	err = service.Test().DeleteRun(ctx, req.Id)
 	return
 }
+
+// ==================== 失败闭环 / Flaky / 趋势（#506） ====================
+
+func (c *testController) TestRunCaseBug(ctx context.Context, req *api.TestRunCaseBugReq) (res *api.TestRunCaseBugRes, err error) {
+	return service.Test().CaseToBug(ctx, req)
+}
+
+func (c *testController) TestFlakyList(ctx context.Context, req *api.TestFlakyListReq) (res *api.TestFlakyListRes, err error) {
+	return service.Test().ListFlaky(ctx, req)
+}
+
+func (c *testController) TestTrend(ctx context.Context, req *api.TestTrendReq) (res *api.TestTrendRes, err error) {
+	return service.Test().ListTrends(ctx, req)
+}
