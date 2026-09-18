@@ -57,6 +57,10 @@ type ProjectItem struct {
 	Description string `json:"description"`
 	CreatedBy   int    `json:"createdBy"`
 	CreatorName string `json:"creatorName"`
+	// 现任负责人（project_members role=owner；移交后变化）。
+	// 无 owner 行时为 0/空，展示侧回退 creator
+	OwnerId     int    `json:"ownerId"`
+	OwnerName   string `json:"ownerName"`
 	Status      int    `json:"status"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`

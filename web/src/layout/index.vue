@@ -44,7 +44,7 @@
       </n-drawer>
 
       <!-- 内容区：唯一滚动容器，滚动条在卡片内侧，不挤压三卡对齐 -->
-      <main class="layout-content" :class="{ 'layout-default-background': getDarkTheme === false }">
+      <main ref="mainContentRef" class="layout-content" :class="{ 'layout-default-background': getDarkTheme === false }">
         <div class="layout-content-main">
           <MainView />
         </div>
@@ -54,7 +54,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, unref, computed, onMounted } from 'vue';
+  import { ref, unref, computed, onMounted, watch, nextTick } from 'vue';
   import { MenuFoldOutlined, MenuUnfoldOutlined } from '@vicons/antd';
   import { Logo } from './components/Logo';
   import { MainView } from './components/Main';
@@ -75,6 +75,17 @@
   // 收起态卡宽（icon-only）
   const collapsedMenuWidth = '64px';
   const route = useRoute();
+  // 路由切换复位主滚动容器（定高外壳下 main.layout-content 是唯一
+  // 主滚动条；不复位会带着上一页的滚动位置进入新页——通知页等长页面
+  // 表现为「点开后滚动位置异常」）
+  const mainContentRef = ref<HTMLElement | null>(null);
+  watch(
+    () => route.path,
+    async () => {
+      await nextTick();
+      mainContentRef.value?.scrollTo({ top: 0 });
+    }
+  );
   // 项目工作台内左侧菜单整体替换为该项目专属导航。
   // 以路由参数同步判断（而非等 entityContext 的异步 API 返回），避免进入项目时全局菜单闪现
   const inProjectContext = computed(() => !!route.params.projectId);
@@ -178,6 +189,12 @@
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        // 菜单少量溢出（~30px）不值得一条常驻滚动条，与主区滚动条并存
+        // 会被感知为双滚动条；隐藏之（滚轮/键盘滚动不受影响）
+        scrollbar-width: none; // Firefox
+        &::-webkit-scrollbar {
+          display: none; // Chromium/Safari
+        }
       }
 
       .sider-footer {

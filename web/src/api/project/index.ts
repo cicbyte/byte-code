@@ -10,6 +10,8 @@ export interface ProjectItem {
   description: string;
   createdBy: number;
   creatorName: string;
+  ownerId: number;
+  ownerName: string;
   status: number;
   createdAt: string;
   updatedAt: string;

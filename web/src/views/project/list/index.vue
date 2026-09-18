@@ -56,7 +56,7 @@
               <p class="text-gray-500 text-sm line-clamp-2">{{ item.description || '暂无描述' }}</p>
               <template #footer>
                 <n-space justify="space-between" align="center">
-                  <span class="text-gray-400 text-xs">负责人：{{ item.creatorName }}</span>
+                  <span class="text-gray-400 text-xs">负责人：{{ item.ownerName || item.creatorName }}</span>
                   <n-space size="small">
                     <n-button text type="info" size="small" @click.stop="handleEdit(item)">编辑</n-button>
                     <n-button text type="error" size="small" @click.stop="handleDelete(item)">删除</n-button>
@@ -271,9 +271,11 @@
       { label: '项目设置', key: 'settings' },
       { label: `复制短码 ${item.code}`, key: 'copy-code' },
     ];
-    // 移交：owner（creatorId 本人）或平台管理员；后端同口径兜底
+    // 移交：现任 owner（移交后即换人）或平台管理员；后端同口径兜底。
+    // ownerId 缺失（无 owner 行）回退 creator
     const myId = Number((userStore?.info as any)?.userId || 0);
-    if (canTransfer.value || item.creatorId === myId) {
+    const owner = item.ownerId || item.creatorId;
+    if (canTransfer.value || owner === myId) {
       ops.push({ label: '移交负责人…', key: 'transfer' });
     }
     return ops;
