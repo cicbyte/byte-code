@@ -112,7 +112,7 @@ func (s *sProject) GetRequirement(ctx context.Context, id int) (res *api.Require
 	err = g.DB().Model("requirements r").Ctx(ctx).
 		LeftJoin("sys_users au", "r.assignee_id = au.id").
 		LeftJoin("sys_users cu", "r.creator_id = cu.id").
-		Fields("r.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
+		Fields("r.*, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, COALESCE(NULLIF(cu.real_name, ''), cu.username) as creator_name").
 		Where("r.id", id).
 		Scan(&item)
 	if err != nil && !isNoRows(err) {
@@ -148,7 +148,7 @@ func (s *sProject) ListRequirements(ctx context.Context, req *api.RequirementLis
 	m := g.DB().Model("requirements r").Ctx(ctx).
 		LeftJoin("sys_users au", "r.assignee_id = au.id").
 		LeftJoin("sys_users cu", "r.creator_id = cu.id").
-		Fields("r.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
+		Fields("r.*, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, COALESCE(NULLIF(cu.real_name, ''), cu.username) as creator_name").
 		Where("r.project_id", req.ProjectId)
 	if req.Type != "" {
 		m = m.Where("r.type", req.Type)
@@ -187,7 +187,7 @@ func (s *sProject) buildRequirementTree(ctx context.Context, list []api.Requirem
 	err := g.DB().Model("requirements r").Ctx(ctx).
 		LeftJoin("sys_users au", "r.assignee_id = au.id").
 		LeftJoin("sys_users cu", "r.creator_id = cu.id").
-		Fields("r.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
+		Fields("r.*, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, COALESCE(NULLIF(cu.real_name, ''), cu.username) as creator_name").
 		WhereIn("r.parent_id", parentIds).
 		Order("r.sort_order ASC, r.id ASC").
 		Scan(&children)

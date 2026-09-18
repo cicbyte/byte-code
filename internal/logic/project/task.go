@@ -306,7 +306,7 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 	err = g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users au", "t.assignee_id = au.id").
 		LeftJoin("sys_users cu", "t.creator_id = cu.id").
-		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name").
+		Fields("t.*, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, COALESCE(NULLIF(cu.real_name, ''), cu.username) as creator_name").
 		Where("t.id", id).
 		Scan(&item)
 	if err != nil && !isNoRows(err) {
@@ -328,7 +328,7 @@ func (s *sProject) GetTask(ctx context.Context, id int) (res *api.TaskDetailRes,
 	var subs []api.TaskItem
 	if serr := g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users au", "t.assignee_id = au.id").
-		Fields("t.id, t.title, t.status, t.priority, t.assignee_id, COALESCE(au.real_name, au.username) as assignee_name, t.parent_task_id").
+		Fields("t.id, t.title, t.status, t.priority, t.assignee_id, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, t.parent_task_id").
 		Where("t.parent_task_id", id).
 		Order("t.priority DESC, t.id ASC").Limit(50).
 		Scan(&subs); serr == nil {
@@ -395,7 +395,7 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	m := g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users au", "t.assignee_id = au.id").
 		LeftJoin("sys_users cu", "t.creator_id = cu.id").
-		Fields(`t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name,
+		Fields(`t.*, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, COALESCE(NULLIF(cu.real_name, ''), cu.username) as creator_name,
 			CASE
 				WHEN EXISTS(SELECT 1 FROM project_feedbacks f WHERE f.converted_task_id = t.id) THEN 'feedback'
 				WHEN EXISTS(SELECT 1 FROM topic_phases tp WHERE tp.task_id = t.id) THEN 'topic'
@@ -503,7 +503,7 @@ func (s *sProject) MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res 
 	}
 	var list []api.MyTaskItem
 	err = base().
-		Fields("t.*, COALESCE(au.real_name, au.username) as assignee_name, COALESCE(cu.real_name, cu.username) as creator_name, COALESCE(p.name, '') as project_name").
+		Fields("t.*, COALESCE(NULLIF(au.real_name, ''), au.username) as assignee_name, COALESCE(NULLIF(cu.real_name, ''), cu.username) as creator_name, COALESCE(p.name, '') as project_name").
 		// 状态推进顺序排前，同态按优先级与更新时间倒序
 		Order(fmt.Sprintf("CASE t.status WHEN '%s' THEN 0 WHEN '%s' THEN 1 WHEN '%s' THEN 2 ELSE 3 END, t.priority DESC, t.updated_at DESC", consts.TaskStatusOpen, consts.TaskStatusInProgress, consts.TaskStatusReview)).
 		Page(req.Page, req.Size).

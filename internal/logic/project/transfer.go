@@ -30,7 +30,7 @@ func (s *sProject) InviteOwnerTransfer(ctx context.Context, req *api.OwnerTransf
 		return 0, fmt.Errorf("不能移交给自己")
 	}
 	t, terr := g.DB().Model("sys_users").Ctx(ctx).
-		Where("id", req.UserId).Fields("type, status, COALESCE(real_name, username) AS name").One()
+		Where("id", req.UserId).Fields("type, status, COALESCE(NULLIF(real_name, ''), username) AS name").One()
 	if terr != nil || t.IsEmpty() {
 		return 0, fmt.Errorf("目标用户不存在")
 	}
@@ -158,7 +158,7 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 		// 分组私有化（#480）：项目自动退出原负责人名下分组（事务内，
 		// 与角色变更同生共死）；第三方分组不动
 		var derr error
-		exited, derr = detachOwnerGroups(tx.Exec, pid, curOwner)
+		exited, derr = detachOwnerGroups(ctx, tx, pid, curOwner)
 		return derr
 	})
 	if err != nil {

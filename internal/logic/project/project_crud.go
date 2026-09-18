@@ -182,7 +182,7 @@ func (s *sProject) GetProject(ctx context.Context, id int) (res *api.ProjectDeta
 	var item api.ProjectItem
 	err = g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
-		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at").
+		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(NULLIF(u.real_name, ''), u.username) as creator_name, p.status, p.created_at, p.updated_at").
 		Where("p.id", id).
 		Scan(&item)
 	if err != nil && !isNoRows(err) {
@@ -227,7 +227,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 	// 数据查询
 	m := g.DB().Model("projects p").Ctx(ctx).
 		LeftJoin("sys_users u", "p.created_by = u.id").
-		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(u.real_name, u.username) as creator_name, p.status, p.created_at, p.updated_at")
+		Fields("p.id, p.code, p.name, p.description, p.created_by, COALESCE(NULLIF(u.real_name, ''), u.username) as creator_name, p.status, p.created_at, p.updated_at")
 	if memberOnly {
 		m = m.Where(
 			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)

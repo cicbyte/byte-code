@@ -50,7 +50,7 @@ func (s *sProject) ListQas(ctx context.Context, req *api.QaListReq) (res *api.Qa
 	res = &api.QaListRes{List: []api.QaItem{}}
 	m := g.DB().Model("project_qas q").Ctx(ctx).
 		LeftJoin("sys_users u", "u.id = q.updated_by").
-		Fields("q.id, q.question, q.answer, q.tags, q.hits, q.status, COALESCE(u.real_name, u.username) AS updater, q.updated_at").
+		Fields("q.id, q.question, q.answer, q.tags, q.hits, q.status, COALESCE(NULLIF(u.real_name, ''), u.username) AS updater, q.updated_at").
 		Where("q.project_id", req.ProjectId).
 		Where("q.status", "active")
 	if req.Keyword != "" {

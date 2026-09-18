@@ -199,7 +199,7 @@ func getClaimableTasks(ctx context.Context, limit int) ([]ClaimableTask, error) 
 	var tasks []ClaimableTask
 	err := g.DB().Model("tasks t").Ctx(ctx).
 		LeftJoin("sys_users u", "t.assignee_id = u.id").
-		Fields("t.id, t.project_id, t.title, t.description, t.assignee_id, COALESCE(u.real_name, u.username) as assignee_name, t.ai_attempts").
+		Fields("t.id, t.project_id, t.title, t.description, t.assignee_id, COALESCE(NULLIF(u.real_name, ''), u.username) as assignee_name, t.ai_attempts").
 		Where("t.status", "open").
 		Where("t.assignee_id > 0").
 		Where("u.type", "ai").

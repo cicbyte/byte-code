@@ -2,7 +2,6 @@ package project
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -208,18 +207,18 @@ func groupOwnedByCreator(ctx context.Context, groupId int) error {
 	return nil
 }
 
-// detachOwnerGroupsSQL 项目移出指定用户名下全部分组（移交自动退出，#480）。
-// 只动该用户创建的分组——第三方（如超管）建的跨项目分组不随人事变动
-const detachOwnerGroupsSQL = `DELETE FROM project_group_members WHERE project_id = ? AND group_id IN (SELECT id FROM project_groups WHERE created_by = ?)`
-
-// detachOwnerGroups 执行上述移出并返回退出的分组数（0=无变化）。
-// exec 闭包抹平 g.DB()（带 ctx）与 gdb.TX（不带）的 Exec 签名差异，
-// 供移交事务内调用；ownerId<=0（无时任 owner）视为无变化
-func detachOwnerGroups(exec func(sql string, args ...interface{}) (sql.Result, error), projectId, ownerId int) (int64, error) {
+// detachOwnerGroups 项目移出指定用户名下全部分组（移交自动退出，#480）。
+// 只动该用户创建的分组——第三方（如超管）建的跨项目分组不随人事变动。
+// 走 Model 子查询删除而非裸 Exec——Model API 在 g.DB() 与 gdb.TX 上签名
+// 一致（Exec 一个带 ctx 一个不带，曾需闭包抹平），ownerId<=0 视为无变化
+func detachOwnerGroups(ctx context.Context, tx gdb.TX, projectId, ownerId int) (int64, error) {
 	if ownerId <= 0 || projectId <= 0 {
 		return 0, nil
 	}
-	res, err := exec(detachOwnerGroupsSQL, projectId, ownerId)
+	res, err := tx.Model("project_group_members").Ctx(ctx).
+		Where("project_id", projectId).
+		Where("group_id IN (SELECT id FROM project_groups WHERE created_by = ?)", ownerId).
+		Delete()
 	if err != nil {
 		return 0, err
 	}

@@ -179,7 +179,7 @@ func (s *sProject) TransferOwner(ctx context.Context, req *api.OwnerTransferReq)
 		Name     string `json:"name"`
 	}
 	terr := g.DB().Model("project_members pm").Ctx(ctx).
-		Fields("pm.role, COALESCE(u.type,'human') AS user_type, COALESCE(u.real_name, u.username) AS name").
+		Fields("pm.role, COALESCE(u.type,'human') AS user_type, COALESCE(NULLIF(u.real_name, ''), u.username) AS name").
 		LeftJoin("sys_users u", "u.id = pm.user_id").
 		Where("pm.project_id", req.ProjectId).
 		Where("pm.user_id", req.UserId).
@@ -226,7 +226,7 @@ func (s *sProject) TransferOwner(ctx context.Context, req *api.OwnerTransferReq)
 			return e
 		}
 		// 分组私有化（#480）：项目自动退出原负责人名下分组（事务内）
-		_, derr := detachOwnerGroups(tx.Exec, req.ProjectId, oldOwner)
+		_, derr := detachOwnerGroups(ctx, tx, req.ProjectId, oldOwner)
 		return derr
 	})
 	if err != nil {
