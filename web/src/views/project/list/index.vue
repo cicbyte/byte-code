@@ -123,6 +123,7 @@
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import { useUserStore } from '@/store/modules/user';
+  import { copyToClipboard } from '@/utils/clipboard';
   import { usePerm } from '@/composables/usePerm';
   import TransferDialog from '@/views/project/components/TransferDialog.vue';
   import type { DropdownOption } from 'naive-ui';
@@ -266,7 +267,7 @@
         router.push(`/project/${item.id}/settings`);
         break;
       case 'copy-code':
-        navigator.clipboard?.writeText(item.code).then(
+        copyToClipboard(item.code).then(
           () => message.success(`已复制短码：${item.code}`),
           () => message.error('复制失败')
         );

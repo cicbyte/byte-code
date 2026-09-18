@@ -172,6 +172,7 @@
   import TransferDialog from '@/views/project/components/TransferDialog.vue';
   import { createAgentJoinCode, updateAgentCapabilities, AGENT_CAPS } from '@/api/agent/index';
   import { searchUsers } from '@/api/system/user';
+  import { copyToClipboard } from '@/utils/clipboard';
   import type { MemberItem } from '@/api/project/index';
 
   const route = useRoute();
@@ -360,7 +361,7 @@
       'bcode start',
     ].join('\n'));
   function copyText(text: string) {
-    navigator.clipboard?.writeText(text).then(
+    copyToClipboard(text).then(
       () => message.success('已复制'),
       () => message.error('复制失败，请手动选择'),
     );

@@ -137,6 +137,7 @@
   import type { AiUserItem } from '@/api/ai/index';
   import { getAgentBindings } from '@/api/ai/index';
   import { AGENT_CAPS } from '@/api/agent/index';
+  import { copyToClipboard } from '@/utils/clipboard';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -280,7 +281,7 @@
   }
 
   function copyKey() {
-    navigator.clipboard.writeText(generatedKey.value).then(() => {
+    copyToClipboard(generatedKey.value).then(() => {
       message.success('已复制到剪贴板');
     }).catch(() => {
       message.error('复制失败，请手动复制');
