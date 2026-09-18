@@ -152,6 +152,10 @@
   // 通栏 Header（贯穿、无圆角）+ 下方浮卡；画布 8px 缝隙、12px 圆角统一。
   // 视口锁高：页面级永不滚动（消灭全宽滚动条挤压对齐），滚动只在内容卡内部
   .layout-root {
+    // 100vh 而非 100% 链：中间的 n-config-provider 包装 div 无高度规则，
+    // 100% 在此解析为 auto（实测壳被内容撑高）。窗口滚动条由
+    // body overflow:hidden 封印（分数缩放下 100vh 的亚像素溢出被裁掉
+    // 而非显示成第二根滚动条）
     height: 100vh;
     overflow: hidden;
     display: flex;

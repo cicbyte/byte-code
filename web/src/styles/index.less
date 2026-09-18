@@ -45,7 +45,18 @@
   --empty-dots: #3a3d44;
 }
 
+/* 定高外壳的高度链锁死 + 封窗口滚动：layout-root 是 100vh 的 flex 外壳，
+   滚动只应发生在内容卡内部。分数缩放/奇数 DPI 下 100vh 会比实际视口
+   多出亚像素，body 被撑出一根窗口滚动条（与主滚动条并存=「双滚动条」，
+   #489 的滚动条隐藏治不了这一类）——overflow hidden 让它在物理上不可能 */
+html,
+body,
+#app {
+  height: 100%;
+}
+
 body {
+  overflow: hidden;
   font-size: 13px;
   background: var(--canvas);
 }

@@ -17,6 +17,9 @@
         </n-button>
       </div>
       <n-spin :show="loading" size="small">
+        <!-- 列表区独立滚动：弹层限高后这里承接全部滚动；
+             overscroll-behavior 断滚轮穿透（到底不再带动页面滚） -->
+        <div class="notif-list">
         <EmptyState v-if="list.length === 0" type="notify" title="暂无通知" description="任务指派与评论提醒会送达这里" compact />
         <div
           v-for="item in list"
@@ -36,6 +39,7 @@
             <n-button text size="tiny" type="error" :loading="actingId === item.id" @click="handleTransferAction(item, 'decline')">拒绝</n-button>
           </div>
           <div class="notif-item-time">{{ (item.createdAt || '').slice(0, 16) }}</div>
+        </div>
         </div>
       </n-spin>
     </div>
@@ -260,6 +264,32 @@
 <style lang="less" scoped>
   .notif-panel {
     margin: -4px -8px;
+    // 限高：通知多时弹层不得超过视口（此前无限高会把文档撑出
+    // 窗口滚动条，与主内容滚动条并存——用户实测的弹层双滚动条）
+    max-height: calc(100vh - 110px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .notif-header {
+    flex-shrink: 0;
+  }
+
+  // n-spin 的两层包装进入 flex 链（不参与则限高变成裁切而非列表内滚）
+  :deep(.n-spin-container),
+  :deep(.n-spin-content) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .notif-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    // 滚轮在列表内到底后不再穿透带动页面滚动
+    overscroll-behavior: contain;
   }
 
   .notif-header {
