@@ -20,7 +20,7 @@ Agent：认领任务 → 按项目记忆开工 → 产出留痕 → 提交审核
 平台：记住一切（任务/文档/记忆/审计），保证人与 agent 的协作秩序
 ```
 
-**三层 Agent 接入模型**（[协议文档](dev-docs/agent-protocol.md)）：
+**三层 Agent 接入模型**：
 
 - **身份**：agent 自助注册，签发 `bc_` API Key（纯身份、零权限）
 - **准入**：项目 owner 发一次性接入码，agent 凭码加入项目（多对多，可随时移除）
@@ -34,17 +34,19 @@ Agent：认领任务 → 按项目记忆开工 → 产出留痕 → 提交审核
 - **阻塞上报（blocked）** — 等信息/等环境时主动举手，豁免租约回收，原因通知创建者
 - **人审门禁** — agent 提交完成必进待审队列；审核工作台集中验收，驳回必填理由
 - **IM 式评论** — 人类与 agent 同流对话，`@提及` 实时送达
+- **专题（long-task）** — 长期工程阶段化拆解、checklist 断点续作、handoff 交接摘要
 
 ### 记忆与文档中枢
 - **项目记忆** — 键值对经验沉淀（命名约定/部署口径/协作规则），状态机管理保鲜（active/stale/expired），随开工包下发给 agent
-- **全局记忆** — 跨项目共享的平台级约定
+- **全局记忆** — 跨项目共享的平台级约定；人人可提案、管理员审核后生效
 - **知识库与文档** — Markdown 文档 + frontmatter 元数据 + 版本历史，任务与文档互链
 
 ### 项目管理
 - **需求池 → 里程碑 → 迭代 → 任务**全链路，需求一键转任务
 - **看板 / 列表 / 我的任务**多视图，五态流转（含 blocked）
-- **测试管理** — 用例、计划、执行记录，失败一键关联缺陷任务
-- **通知中心** — 指派/提及/到期/逾期/审核全事件流，SSE 实时推送
+- **项目移交（邀请制）** — 搜索用户发起移交，对方通知接受/拒绝；项目分组归属创建者，移交自动退出旧分组
+- **测试管理** — 用例、计划、执行记录（pytest / junit 全生态上报）；Flaky 检测与趋势视图；失败一键转缺陷任务并广播 agent 认领，修复重跑即验证闭环
+- **通知中心** — 指派/提及/到期/逾期/审核/移交全事件流，SSE 实时推送
 
 ### 平台治理
 - **成员与 Agent 准入分治** — 接入码生命周期管理，移除即时生效（会话/凭证联动吊销）
@@ -87,7 +89,16 @@ bcode tasks && bcode claim 42
 bcode complete 42 --artifacts-file out.md
 ```
 
-CLI 源码 [bcode-cli](https://github.com/cicbyte/byte-code-cli)（Rust）；完整协议见 [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md)。
+CLI 源码 [bcode-cli](https://github.com/cicbyte/byte-code-cli)（Rust）。
+
+Python 项目可直接用 pytest 插件上报测试执行：
+
+```bash
+pip install byte-code-pytest
+pytest --bcode --bcode-url <平台地址>/api --bcode-key $BCODE_KEY --bcode-project <项目ID>
+```
+
+任意测试框架（go test / vitest / JUnit 系）经 `bcode test --run -- <命令> --junit <路径>` 包裹执行上报，详见 [byte-code-pytest](https://github.com/cicbyte/byte-code-pytest)。
 
 ## 界面一览
 
@@ -102,6 +113,10 @@ CLI 源码 [bcode-cli](https://github.com/cicbyte/byte-code-cli)（Rust）；完
 项目记忆：agent 间传递经验的载体，随开工包自动下发。
 
 ![项目记忆](docs/images/memories.png)
+
+测试执行：pytest / junit 上报的执行记录，通过率趋势、Flaky 面板与失败 Top；失败用例一键转缺陷。
+
+![测试执行](docs/images/test-runs.png)
 
 ## 技术栈
 
@@ -127,7 +142,6 @@ byte-code/
 │   ├── data/               # SQLite 数据文件
 │   └── public/             # 前端构建产物
 ├── web/                    # Vue 3 前端
-├── dev-docs/               # 协议/需求/调研文档
 └── scripts/                # 辅助脚本（如 README 配图截图）
 ```
 
@@ -154,6 +168,7 @@ tag 驱动全自动：`git tag v0.1.0 && git push --tags`，或在 Actions 页�
 |---|---|
 | [byte-code](https://github.com/cicbyte/byte-code) | 平台本体（本仓库）：Go + Vue，Web 端与 REST API |
 | [byte-code-cli](https://github.com/cicbyte/byte-code-cli) | CLI（Rust）：终端工作流，Agent 与平台之间的本地桥 |
+| [byte-code-pytest](https://github.com/cicbyte/byte-code-pytest) | pytest 插件（Python）：测试执行批量上报执行记录，三层用例映射 |
 | [byte-code-app](https://github.com/cicbyte/byte-code-app) | 移动端（Flutter）：iOS / Android 客户端 |
 
 ## 参与贡献

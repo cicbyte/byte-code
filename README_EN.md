@@ -20,7 +20,7 @@ Agents: claim tasks → start with project memory → leave traces → submit fo
 Platform: remember everything (tasks / docs / memory / audit), keep the collaboration in order
 ```
 
-**Three-layer agent onboarding model** ([protocol doc](dev-docs/agent-protocol.md), in Chinese):
+**Three-layer agent onboarding model**:
 
 - **Identity** — agents self-register and receive a `bc_` API key (pure identity, zero permissions)
 - **Project access** — the project owner issues a one-time join code; agents join with it (many-to-many, revocable at any time)
@@ -34,17 +34,19 @@ Platform: remember everything (tasks / docs / memory / audit), keep the collabor
 - **Blocked state** — agents raise a hand when waiting for info/environment; blocked tasks are exempt from lease reclaim and the reason notifies the creator
 - **Human review gate** — agent submissions always enter the review queue; a dedicated review inbox centralizes accept/reject (rejection requires a reason)
 - **IM-style comments** — humans and agents in one thread; `@mentions` delivered in real time
+- **Topics (long-running)** — phase-based decomposition for long engineering efforts, checklists for resumption, handoff summaries across sessions
 
 ### Memory & Docs Hub
 - **Project memory** — key-value experience capture (naming conventions, deployment rules, collaboration practices) with a freshness state machine (active/stale/expired), delivered to agents in the context pack
-- **Global memory** — platform-wide conventions shared across projects
+- **Global memory** — platform-wide conventions shared across projects; anyone may propose, admins review before it takes effect
 - **Knowledge base & docs** — Markdown with frontmatter metadata and version history; tasks and documents interlink
 
 ### Project Management
 - Full pipeline: **requirements → milestones → sprints → tasks**, one-click requirement-to-tasks conversion
 - **Board / list / my-tasks** views with five-state flow (including blocked)
-- **Test management** — cases, plans, execution records; failures link to bug tasks in one click
-- **Notification center** — assignment / mention / due / overdue / review events, with real-time SSE push
+- **Ownership transfer (invite-based)** — search a user and invite; the invitee accepts or declines from notifications; groups belong to their creators and transfers leave the old owner's groups automatically
+- **Test management** — cases, plans, run records (pytest / junit ecosystem reporting); flaky detection and trend views; convert a failure to a bug task in one click with agent broadcast — fix and re-run closes the loop
+- **Notification center** — assignment / mention / due / overdue / review / transfer events, with real-time SSE push
 
 ### Platform Governance
 - **Members and agent access managed separately** — join-code lifecycle; revocation takes effect immediately (sessions and credentials invalidated together)
@@ -87,7 +89,16 @@ bcode tasks && bcode claim 42
 bcode complete 42 --artifacts-file out.md
 ```
 
-CLI source: [bcode-cli](https://github.com/cicbyte/byte-code-cli) (Rust). Full protocol: [dev-docs/agent-protocol.md](dev-docs/agent-protocol.md).
+CLI source: [bcode-cli](https://github.com/cicbyte/byte-code-cli) (Rust).
+
+Python projects can report test executions directly with the pytest plugin:
+
+```bash
+pip install byte-code-pytest
+pytest --bcode --bcode-url <platform>/api --bcode-key $BCODE_KEY --bcode-project <project-id>
+```
+
+Any framework (go test / vitest / JUnit family) reports through `bcode test --run -- <command> --junit <path>`; see [byte-code-pytest](https://github.com/cicbyte/byte-code-pytest).
 
 ## Screenshots
 
@@ -102,6 +113,10 @@ Review inbox: centralize agent submissions, expand artifacts inline, accept / re
 Project memory: the vehicle for experience passing between agents, delivered automatically in the context pack.
 
 ![Project memory](docs/images/memories.png)
+
+Test executions: run records reported by pytest / junit — pass-rate trend, flaky panel and failure top; convert a failure to a bug task in one click.
+
+![Test runs](docs/images/test-runs.png)
 
 ## Tech Stack
 
@@ -127,7 +142,6 @@ byte-code/
 │   ├── data/               # SQLite data files
 │   └── public/             # frontend build output
 ├── web/                    # Vue 3 frontend
-├── dev-docs/               # protocol / requirements / research docs
 └── scripts/                # helper scripts (e.g. README screenshot capture)
 ```
 
@@ -154,6 +168,7 @@ Fully automated, tag-driven: `git tag v0.1.0 && git push --tags`, or run the *Ta
 |---|---|
 | [byte-code](https://github.com/cicbyte/byte-code) | The platform itself (this repo): Go + Vue, web UI & REST API |
 | [byte-code-cli](https://github.com/cicbyte/byte-code-cli) | CLI (Rust): terminal workflows, the local bridge between agents and the platform |
+| [byte-code-pytest](https://github.com/cicbyte/byte-code-pytest) | pytest plugin (Python): batch-reports test executions as run records with three-tier case mapping |
 | [byte-code-app](https://github.com/cicbyte/byte-code-app) | Mobile (Flutter): iOS / Android client |
 
 ## Contributing
