@@ -1019,3 +1019,42 @@ func TestGroupOwnership(t *testing.T) {
 }
 
 func ptrStr(v string) *string { return &v }
+
+// ---------- 项目列表归属筛选（scope：管理视角/个人视角） ----------
+
+func TestProjectScope(t *testing.T) {
+	// 管理员 104：all=全部（≥seed 的 501）；mine/owner=0（104 非任何项目成员）
+	lall, err := s.ListProjects(ctxAs(104), &api.ProjectListReq{Size: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lmine, _ := s.ListProjects(ctxAs(104), &api.ProjectListReq{Size: 100, Scope: "mine"})
+	lowner, _ := s.ListProjects(ctxAs(104), &api.ProjectListReq{Size: 100, Scope: "owner"})
+	if lall.Total < 1 {
+		t.Fatalf("管理员 all 应见平台项目, got %d", lall.Total)
+	}
+	if lmine.Total != 0 || lowner.Total != 0 {
+		t.Errorf("管理员(非成员) mine/owner 应为 0, got %d/%d", lmine.Total, lowner.Total)
+	}
+
+	// 101（501 的 owner，非管理员）：all 也被收窄为成员可见；mine/owner 均见 501
+	for _, sc := range []string{"", "all", "mine"} {
+		lr, _ := s.ListProjects(ctxAs(101), &api.ProjectListReq{Size: 100, Scope: sc})
+		if lr.Total != 1 || lr.List[0].Id != 501 {
+			t.Errorf("101 scope=%q 应仅见 501, got total=%d", sc, lr.Total)
+		}
+	}
+	lo, _ := s.ListProjects(ctxAs(101), &api.ProjectListReq{Size: 100, Scope: "owner"})
+	if lo.Total != 1 || lo.List[0].Id != 501 {
+		t.Errorf("101 owner 应见 501（其为 owner）, got %d", lo.Total)
+	}
+	// 103（501 的 member）：owner 视角为 0
+	lo3, _ := s.ListProjects(ctxAs(103), &api.ProjectListReq{Size: 100, Scope: "owner"})
+	if lo3.Total != 0 {
+		t.Errorf("103 owner 应为 0（member 非 owner）, got %d", lo3.Total)
+	}
+	// ownerName 回填：501 现任 owner 是 101
+	if lo.List[0].OwnerName != "mx-owner" || lo.List[0].OwnerId != 101 {
+		t.Errorf("owner 回填不符: %+v", lo.List[0])
+	}
+}

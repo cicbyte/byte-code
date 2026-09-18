@@ -39,6 +39,9 @@ type ProjectListReq struct {
 	g.Meta  `path:"/projects" method:"get" tags:"项目管理" summary:"项目列表"`
 	Status  int    `json:"status" in:"query"`
 	Keyword string `json:"keyword" in:"query"`
+	// 归属筛选：all=全部（仅管理员生效，缺省；非管理员传 all 静默按
+	// 成员过滤——与既有防线一致）；mine=我参与；owner=我负责
+	Scope   string `json:"scope" in:"query" v:"in:,all,mine,owner#scope 不合法"`
 	Page    int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
 	Size    int    `json:"size" in:"query" d:"20" v:"max:100#每页上限100"`
 }

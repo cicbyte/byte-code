@@ -31,6 +31,17 @@
         />
         <n-button type="primary" @click="handleSearch">查询</n-button>
         <n-button @click="handleReset">重置</n-button>
+        <!-- 归属筛选（仅管理员）：管理视角（全部）与个人视角（我参与/我负责）分离 -->
+        <n-radio-group
+          v-if="isAdmin"
+          v-model:value="filter.scope"
+          size="small"
+          @update:value="handleSearch"
+        >
+          <n-radio-button value="all">全部</n-radio-button>
+          <n-radio-button value="mine">我参与的</n-radio-button>
+          <n-radio-button value="owner">我负责的</n-radio-button>
+        </n-radio-group>
       </n-space>
 
       <n-spin :show="loading">
@@ -182,7 +193,13 @@
   const formRef = ref<any>(null);
 
   const pagination = reactive({ page: 1, size: 12 });
-  const filter = reactive({ keyword: '', status: null as number | null });
+  // scope 选择记住在本地（管理员日常偏好：管理视角或个人视角）
+  const SCOPE_KEY = 'proj-list-scope';
+  const filter = reactive({
+    keyword: '',
+    status: null as number | null,
+    scope: (localStorage.getItem(SCOPE_KEY) as 'all' | 'mine' | 'owner') || 'all',
+  });
   const statusOptions = PROJECT_STATUS.options;
 
   const formData = reactive({
@@ -216,7 +233,9 @@
         size: pagination.size,
         keyword: filter.keyword || undefined,
         status: filter.status ?? undefined,
+        scope: isAdmin.value ? filter.scope : undefined,
       });
+      localStorage.setItem(SCOPE_KEY, filter.scope);
       if (res) {
         projectList.value = res.list || [];
         total.value = res.total || 0;

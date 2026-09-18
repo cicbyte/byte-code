@@ -206,16 +206,27 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 		Size: req.Size,
 	}
 
-	// 非管理员只能看到自己所在的项目
+	// 可见性：非管理员恒为成员过滤（scope=all 也静默收窄，防线在后端）；
+	// 管理员可用 scope=mine/owner 切个人视角（我参与/我负责）
 	uid := perm.UserId(ctx)
 	memberOnly := uid > 0 && !perm.IsAdmin(ctx, uid)
+	applyScope := func(m *gdb.Model) *gdb.Model {
+		// 显式 owner 优先（比成员过滤更严，非管理员用也安全）；
+		// 其余情况非管理员一律收窄为成员可见
+		if req.Scope == "owner" {
+			return m.Where(
+				"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ? AND pm.role = 'owner')", uid)
+		}
+		if memberOnly || req.Scope == "mine" {
+			return m.Where(
+				"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)
+		}
+		return m
+	}
 
 	// Count 查询（不带 Fields，兼容 SQLite）
 	countM := g.DB().Model("projects p").Ctx(ctx)
-	if memberOnly {
-		countM = countM.Where(
-			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)
-	}
+	countM = applyScope(countM)
 	if req.Status > 0 {
 		countM = countM.Where("p.status", req.Status)
 	}
@@ -240,10 +251,7 @@ func (s *sProject) ListProjects(ctx context.Context, req *api.ProjectListReq) (r
 			po.user_id as owner_id,
 			COALESCE(NULLIF(ou.real_name, ''), ou.username) as owner_name,
 			p.status, p.created_at, p.updated_at`)
-	if memberOnly {
-		m = m.Where(
-			"EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = ?)", uid)
-	}
+	m = applyScope(m)
 	if req.Status > 0 {
 		m = m.Where("p.status", req.Status)
 	}

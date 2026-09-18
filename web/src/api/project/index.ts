@@ -29,6 +29,7 @@ export interface ProjectListParams {
   keyword?: string;
   page?: number;
   size?: number;
+  scope?: 'all' | 'mine' | 'owner';
 }
 
 export interface ProjectCreateData {
