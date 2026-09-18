@@ -60,7 +60,7 @@
             <EmptyState
               type="doc"
               title="暂无执行记录"
-              description="通过 bcode-pytest 插件（pytest --bcode）、bcode test --upload 或 CI 上报到此处"
+              description="通过 byte-code-pytest 插件（pytest --bcode）、bcode test --upload 或 CI 上报到此处"
               v-if="!loading && runList.length === 0"
             />
             <n-table v-else :bordered="false" :single-line="false" size="small">
