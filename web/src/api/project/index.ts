@@ -435,6 +435,16 @@ export function transferOwner(projectId: number, userId: number, leave = false) 
   return Alova.Put(`/v1/projects/${projectId}/owner`, { userId, leave });
 }
 
+/** 发起移交邀请（owner/超管；目标收通知接受或拒绝，不必已是成员） */
+export function inviteOwnerTransfer(projectId: number, data: { userId: number; leave?: boolean }) {
+  return Alova.Post<{ id: number }>(`/v1/projects/${projectId}/owner-transfer`, data);
+}
+
+/** 响应移交邀请（受邀本人；accept/decline） */
+export function respondOwnerTransfer(id: number, action: 'accept' | 'decline') {
+  return Alova.Post(`/v1/owner-transfers/${id}`, { action });
+}
+
 // ==================== QA 库 ====================
 
 export interface QaItem {

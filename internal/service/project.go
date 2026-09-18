@@ -19,6 +19,8 @@ type IProject interface {
 	RemoveMember(ctx context.Context, projectId, userId int) (err error)
 	LeaveMember(ctx context.Context, projectId int) (err error)
 	TransferOwner(ctx context.Context, req *api.OwnerTransferReq) (err error)
+	InviteOwnerTransfer(ctx context.Context, req *api.OwnerTransferInviteReq) (id int, err error)
+	RespondOwnerTransfer(ctx context.Context, req *api.OwnerTransferRespondReq) (err error)
 	ListMembers(ctx context.Context, projectId int) (res *api.MemberListRes, err error)
 
 	// 任务 CRUD

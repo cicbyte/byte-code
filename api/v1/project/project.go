@@ -115,6 +115,31 @@ type OwnerTransferRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// ==================== 项目移交（邀请制：搜索选择 + 通知接受/拒绝） ====================
+
+type OwnerTransferInviteReq struct {
+	g.Meta    `path:"/projects/{projectId}/owner-transfer" method:"post" tags:"项目成员" summary:"发起移交邀请（owner/超管；目标收通知接受或拒绝）"`
+	ProjectId int  `json:"projectId" v:"required" in:"path"`
+	UserId    int  `json:"userId" v:"required#目标用户ID不能为空"`
+	// 接受后原负责人退出项目（隔离交接）；缺省留在项目降为普通成员
+	Leave bool `json:"leave"`
+}
+
+type OwnerTransferInviteRes struct {
+	g.Meta `mime:"application/json"`
+	Id     int `json:"id"`
+}
+
+type OwnerTransferRespondReq struct {
+	g.Meta `path:"/owner-transfers/{id}" method:"post" tags:"项目成员" summary:"响应移交邀请（目标本人；accept=接受 decline=拒绝）"`
+	Id     int    `json:"id" v:"required" in:"path"`
+	Action string `json:"action" v:"required|in:accept,decline#动作不能为空|只支持 accept/decline"`
+}
+
+type OwnerTransferRespondRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 type MemberListReq struct {
 	g.Meta    `path:"/projects/{projectId}/members" method:"get" tags:"项目成员" summary:"成员列表"`
 	ProjectId int `json:"projectId" v:"required" in:"path"`

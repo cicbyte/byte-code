@@ -786,3 +786,104 @@ func TestGlobalMemoryProposal(t *testing.T) {
 	db.Model("project_memories").Ctx(ctx).Where("project_id", 0).Where("key IN (?)", []string{"mx-prop", "mx-taken"}).Delete()
 	db.Model("notifications").Ctx(ctx).Where("user_id", 108).Where("title LIKE ?", "全局记忆提案%").Delete()
 }
+
+// ---------- 项目移交（邀请制：搜索选择 + 通知接受/拒绝） ----------
+
+func ptNotifCount(t *testing.T, uid int, title string) int {
+	t.Helper()
+	n, err := g.DB().Model("notifications").Where("user_id", uid).Where("title", title).Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func ptMemberRole(t *testing.T, pid, uid int) string {
+	t.Helper()
+	v, err := g.DB().Model("project_members").Where("project_id", pid).Where("user_id", uid).Fields("role").Value()
+	if err != nil || v == nil {
+		return ""
+	}
+	return v.String()
+}
+
+func TestOwnerTransferInvite(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	// 非 owner 发起 → 拒
+	if _, err := s.InviteOwnerTransfer(ctxAs(102), &api.OwnerTransferInviteReq{ProjectId: 501, UserId: 103}); err == nil || !strings.Contains(err.Error(), "仅项目负责人") {
+		t.Errorf("非 owner 发起应拒: %v", err)
+	}
+	// owner 邀请 103（留在项目）
+	tid, err := s.InviteOwnerTransfer(ctxAs(101), &api.OwnerTransferInviteReq{ProjectId: 501, UserId: 103})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := ptNotifCount(t, 103, "收到项目移交邀请"); n != 1 {
+		t.Fatalf("受邀者应收邀请通知, got %d", n)
+	}
+	// 同项目 pending 防重
+	if _, err := s.InviteOwnerTransfer(ctxAs(101), &api.OwnerTransferInviteReq{ProjectId: 501, UserId: 102}); err == nil || !strings.Contains(err.Error(), "待响应") {
+		t.Errorf("pending 防重应拒: %v", err)
+	}
+	// 非受邀人响应 → 拒
+	if err := s.RespondOwnerTransfer(ctxAs(102), &api.OwnerTransferRespondReq{Id: tid, Action: "accept"}); err == nil || !strings.Contains(err.Error(), "受邀本人") {
+		t.Errorf("非受邀人响应应拒: %v", err)
+	}
+	// 拒绝 → 回告发起方
+	if err := s.RespondOwnerTransfer(ctxAs(103), &api.OwnerTransferRespondReq{Id: tid, Action: "decline"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := ptNotifCount(t, 101, "移交邀请被拒绝"); n != 1 {
+		t.Errorf("发起方应收拒绝通知, got %d", n)
+	}
+	if ptMemberRole(t, 501, 101) != "owner" {
+		t.Error("拒绝后 owner 不应变化")
+	}
+
+	// 重新邀请 → 接受（留在项目：原 owner 降普通成员，受邀者升 owner）
+	tid2, err := s.InviteOwnerTransfer(ctxAs(101), &api.OwnerTransferInviteReq{ProjectId: 501, UserId: 103})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RespondOwnerTransfer(ctxAs(103), &api.OwnerTransferRespondReq{Id: tid2, Action: "accept"}); err != nil {
+		t.Fatal(err)
+	}
+	if ptMemberRole(t, 501, 103) != "owner" || ptMemberRole(t, 501, 101) != "member" {
+		t.Errorf("接受后角色应变 103=owner/101=member, got %s/%s", ptMemberRole(t, 501, 103), ptMemberRole(t, 501, 101))
+	}
+	if n := ptNotifCount(t, 101, "移交邀请已接受"); n != 1 {
+		t.Errorf("发起方应收接受通知, got %d", n)
+	}
+	// 重复响应 → 拒
+	if err := s.RespondOwnerTransfer(ctxAs(103), &api.OwnerTransferRespondReq{Id: tid2, Action: "accept"}); err == nil || !strings.Contains(err.Error(), "已处理过") {
+		t.Errorf("重复响应应拒: %v", err)
+	}
+
+	// leave 变体：超管 104（IsProjectOwner 直通）邀请 102，接受后原 owner(103) 移出
+	tid3, err := s.InviteOwnerTransfer(ctxAs(104), &api.OwnerTransferInviteReq{ProjectId: 501, UserId: 102, Leave: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RespondOwnerTransfer(ctxAs(102), &api.OwnerTransferRespondReq{Id: tid3, Action: "accept"}); err != nil {
+		t.Fatal(err)
+	}
+	if ptMemberRole(t, 501, 102) != "owner" || ptMemberRole(t, 501, 103) != "" {
+		t.Errorf("leave 变体角色不符: 102=%s 103=%q", ptMemberRole(t, 501, 102), ptMemberRole(t, 501, 103))
+	}
+
+	// 清理：恢复 seed 成员关系 + 移交记录 + 通知
+	db.Model("project_members").Ctx(ctx).Where("project_id", 501).Delete()
+	for _, m := range []map[string]interface{}{
+		{"project_id": 501, "user_id": 101, "role": "owner"},
+		{"project_id": 501, "user_id": 102, "role": "maintainer"},
+		{"project_id": 501, "user_id": 103, "role": "member"},
+		{"project_id": 501, "user_id": 107, "role": "member"},
+	} {
+		db.Model("project_members").Ctx(ctx).Data(m).Insert()
+	}
+	db.Model("project_transfers").Ctx(ctx).Where("project_id", 501).Delete()
+	db.Model("notifications").Ctx(ctx).Where("source_type", "transfer").Where("source_id IN (?)", []int{tid, tid2, tid3}).Delete()
+	db.Model("notifications").Ctx(ctx).Where("title IN (?)", []string{"收到项目移交邀请", "移交邀请被拒绝", "移交邀请已接受"}).Delete()
+}

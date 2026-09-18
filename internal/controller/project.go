@@ -82,6 +82,22 @@ func (c *projectController) TransferOwner(ctx context.Context, req *api.OwnerTra
 	return &api.OwnerTransferRes{}, nil
 }
 
+func (c *projectController) InviteOwnerTransfer(ctx context.Context, req *api.OwnerTransferInviteReq) (res *api.OwnerTransferInviteRes, err error) {
+	id, err := service.Project().InviteOwnerTransfer(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.OwnerTransferInviteRes{Id: id}, nil
+}
+
+func (c *projectController) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTransferRespondReq) (res *api.OwnerTransferRespondRes, err error) {
+	err = service.Project().RespondOwnerTransfer(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &api.OwnerTransferRespondRes{}, nil
+}
+
 func (c *projectController) MemberList(ctx context.Context, req *api.MemberListReq) (res *api.MemberListRes, err error) {
 	return service.Project().ListMembers(ctx, req.ProjectId)
 }

@@ -54,6 +54,14 @@
             </div>
             <n-space :size="8" align="center" :wrap="false">
               <span class="notice-time">{{ fmtTime(item.createdAt) }}</span>
+              <template v-if="item.isRead === 0 && item.sourceType === 'transfer'">
+                <n-button text type="success" size="tiny" :loading="actingId === item.id" @click="handleTransferAction(item, 'accept')">
+                  接受
+                </n-button>
+                <n-button text type="error" size="tiny" :loading="actingId === item.id" @click="handleTransferAction(item, 'decline')">
+                  拒绝
+                </n-button>
+              </template>
               <n-button v-if="item.isRead === 0" text type="primary" size="tiny" @click="handleRead(item)">
                 标为已读
               </n-button>
@@ -82,6 +90,7 @@
   import { ref, reactive, onMounted } from 'vue';
   import { useMessage } from 'naive-ui';
   import { getNotifications, readNotification, readAllNotifications, getUnreadCount } from '@/api/platform/index';
+  import { respondOwnerTransfer } from '@/api/project/index';
   import { usePagedList } from '@/composables/usePagedList';
   import type { NotificationItem } from '@/api/platform/index';
   import { NOTICE_TYPE_LABELS, NOTICE_TYPE_TAG, NOTICE_SOURCE_LABELS, noticeTypeOptions } from '@/enums/notification';
@@ -160,6 +169,23 @@
       unread.value = Math.max(0, unread.value - 1);
     } catch {
       message.error('操作失败');
+    }
+  }
+
+  // 移交邀请响应：接受/拒绝后标读刷新；已处理过的邀请后端明确报错
+  const actingId = ref<number | null>(null);
+  async function handleTransferAction(item: NotificationItem, action: 'accept' | 'decline') {
+    actingId.value = item.id;
+    try {
+      await respondOwnerTransfer(item.sourceId, action);
+      await readNotification(item.id);
+      loadUnread();
+      message.success(action === 'accept' ? '已接受移交，你现在是该项目负责人' : '已拒绝移交邀请');
+      load();
+    } catch {
+      // http 层统一提示（如邀请已被处理）
+    } finally {
+      actingId.value = null;
     }
   }
 

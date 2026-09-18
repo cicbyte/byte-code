@@ -31,6 +31,10 @@
             <span v-if="item.isRead === 0" class="notif-dot"></span>
           </div>
           <div class="notif-item-content">{{ item.content }}</div>
+          <div v-if="item.isRead === 0 && item.sourceType === 'transfer'" class="notif-item-actions" @click.stop>
+            <n-button text size="tiny" type="success" :loading="actingId === item.id" @click="handleTransferAction(item, 'accept')">接受</n-button>
+            <n-button text size="tiny" type="error" :loading="actingId === item.id" @click="handleTransferAction(item, 'decline')">拒绝</n-button>
+          </div>
           <div class="notif-item-time">{{ (item.createdAt || '').slice(0, 16) }}</div>
         </div>
       </n-spin>
@@ -175,7 +179,31 @@
         // 忽略单条已读失败
       }
     }
+    if (item.sourceType === 'transfer') return; // 移交邀请的操作在本条按钮上
     jumpToSource(item);
+  }
+
+  // 移交邀请响应：动态 import 防 alova↔store 循环（同 jumpToSource 的 getTask 模式）
+  const actingId = ref<number | null>(null);
+  async function handleTransferAction(item: NotificationItem, action: 'accept' | 'decline') {
+    actingId.value = item.id;
+    try {
+      const { respondOwnerTransfer } = await import('@/api/project/index');
+      await respondOwnerTransfer(item.sourceId, action);
+      try {
+        await readNotification(item.id);
+      } catch {
+        // 已读失败不阻断
+      }
+      item.isRead = 1;
+      fetchUnread();
+      window.$message?.success(action === 'accept' ? '已接受移交，你现在是该项目负责人' : '已拒绝移交邀请');
+      loadList();
+    } catch {
+      // http 层统一提示（邀请已处理过等）
+    } finally {
+      actingId.value = null;
+    }
   }
 
   // 跳转源实体：task → 任务列表并自动开抽屉（?task= 由宿主页消费）；
@@ -297,6 +325,12 @@
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .notif-item-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
   }
 
   .notif-item-time {
