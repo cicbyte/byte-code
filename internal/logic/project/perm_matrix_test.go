@@ -11,6 +11,7 @@ package project
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"io"
 	"os"
@@ -798,6 +799,10 @@ func ptNotifCount(t *testing.T, uid int, title string) int {
 	return n
 }
 
+// timeRegExp 严格时间形态：抓 gtime 布局字面量（"2006-01-02 15:04:05"）
+// 与微秒尾巴两类写法回归
+var timeRegExp = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$`)
+
 func ptMemberRole(t *testing.T, pid, uid int) string {
 	t.Helper()
 	v, err := g.DB().Model("project_members").Where("project_id", pid).Where("user_id", uid).Fields("role").Value()
@@ -855,6 +860,14 @@ func TestOwnerTransferInvite(t *testing.T) {
 	}
 	if n := ptNotifCount(t, 101, "移交邀请已接受"); n != 1 {
 		t.Errorf("发起方应收接受通知, got %d", n)
+	}
+	// resolved_at 必须是 19 字符定长（YYYY-MM-DD HH:MM:SS）——gtime 对象
+	// 会被驱动带微秒写入（26 字符），MySQL VARCHAR(19) 列直接 Data too
+	// long（生产 #484；SQLite TEXT 存得下所以靠断言抓写法回归）
+	if rv, _ := db.Model("project_transfers").Where("id", tid2).Fields("resolved_at").Value(); rv != nil {
+		if v := rv.String(); !timeRegExp.MatchString(v) {
+			t.Errorf("resolved_at 应为 YYYY-MM-DD HH:MM:SS 实际时间, got %q", v)
+		}
 	}
 	// 重复响应 → 拒
 	if err := s.RespondOwnerTransfer(ctxAs(103), &api.OwnerTransferRespondReq{Id: tid2, Action: "accept"}); err == nil || !strings.Contains(err.Error(), "已处理过") {

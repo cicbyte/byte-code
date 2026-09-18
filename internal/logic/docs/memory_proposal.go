@@ -18,7 +18,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
+	"time"
 )
 
 // GlobalMemoryPropose 提交全局记忆提案（任何认证用户含 agent）。
@@ -121,7 +121,9 @@ func (s *sVault) GlobalMemoryProposalReview(ctx context.Context, req *api.Global
 	uid := perm.UserId(ctx)
 	key := row["key"].String()
 	proposer := row["proposed_by"].Int()
-	now := gtime.Now()
+	// 定长字符串（同 transfer.go 的 VARCHAR(19) 教训：gtime 对象带微秒
+	// 超长；用 stdlib time——gtime.Format 传 Go 布局会返回字面量）
+	now := time.Now().Format("2006-01-02 15:04:05")
 
 	if req.Decision == "approved" {
 		// 同名防御（提交后可能有人工建了同名记忆）

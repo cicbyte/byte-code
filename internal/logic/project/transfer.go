@@ -16,7 +16,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
+	"time"
 )
 
 // InviteOwnerTransfer 发起移交邀请（仅 owner/超管）：目标须为启用的人类
@@ -91,7 +91,11 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 	pid := row["project_id"].Int()
 	from := row["from_user_id"].Int()
 	leave := row["leave_project"].Int() == 1
-	now := gtime.Now()
+	// 定长字符串而非 gtime 对象：gdb 驱动把 gtime.Time 绑定为带微秒
+	// （26 字符），MySQL VARCHAR(19) 列报 Data too long（生产实测）。
+	// 用 stdlib time 而非 gtime.Format——gtime 的格式 token 是自家的
+	// Y-m-d H:i:s，传 Go 布局串会原样返回字面量（MySQL 复验抓出）
+	now := time.Now().Format("2006-01-02 15:04:05")
 
 	if req.Action == "decline" {
 		if _, uerr := g.DB().Model("project_transfers").Ctx(ctx).Where("id", req.Id).Data(g.Map{
