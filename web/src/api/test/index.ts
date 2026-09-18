@@ -201,3 +201,71 @@ export function executeTestCase(planCaseId: number, data: TestCaseExecuteData) {
 export function getTestPlanResults(planId: number) {
   return Alova.Get<TestPlanResultsResult>(`/v1/test-plans/${planId}/results`);
 }
+
+// ==================== 测试执行记录（Run，pytest 上报） ====================
+
+/** 执行记录（一次批量上报：pytest session / CI job / 手工批次） */
+export interface TestRunItem {
+  id: number;
+  projectId: number;
+  source: string;
+  branch: string;
+  gitSha: string;
+  env: string;
+  triggeredBy: number;
+  triggeredByName?: string;
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  errors: number;
+  durationMs: number;
+  startedAt: string;
+  finishedAt: string;
+  createdAt: string;
+}
+
+export interface TestRunListResult {
+  list: TestRunItem[];
+  total: number;
+  currentPage: number;
+}
+
+export interface TestRunListParams {
+  source?: string;
+  status?: string;
+  branch?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface TestRunCaseItem {
+  id: number;
+  testRunId: number;
+  testCaseId: number;
+  testCaseTitle?: string;
+  externalKey: string;
+  title: string;
+  status: string;
+  durationMs: number;
+  message: string;
+}
+
+export interface TestRunDetail extends TestRunItem {
+  cases: TestRunCaseItem[];
+}
+
+/** 执行记录列表 */
+export function getTestRuns(projectId: number, params?: TestRunListParams) {
+  return Alova.Get<TestRunListResult>(`/v1/projects/${projectId}/test-runs`, { params });
+}
+
+/** 执行记录详情（逐用例状态/耗时/失败信息） */
+export function getTestRunDetail(id: number) {
+  return Alova.Get<TestRunDetail>(`/v1/test-runs/${id}`);
+}
+
+/** 删除执行记录（owner/maintainer） */
+export function deleteTestRun(id: number) {
+  return Alova.Delete(`/v1/test-runs/${id}`);
+}

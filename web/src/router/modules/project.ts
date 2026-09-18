@@ -205,6 +205,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/test/plans/index.vue'),
           },
           {
+            // 执行记录（#504）：pytest/CI 批量上报的落点与逐用例结果
+            path: 'test-runs',
+            name: `${routeName}_test_runs`,
+            meta: {
+              title: '执行记录',
+              group: '测试',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/test/runs/index.vue'),
+          },
+          {
             // 关联项目 + 项目分组（从成员管理拆出）
             path: 'settings',
             name: `${routeName}_settings`,

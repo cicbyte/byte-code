@@ -179,6 +179,7 @@ var projectEntityRules = []struct {
 	{regexp.MustCompile(`^/api/v1/requirements/(\d+)`), "requirements"},
 	{regexp.MustCompile(`^/api/v1/test-cases/(\d+)`), "test_cases"},
 	{regexp.MustCompile(`^/api/v1/test-plans/(\d+)`), "test_plans"},
+	{regexp.MustCompile(`^/api/v1/test-runs/(\d+)`), "test_runs"},
 	{regexp.MustCompile(`^/api/v1/db-tables/(\d+)`), "db_tables"},
 	{regexp.MustCompile(`^/api/v1/schema-changes/(\d+)`), "schema_versions"},
 }

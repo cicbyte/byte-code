@@ -8,9 +8,9 @@ import (
 	api "github.com/cicbyte/byte-code/api/v1/test"
 	service "github.com/cicbyte/byte-code/internal/service"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
-	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/cicbyte/byte-code/utility/activity"
 	"github.com/cicbyte/byte-code/utility/escape"
+	"github.com/cicbyte/byte-code/utility/perm"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -46,6 +46,7 @@ func (s *sTest) CreateCase(ctx context.Context, req *api.TestCaseCreateReq) (id 
 			"module":          req.Module,
 			"priority":        req.Priority,
 			"source":          req.Source,
+			"external_key":    req.ExternalKey,
 			"creator_id":      uid,
 			// 表 CHECK 约束只允许 active/deprecated，新建用例即为 active
 			"status":     "active",
@@ -184,6 +185,9 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 		if req.Keyword != "" {
 			countM = countM.Where("test_cases.title LIKE ? ESCAPE '|'", "%"+escape.Like(req.Keyword)+"%")
 		}
+		if req.ExternalKey != "" {
+			countM = countM.Where("test_cases.external_key", req.ExternalKey)
+		}
 
 		total, err = countM.Count()
 		liberr.ErrIsNil(ctx, err, "获取用例数量失败")
@@ -206,6 +210,9 @@ func (s *sTest) ListCases(ctx context.Context, req *api.TestCaseListReq) (total 
 		}
 		if req.Keyword != "" {
 			m = m.Where("test_cases.title LIKE ? ESCAPE '|'", "%"+escape.Like(req.Keyword)+"%")
+		}
+		if req.ExternalKey != "" {
+			m = m.Where("test_cases.external_key", req.ExternalKey)
 		}
 
 		pageNum := req.PageNum

@@ -8,18 +8,19 @@ import (
 // ==================== 测试用例 ====================
 
 type TestCaseCreateReq struct {
-	g.Meta        `path:"/projects/{projectId}/test-cases" method:"post" tags:"测试管理" summary:"创建测试用例"`
-	ProjectId     int    `json:"-" in:"path" v:"required#项目ID不能为空"`
-	RequirementId int    `json:"requirementId" dc:"关联需求ID"`
-	TaskId        int    `json:"taskId" dc:"关联任务ID"`
-	Title         string `json:"title" v:"required#用例标题不能为空"`
-	Preconditions string `json:"preconditions" dc:"前置条件"`
-	Steps         string `json:"steps" dc:"测试步骤"`
+	g.Meta         `path:"/projects/{projectId}/test-cases" method:"post" tags:"测试管理" summary:"创建测试用例"`
+	ProjectId      int    `json:"-" in:"path" v:"required#项目ID不能为空"`
+	RequirementId  int    `json:"requirementId" dc:"关联需求ID"`
+	TaskId         int    `json:"taskId" dc:"关联任务ID"`
+	Title          string `json:"title" v:"required#用例标题不能为空"`
+	Preconditions  string `json:"preconditions" dc:"前置条件"`
+	Steps          string `json:"steps" dc:"测试步骤"`
 	ExpectedResult string `json:"expectedResult" dc:"预期结果"`
-	Category      string `json:"category" dc:"分类:功能/性能/安全/兼容性"`
-	Module        string `json:"module" dc:"所属模块"`
-	Priority      string `json:"priority" v:"required|in:P0,P1,P2,P3#优先级不能为空|优先级必须是P0/P1/P2/P3"`
-	Source        string `json:"source" dc:"来源:human/ai_generated" d:"human" v:"in:human,ai_generated#来源必须是human/ai_generated"`
+	Category       string `json:"category" dc:"分类:功能/性能/安全/兼容性"`
+	Module         string `json:"module" dc:"所属模块"`
+	Priority       string `json:"priority" v:"required|in:P0,P1,P2,P3#优先级不能为空|优先级必须是P0/P1/P2/P3"`
+	Source         string `json:"source" dc:"来源:human/ai_generated" d:"human" v:"in:human,ai_generated#来源必须是human/ai_generated"`
+	ExternalKey    string `json:"externalKey" dc:"外部键（pytest nodeid），--bcode-sync 幂等依据"`
 }
 
 type TestCaseCreateRes struct {
@@ -57,16 +58,17 @@ type TestCaseDeleteRes struct {
 
 type TestCaseListReq struct {
 	g.Meta    `path:"/projects/{projectId}/test-cases" method:"get" tags:"测试管理" summary:"用例列表"`
-	ProjectId int    `json:"-" in:"path" v:"required#项目ID不能为空"`
+	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
 	commonApi.PageReq
-	Category string `json:"category" dc:"分类筛选"`
-	Module   string `json:"module" dc:"模块筛选"`
-	Status   string `json:"status" dc:"状态筛选"`
-	Keyword  string `json:"keyword" dc:"关键字搜索"`
+	Category    string `json:"category" dc:"分类筛选"`
+	Module      string `json:"module" dc:"模块筛选"`
+	Status      string `json:"status" dc:"状态筛选"`
+	Keyword     string `json:"keyword" dc:"关键字搜索"`
+	ExternalKey string `json:"externalKey" dc:"外部键精确匹配（pytest nodeid，--bcode-sync 幂等查找）"`
 }
 
 type TestCaseListRes struct {
-	g.Meta      `mime:"application/json"`
+	g.Meta `mime:"application/json"`
 	commonApi.ListRes
 	List []TestCaseItem `json:"list"`
 }
@@ -84,6 +86,7 @@ type TestCaseItem struct {
 	Module         string `json:"module"`
 	Priority       string `json:"priority"`
 	Source         string `json:"source"`
+	ExternalKey    string `json:"externalKey,omitempty" dc:"外部键（pytest nodeid）"`
 	CreatorId      int    `json:"creatorId"`
 	Status         string `json:"status"`
 	CreatedAt      string `json:"createdAt"`
@@ -205,24 +208,121 @@ type TestPlanResultsReq struct {
 }
 
 type TestPlanResultsRes struct {
-	g.Meta     `mime:"application/json"`
-	Total      int                    `json:"total"`
-	Passed     int                    `json:"passed"`
-	Failed     int                    `json:"failed"`
-	Blocked    int                    `json:"blocked"`
-	Skipped    int                    `json:"skipped"`
-	Pending    int                    `json:"pending"`
-	Results    []TestPlanCaseResult   `json:"results"`
+	g.Meta  `mime:"application/json"`
+	Total   int                  `json:"total"`
+	Passed  int                  `json:"passed"`
+	Failed  int                  `json:"failed"`
+	Blocked int                  `json:"blocked"`
+	Skipped int                  `json:"skipped"`
+	Pending int                  `json:"pending"`
+	Results []TestPlanCaseResult `json:"results"`
 }
 
 type TestPlanCaseResult struct {
-	Id             int    `json:"id"`
-	TestCaseId     int    `json:"testCaseId"`
-	TestCaseTitle  string `json:"testCaseTitle"`
-	AssigneeId     int    `json:"assigneeId"`
-	AssigneeName   string `json:"assigneeName,omitempty"`
-	Status         string `json:"status"`
-	ActualResult   string `json:"actualResult"`
-	BugTaskId      int    `json:"bugTaskId"`
-	ExecutedAt     string `json:"executedAt"`
+	Id            int    `json:"id"`
+	TestCaseId    int    `json:"testCaseId"`
+	TestCaseTitle string `json:"testCaseTitle"`
+	AssigneeId    int    `json:"assigneeId"`
+	AssigneeName  string `json:"assigneeName,omitempty"`
+	Status        string `json:"status"`
+	ActualResult  string `json:"actualResult"`
+	BugTaskId     int    `json:"bugTaskId"`
+	ExecutedAt    string `json:"executedAt"`
+}
+
+// ==================== 测试执行记录（Run，#504 pytest P1） ====================
+
+// TestRunCaseReport 单用例上报项：pytest 侧逐条结果
+type TestRunCaseReport struct {
+	TestCaseId  int    `json:"testCaseId" dc:"映射的平台用例ID（@pytest.mark.bytecode(case=N)，0=未映射"`
+	ExternalKey string `json:"externalKey" dc:"外部键：pytest nodeid"`
+	Title       string `json:"title" dc:"用例标题（缺省同 externalKey）"`
+	Status      string `json:"status" v:"required|in:pass,fail,error,skip#状态不能为空|状态必须是pass/fail/error/skip"`
+	DurationMs  int    `json:"durationMs" dc:"耗时毫秒"`
+	Message     string `json:"message" dc:"失败信息（截断 traceback），服务端限长"`
+}
+
+type TestRunReportReq struct {
+	g.Meta     `path:"/projects/{projectId}/test-runs" method:"post" tags:"测试管理" summary:"上报测试执行记录"`
+	ProjectId  int                 `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Source     string              `json:"source" d:"pytest" v:"in:manual,pytest,ci,junit#来源必须是manual/pytest/ci/junit"`
+	Branch     string              `json:"branch" dc:"git 分支"`
+	GitSha     string              `json:"gitSha" dc:"git commit"`
+	Env        string              `json:"env" dc:"环境标识（local/ci 等）"`
+	StartedAt  string              `json:"startedAt" dc:"开始时间 YYYY-MM-DD HH:MM:SS，空则由服务端推导"`
+	FinishedAt string              `json:"finishedAt" dc:"结束时间，空则取当前"`
+	DurationMs int                 `json:"durationMs" dc:"总耗时毫秒（缺省用起止差推导）"`
+	Cases      []TestRunCaseReport `json:"cases" v:"required#用例结果不能为空"`
+}
+
+type TestRunReportRes struct {
+	g.Meta `mime:"application/json"`
+	Id     int `json:"id"`
+}
+
+type TestRunListReq struct {
+	g.Meta    `path:"/projects/{projectId}/test-runs" method:"get" tags:"测试管理" summary:"执行记录列表"`
+	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
+	commonApi.PageReq
+	Source string `json:"source" dc:"来源筛选"`
+	Status string `json:"status" dc:"结果筛选:pass/fail（failed+errors>0 即 fail）"`
+	Branch string `json:"branch" dc:"分支筛选"`
+}
+
+type TestRunListRes struct {
+	g.Meta `mime:"application/json"`
+	commonApi.ListRes
+	List []TestRunItem `json:"list"`
+}
+
+type TestRunItem struct {
+	Id              int    `json:"id"`
+	ProjectId       int    `json:"projectId"`
+	Source          string `json:"source"`
+	Branch          string `json:"branch"`
+	GitSha          string `json:"gitSha"`
+	Env             string `json:"env"`
+	TriggeredBy     int    `json:"triggeredBy"`
+	TriggeredByName string `json:"triggeredByName,omitempty"`
+	Total           int    `json:"total"`
+	Passed          int    `json:"passed"`
+	Failed          int    `json:"failed"`
+	Skipped         int    `json:"skipped"`
+	Errors          int    `json:"errors"`
+	DurationMs      int    `json:"durationMs"`
+	StartedAt       string `json:"startedAt"`
+	FinishedAt      string `json:"finishedAt"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+type TestRunDetailReq struct {
+	g.Meta `path:"/test-runs/{id}" method:"get" tags:"测试管理" summary:"执行记录详情"`
+	Id     int `json:"-" in:"path" v:"required#记录ID不能为空"`
+}
+
+type TestRunDetailRes struct {
+	g.Meta `mime:"application/json"`
+	TestRunItem
+	Cases []TestRunCaseItem `json:"cases"`
+}
+
+type TestRunCaseItem struct {
+	Id            int    `json:"id"`
+	TestRunId     int    `json:"testRunId"`
+	TestCaseId    int    `json:"testCaseId"`
+	TestCaseTitle string `json:"testCaseTitle,omitempty" dc:"映射的平台用例标题（未映射为空）"`
+	ExternalKey   string `json:"externalKey"`
+	Title         string `json:"title"`
+	Status        string `json:"status"`
+	DurationMs    int    `json:"durationMs"`
+	Message       string `json:"message"`
+}
+
+type TestRunDeleteReq struct {
+	g.Meta `path:"/test-runs/{id}" method:"delete" tags:"测试管理" summary:"删除执行记录"`
+	Id     int `json:"-" in:"path" v:"required#记录ID不能为空"`
+}
+
+type TestRunDeleteRes struct {
+	g.Meta `mime:"application/json"`
 }

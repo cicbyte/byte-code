@@ -23,6 +23,11 @@ type ITest interface {
 	AddCasesToPlan(ctx context.Context, req *api.TestPlanAddCaseReq) (err error)
 	ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (err error)
 	GetPlanResults(ctx context.Context, req *api.TestPlanResultsReq) (res *api.TestPlanResultsRes, err error)
+	// 测试执行记录（Run，#504）
+	ReportRun(ctx context.Context, req *api.TestRunReportReq) (id int, err error)
+	ListRuns(ctx context.Context, req *api.TestRunListReq) (total int, list []api.TestRunItem, err error)
+	GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, err error)
+	DeleteRun(ctx context.Context, id int) (err error)
 }
 
 var localTest ITest

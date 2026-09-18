@@ -111,3 +111,37 @@ func (c *testController) TestCaseExecute(ctx context.Context, req *api.TestCaseE
 func (c *testController) TestPlanResults(ctx context.Context, req *api.TestPlanResultsReq) (res *api.TestPlanResultsRes, err error) {
 	return service.Test().GetPlanResults(ctx, req)
 }
+
+// ==================== 测试执行记录（Run，#504） ====================
+
+func (c *testController) TestRunReport(ctx context.Context, req *api.TestRunReportReq) (res *api.TestRunReportRes, err error) {
+	res = new(api.TestRunReportRes)
+	id, err := service.Test().ReportRun(ctx, req)
+	res.Id = id
+	return
+}
+
+func (c *testController) TestRunList(ctx context.Context, req *api.TestRunListReq) (res *api.TestRunListRes, err error) {
+	res = new(api.TestRunListRes)
+	if req.PageSize == 0 {
+		req.PageSize = consts.PageSize
+	}
+	if req.PageNum == 0 {
+		req.PageNum = 1
+	}
+	total, list, err := service.Test().ListRuns(ctx, req)
+	res.Total = total
+	res.CurrentPage = req.PageNum
+	res.List = list
+	return
+}
+
+func (c *testController) TestRunDetail(ctx context.Context, req *api.TestRunDetailReq) (res *api.TestRunDetailRes, err error) {
+	return service.Test().GetRun(ctx, req.Id)
+}
+
+func (c *testController) TestRunDelete(ctx context.Context, req *api.TestRunDeleteReq) (res *api.TestRunDeleteRes, err error) {
+	res = new(api.TestRunDeleteRes)
+	err = service.Test().DeleteRun(ctx, req.Id)
+	return
+}

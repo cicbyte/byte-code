@@ -22,10 +22,12 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	api "github.com/cicbyte/byte-code/api/v1/project"
+	apiTest "github.com/cicbyte/byte-code/api/v1/test"
 	platApi "github.com/cicbyte/byte-code/api/v1/platform"
 	apiDocs "github.com/cicbyte/byte-code/api/v1/docs"
 	_ "github.com/cicbyte/byte-code/internal/logic/docs"
 	_ "github.com/cicbyte/byte-code/internal/logic/platform"
+	_ "github.com/cicbyte/byte-code/internal/logic/test"
 	"github.com/cicbyte/byte-code/internal/service"
 	"github.com/cicbyte/byte-code/utility/dbinit"
 	"github.com/cicbyte/byte-code/utility/perm"
@@ -1057,4 +1059,112 @@ func TestProjectScope(t *testing.T) {
 	if lo.List[0].OwnerName != "mx-owner" || lo.List[0].OwnerId != 101 {
 		t.Errorf("owner 回填不符: %+v", lo.List[0])
 	}
+}
+
+// ---------- 测试执行记录（#504 pytest P1） ----------
+
+func TestTestRunReport(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	mkReq := func() *apiTest.TestRunReportReq {
+		return &apiTest.TestRunReportReq{
+			ProjectId: 501,
+			Source:   "pytest", Branch: "main", GitSha: "abc1234", Env: "ci",
+			StartedAt: "2026-09-18 10:00:00", FinishedAt: "2026-09-18 10:01:30",
+			Cases: []apiTest.TestRunCaseReport{
+				{ExternalKey: "tests/test_a.py::test_ok", Status: "pass", DurationMs: 120},
+				{ExternalKey: "tests/test_a.py::test_bad", Status: "fail", DurationMs: 30, Message: strings.Repeat("x", 9000)},
+				{ExternalKey: "tests/test_b.py::test_skip", Status: "skip"},
+				{ExternalKey: "tests/test_b.py::test_err", Status: "error", Message: "fixture boom", TestCaseId: 999999},
+			},
+		}
+	}
+
+	// ① 只读能力 agent（108：tasks_read,docs_read）上报 → 能力拒绝
+	if _, err := service.Test().ReportRun(ctxAs(108), mkReq()); err == nil || !strings.Contains(err.Error(), "上报测试执行") {
+		t.Errorf("缺 test_execute 能力应拒（含文案）: %v", err)
+	}
+	// ② 会话项目不符（109 会话指向 502）→ 拒
+	if _, err := service.Test().ReportRun(ctxAsAgent(109, 502), mkReq()); err == nil || !strings.Contains(err.Error(), "其它项目") {
+		t.Errorf("跨会话项目上报应拒（含文案）: %v", err)
+	}
+
+	// ③ 全能力 agent（109 空能力集）上报 → 汇总服务端重算 + 时间推导 + 截断
+	runId, err := service.Test().ReportRun(ctxAsAgent(109, 501), mkReq())
+	if err != nil {
+		t.Fatalf("全能力 agent 上报应放行: %v", err)
+	}
+	run, err := db.Model("test_runs").Ctx(ctx).Where("id", runId).One()
+	if err != nil || run.IsEmpty() {
+		t.Fatalf("查询 run 失败: %v", err)
+	}
+	for col, want := range map[string]int{"total": 4, "passed": 1, "failed": 1, "skipped": 1, "errors": 1, "duration_ms": 90000, "triggered_by": 109} {
+		if run[col].Int() != want {
+			t.Errorf("%s = %d, want %d", col, run[col].Int(), want)
+		}
+	}
+	if run["started_at"].String() != "2026-09-18 10:00:00" || run["finished_at"].String() != "2026-09-18 10:01:30" {
+		t.Errorf("起止时间应透传客户端值: %s ~ %s", run["started_at"], run["finished_at"])
+	}
+	det, err := service.Test().GetRun(ctx, runId)
+	if err != nil || len(det.Cases) != 4 {
+		t.Fatalf("详情应含 4 条用例: %v", err)
+	}
+	// message 截断：8000 字符 + 截断标记；无效映射（999999 不存在）降级为 0
+	for _, c := range det.Cases {
+		if c.Status == "fail" {
+			if l := len(c.Message); l > 8200 || !strings.HasSuffix(c.Message, "[truncated]") {
+				t.Errorf("失败信息应截断（len=%d）: %q...", l, c.Message[:40])
+			}
+		}
+		if c.ExternalKey == "tests/test_b.py::test_err" && c.TestCaseId != 0 {
+			t.Errorf("无效映射应降级为 0: %+v", c)
+		}
+	}
+
+	// ④ 人类成员（103）手工批次上报 → 放行
+	hreq := mkReq()
+	hreq.Source = "manual"
+	hreq.Branch, hreq.GitSha, hreq.Env = "", "", ""
+	if _, err := service.Test().ReportRun(ctxAs(103), hreq); err != nil {
+		t.Errorf("人类成员上报应放行: %v", err)
+	}
+
+	// ⑤ 列表过滤：status=fail 命中两批（pytest 批含 fail/error，manual 批同构造）
+	total, list, err := service.Test().ListRuns(ctx, &apiTest.TestRunListReq{ProjectId: 501, Status: "fail"})
+	if err != nil || total != 2 {
+		t.Errorf("fail 过滤应命中 2 批: total=%d err=%v", total, err)
+	}
+	if len(list) > 0 && list[0].TriggeredByName == "" {
+		t.Errorf("triggeredByName 应回填: %+v", list[0])
+	}
+
+	// ⑥ 删除：member 拒 / maintainer 放行并级联清 cases
+	if err := service.Test().DeleteRun(ctxAs(103), runId); err == nil || !strings.Contains(err.Error(), "仅项目管理员") {
+		t.Errorf("member 删除应拒（含文案）: %v", err)
+	}
+	if err := service.Test().DeleteRun(ctxAs(102), runId); err != nil {
+		t.Errorf("maintainer 删除应放行: %v", err)
+	}
+	if cnt, _ := db.Model("test_run_cases").Ctx(ctx).Where("test_run_id", runId).Count(); cnt != 0 {
+		t.Errorf("run 用例应级联删除，残留 %d", cnt)
+	}
+
+	// ⑦ externalKey 精确查找（--bcode-sync 幂等依据）
+	if _, err := db.Model("test_cases").Ctx(ctx).Data(g.Map{
+		"project_id": 501, "title": "synced", "priority": "P2", "status": "active",
+		"creator_id": 101, "external_key": "tests/test_a.py::test_ok",
+	}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+	tcTotal, tcList, err := service.Test().ListCases(ctx, &apiTest.TestCaseListReq{ProjectId: 501, ExternalKey: "tests/test_a.py::test_ok"})
+	if err != nil || tcTotal != 1 || len(tcList) != 1 || tcList[0].Title != "synced" {
+		t.Errorf("externalKey 查找应精确命中 1 条: total=%d err=%v", tcTotal, err)
+	}
+
+	// 清理（501 是共享种子项目）
+	db.Model("test_runs").Ctx(ctx).Where("project_id", 501).Delete()
+	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
+	db.Model("test_cases").Ctx(ctx).Where("title", "synced").Delete()
 }

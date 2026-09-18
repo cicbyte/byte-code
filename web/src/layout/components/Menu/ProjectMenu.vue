@@ -32,6 +32,7 @@
     DatabaseOutlined,
     BugOutlined,
     ExperimentOutlined,
+    FieldTimeOutlined,
     CarryOutOutlined,
     AimOutlined,
     ReadOutlined,
@@ -64,6 +65,7 @@
     memories: BulbOutlined,
     'test-cases': BugOutlined,
     'test-plans': ExperimentOutlined,
+    'test-runs': FieldTimeOutlined,
     members: TeamOutlined,
     database: DatabaseOutlined,
   };
