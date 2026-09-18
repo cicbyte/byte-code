@@ -887,3 +887,104 @@ func TestOwnerTransferInvite(t *testing.T) {
 	db.Model("notifications").Ctx(ctx).Where("source_type", "transfer").Where("source_id IN (?)", []int{tid, tid2, tid3}).Delete()
 	db.Model("notifications").Ctx(ctx).Where("title IN (?)", []string{"收到项目移交邀请", "移交邀请被拒绝", "移交邀请已接受"}).Delete()
 }
+
+// ---------- 分组归属化（创建者私有 + 移交自动退出原 owner 分组） ----------
+
+func pgmCount(t *testing.T, groupId, projectId int) int {
+	t.Helper()
+	n, err := g.DB().Model("project_group_members").
+		Where("group_id", groupId).Where("project_id", projectId).Count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestGroupOwnership(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	// 101 建组 A，104（超管）建组 B
+	gA, err := s.CreateGroup(ctxAs(101), &api.GroupCreateReq{Name: "mx-grp-a", Description: "owner101"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gB, err := s.CreateGroup(ctxAs(104), &api.GroupCreateReq{Name: "mx-grp-b", Description: "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 列表隔离：101 只见 A；104 见 A+B 且带归属名
+	l101, _ := s.ListGroups(ctxAs(101))
+	if len(l101.List) != 1 || l101.List[0].Id != gA || l101.List[0].OwnerName != "mx-owner" {
+		t.Errorf("101 应只见自己的分组且带归属名: %+v", l101.List)
+	}
+	l104, _ := s.ListGroups(ctxAs(104))
+	if len(l104.List) < 2 {
+		t.Errorf("超管应见全部分组, got %d", len(l104.List))
+	}
+
+	// 更新：非创建者拒（102 是 501 maintainer 也无权动别人的分组）
+	if err := s.UpdateGroup(ctxAs(102), &api.GroupUpdateReq{Id: gA, Description: ptrStr("hijack")}); err == nil || !strings.Contains(err.Error(), "创建者") {
+		t.Errorf("非创建者更新应拒: %v", err)
+	}
+	// 创建者更新过；超管直通改他组也过（监管视角）
+	if err := s.UpdateGroup(ctxAs(101), &api.GroupUpdateReq{Id: gA, Description: ptrStr("ok")}); err != nil {
+		t.Errorf("创建者更新应过: %v", err)
+	}
+	if err := s.UpdateGroup(ctxAs(104), &api.GroupUpdateReq{Id: gA, Description: ptrStr("admin-touch")}); err != nil {
+		t.Errorf("超管直通应过: %v", err)
+	}
+	// agent 建组拒
+	if _, err := s.CreateGroup(ctxAs(109), &api.GroupCreateReq{Name: "mx-grp-agent"}); err == nil {
+		t.Error("agent 建分组应拒")
+	}
+
+	// 加项目：102（501 maintainer，非分组归属者）把 501 挂进 A → 拒
+	if err := s.AddProjectToGroup(ctxAs(102), &api.GroupMemberAddReq{Id: gA, ProjectId: 501}); err == nil || !strings.Contains(err.Error(), "创建者") {
+		t.Errorf("非归属者加项目应拒: %v", err)
+	}
+	// 101（owner+归属者）挂 501 进 A → 过；104 挂 501 进 B → 过
+	if err := s.AddProjectToGroup(ctxAs(101), &api.GroupMemberAddReq{Id: gA, ProjectId: 501}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddProjectToGroup(ctxAs(104), &api.GroupMemberAddReq{Id: gB, ProjectId: 501}); err != nil {
+		t.Fatal(err)
+	}
+	if pgmCount(t, gA, 501) != 1 || pgmCount(t, gB, 501) != 1 {
+		t.Fatal("挂载前置失败")
+	}
+
+	// 移交（邀请制）：101 → 103 接受后，501 从 A（101 名下）退出、B（104 名下）保留
+	tid, err := s.InviteOwnerTransfer(ctxAs(101), &api.OwnerTransferInviteReq{ProjectId: 501, UserId: 103})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RespondOwnerTransfer(ctxAs(103), &api.OwnerTransferRespondReq{Id: tid, Action: "accept"}); err != nil {
+		t.Fatal(err)
+	}
+	if n := pgmCount(t, gA, 501); n != 0 {
+		t.Errorf("移交后应退出原 owner 分组 A, got %d", n)
+	}
+	if n := pgmCount(t, gB, 501); n != 1 {
+		t.Errorf("第三方分组 B 应保留, got %d", n)
+	}
+
+	// 清理：恢复 501 owner、删分组与移交记录、清通知
+	db.Model("project_members").Ctx(ctx).Where("project_id", 501).Delete()
+	for _, m := range []map[string]interface{}{
+		{"project_id": 501, "user_id": 101, "role": "owner"},
+		{"project_id": 501, "user_id": 102, "role": "maintainer"},
+		{"project_id": 501, "user_id": 103, "role": "member"},
+		{"project_id": 501, "user_id": 107, "role": "member"},
+	} {
+		db.Model("project_members").Ctx(ctx).Data(m).Insert()
+	}
+	db.Model("project_groups").Ctx(ctx).Where("id IN (?)", []int{gA, gB}).Delete()
+	db.Model("project_group_members").Ctx(ctx).Where("group_id IN (?)", []int{gA, gB}).Delete()
+	db.Model("project_transfers").Ctx(ctx).Where("project_id", 501).Delete()
+	db.Model("notifications").Ctx(ctx).Where("title LIKE ?", "移交邀请%").Delete()
+	db.Model("notifications").Ctx(ctx).Where("title = ?", "移交邀请已接受").Delete()
+}
+
+func ptrStr(v string) *string { return &v }

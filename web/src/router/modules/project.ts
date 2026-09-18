@@ -26,12 +26,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/project/list/index.vue'),
       },
       {
-        // 全局分组管理（项目管理下）：分组定义 CRUD 走权限字典 platform_groups
+        // 分组私有化（#480）：归属创建者，任何登录用户可管理自己的分组
+        //（入口不再挂权限字典；数据边界在后端按 created_by 过滤）
         path: 'groups',
         name: `${routeName}_groups`,
         meta: {
           title: '项目分组',
-          menuKey: 'platform_groups',
         },
         component: () => import('@/views/platform/groups/index.vue'),
       },

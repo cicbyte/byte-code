@@ -108,7 +108,16 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 
 	// 接受：角色变更整体事务（单 owner 不变量：目标升 owner、原 owner 降级/移出、
 	// 邀请落定三者同生共死）
+	var exited int64
 	err := g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 先取时任 owner（升新后按角色找人会命中两个 owner）
+		curOwnerV, _ := tx.Model("project_members").Ctx(ctx).
+			Where("project_id", pid).Where("role", "owner").
+			Where("user_id != ?", uid).Fields("user_id").Value()
+		curOwner := 0
+		if curOwnerV != nil {
+			curOwner = curOwnerV.Int()
+		}
 		// 目标非成员则自动入项（邀请制的意义：不必先加成员）
 		cnt, cerr := tx.Model("project_members").Ctx(ctx).
 			Where("project_id", pid).Where("user_id", uid).Count()
@@ -143,7 +152,14 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 		_, rerr := tx.Model("project_transfers").Ctx(ctx).Where("id", req.Id).Data(g.Map{
 			"status": "accepted", "resolved_at": now, "resolved_by": uid,
 		}).Update()
-		return rerr
+		if rerr != nil {
+			return rerr
+		}
+		// 分组私有化（#480）：项目自动退出原负责人名下分组（事务内，
+		// 与角色变更同生共死）；第三方分组不动
+		var derr error
+		exited, derr = detachOwnerGroups(tx.Exec, pid, curOwner)
+		return derr
 	})
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "移交失败")
@@ -152,8 +168,12 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 	if leave {
 		after = "你已退出项目"
 	}
+	groupNote := ""
+	if exited > 0 {
+		groupNote = fmt.Sprintf("；项目已自动移出你名下 %d 个分组", exited)
+	}
 	notify.Send(ctx, from, "移交邀请已接受",
-		fmt.Sprintf("项目移交已完成（%s）。", after), "success", "transfer", req.Id)
+		fmt.Sprintf("项目移交已完成（%s）%s。", after, groupNote), "success", "transfer", req.Id)
 	s.recordActivity(ctx, uid, "project.transferred", "project", pid,
 		fmt.Sprintf("#%d", from), pid, "移交完成，负责人变更")
 	return nil

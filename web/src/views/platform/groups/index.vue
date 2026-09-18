@@ -13,13 +13,14 @@
           v-if="!loading && groups.length === 0"
           type="generic"
           title="还没有分组"
-          description="创建分组并把相关项目加进来，同分组的项目自动互为关联（反馈/引用免手动建关联）"
+          description="分组归属创建者，各管各的互不可见；同分组的项目自动互为关联（反馈/引用免手动建关联）"
         />
         <div v-else class="group-list">
           <div v-for="g in groups" :key="g.id" class="group-card">
             <div class="group-head">
               <span class="group-name">{{ g.name }}</span>
               <n-tag size="tiny" :bordered="false">{{ (g.projects || []).length }} 个项目</n-tag>
+              <n-tag v-if="g.ownerName" size="tiny" :bordered="false" type="info">归属：{{ g.ownerName }}</n-tag>
               <n-space size="small" class="ml-auto">
                 <n-button text type="info" size="small" @click="openAddMember(g)">添加项目</n-button>
                 <n-button text type="warning" size="small" @click="openEdit(g)">编辑</n-button>

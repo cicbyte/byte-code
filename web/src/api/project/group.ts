@@ -13,6 +13,7 @@ export interface GroupItem {
   name: string;
   description: string;
   createdBy: number;
+  ownerName: string;
   createdAt: string;
   projects: GroupProjectBrief[];
 }

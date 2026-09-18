@@ -225,7 +225,9 @@ func (s *sProject) TransferOwner(ctx context.Context, req *api.OwnerTransferReq)
 			Data(g.Map{"role": "owner"}).Update(); e != nil {
 			return e
 		}
-		return nil
+		// 分组私有化（#480）：项目自动退出原负责人名下分组（事务内）
+		_, derr := detachOwnerGroups(tx.Exec, req.ProjectId, oldOwner)
+		return derr
 	})
 	if err != nil {
 		return liberr.WrapDb(ctx, err, "转移负责人失败")

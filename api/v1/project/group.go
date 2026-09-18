@@ -27,6 +27,8 @@ type GroupListItem struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	CreatedBy   int          `json:"createdBy"`
+	// 分组归属创建者（私有化后列表按人过滤；超管全量可见时用于区分归属）
+	OwnerName   string       `json:"ownerName"`
 	CreatedAt   string       `json:"createdAt"`
 	Projects    []GroupProjectBrief `json:"projects"`
 }
