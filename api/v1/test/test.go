@@ -408,3 +408,56 @@ type TestFailTop struct {
 	FailCount   int    `json:"failCount"`
 	TotalCount  int    `json:"totalCount"`
 }
+
+// ==================== 用例执行统计 / 历史（#534） ====================
+
+type TestCaseStatsReq struct {
+	g.Meta    `path:"/projects/{projectId}/test-cases/stats" method:"get" tags:"测试管理" summary:"用例执行统计（批量）"`
+	ProjectId int `json:"-" in:"path" v:"required#项目ID不能为空"`
+}
+
+type TestCaseStatsRes struct {
+	g.Meta `mime:"application/json"`
+	// 仅含有执行记录的用例（无执行的用例不出现在列表，前端按缺省 0 处理）
+	List []TestCaseStatItem `json:"list"`
+}
+
+// TestCaseStatItem 单用例跨 run 执行统计；fail 与 error 分列存储，
+// 「失败次数」合并口径（fail+error）由展示层决定
+type TestCaseStatItem struct {
+	CaseId     int    `json:"caseId"`
+	Total      int    `json:"total"`
+	Pass       int    `json:"pass"`
+	Fail       int    `json:"fail"`
+	Error      int    `json:"error"`
+	Skip       int    `json:"skip"`
+	LastStatus string `json:"lastStatus,omitempty" dc:"最近一次状态"`
+	LastRunAt  string `json:"lastRunAt,omitempty" dc:"最近一次执行时间"`
+}
+
+type TestCaseRunsReq struct {
+	g.Meta `path:"/test-cases/{id}/runs" method:"get" tags:"测试管理" summary:"用例历史执行记录"`
+	Id     int `json:"-" in:"path" v:"required#用例ID不能为空"`
+	// 最近 N 条（缺省 50，上限 200）；汇总计数不受此截断影响
+	Limit int `json:"limit" d:"50"`
+}
+
+type TestCaseRunsRes struct {
+	g.Meta  `mime:"application/json"`
+	Summary TestCaseStatItem  `json:"summary"`
+	List    []TestCaseRunItem `json:"list"`
+}
+
+// TestCaseRunItem 单次执行记录行：用例行 + 所属 run 上下文
+type TestCaseRunItem struct {
+	RunCaseId  int    `json:"runCaseId"`
+	RunId      int    `json:"runId"`
+	Status     string `json:"status"`
+	DurationMs int    `json:"durationMs"`
+	Message    string `json:"message"`
+	Source     string `json:"source"`
+	Branch     string `json:"branch"`
+	GitSha     string `json:"gitSha"`
+	StartedAt  string `json:"startedAt"`
+	FinishedAt string `json:"finishedAt"`
+}

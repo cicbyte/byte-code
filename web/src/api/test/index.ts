@@ -344,3 +344,46 @@ export function caseToBug(
 ) {
   return Alova.Post<TestRunCaseBugResult>(`/v1/test-run-cases/${runCaseId}/bug`, data);
 }
+
+// ==================== 用例执行统计 / 历史（#534） ====================
+
+/** 单用例跨 run 执行统计（fail 与 error 分列，「失败」合并口径由展示层定） */
+export interface TestCaseStatItem {
+  caseId: number;
+  total: number;
+  pass: number;
+  fail: number;
+  error: number;
+  skip: number;
+  lastStatus?: string;
+  lastRunAt?: string;
+}
+
+/** 单次执行记录行：用例行 + 所属 run 上下文 */
+export interface TestCaseRunItem {
+  runCaseId: number;
+  runId: number;
+  status: string;
+  durationMs: number;
+  message: string;
+  source: string;
+  branch: string;
+  gitSha: string;
+  startedAt: string;
+  finishedAt: string;
+}
+
+export interface TestCaseRunsResult {
+  summary: TestCaseStatItem;
+  list: TestCaseRunItem[];
+}
+
+/** 用例执行统计（批量，cases 页「执行」列数据源；仅含有执行的用例） */
+export function getTestCaseStats(projectId: number) {
+  return Alova.Get<{ list: TestCaseStatItem[] }>(`/v1/projects/${projectId}/test-cases/stats`);
+}
+
+/** 用例历史执行记录（汇总 + 最近 N 条明细） */
+export function getTestCaseRuns(caseId: number, limit = 50) {
+  return Alova.Get<TestCaseRunsResult>(`/v1/test-cases/${caseId}/runs`, { params: { limit } });
+}

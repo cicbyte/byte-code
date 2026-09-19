@@ -166,3 +166,13 @@ func (c *testController) TestFlakyList(ctx context.Context, req *api.TestFlakyLi
 func (c *testController) TestTrend(ctx context.Context, req *api.TestTrendReq) (res *api.TestTrendRes, err error) {
 	return service.Test().ListTrends(ctx, req)
 }
+
+// ==================== 用例执行统计 / 历史（#534） ====================
+
+func (c *testController) TestCaseStats(ctx context.Context, req *api.TestCaseStatsReq) (res *api.TestCaseStatsRes, err error) {
+	return service.Test().CaseStats(ctx, req)
+}
+
+func (c *testController) TestCaseRuns(ctx context.Context, req *api.TestCaseRunsReq) (res *api.TestCaseRunsRes, err error) {
+	return service.Test().CaseRunsHistory(ctx, req)
+}

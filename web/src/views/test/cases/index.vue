@@ -64,6 +64,7 @@
               <th>分类</th>
               <th>优先级</th>
               <th>状态</th>
+              <th>执行</th>
               <th>外部键</th>
               <th>创建人</th>
               <th>更新时间</th>
@@ -78,7 +79,7 @@
                 :data-test-id="`test-cases.group-${g.module}`"
                 @click="toggleGroup(g.module)"
               >
-                <td colspan="9">
+                <td colspan="10">
                   <n-space size="small" align="center">
                     <span class="module-dot" :style="{ background: moduleColor(g.module) }"></span>
                     <span class="font-medium">{{ g.module }}</span>
@@ -103,6 +104,24 @@
                     <n-tag :type="CASE_STATUS.tagType(item.status)" size="small">
                       {{ CASE_STATUS.label(item.status) }}
                     </n-tag>
+                  </td>
+                  <td>
+                    <template v-if="statOf(item)">
+                      <n-button
+                        text
+                        type="info"
+                        :data-test-id="`test-cases.stats-${item.id}`"
+                        @click="openHistory(item)"
+                      >
+                        {{ statOf(item)!.total }} 次
+                      </n-button>
+                      <div class="stat-sub">
+                        <span class="stat-pass">{{ statOf(item)!.pass }} 过</span>
+                        <span class="stat-fail">{{ statOf(item)!.fail + statOf(item)!.error }} 败</span>
+                        <span v-if="statOf(item)!.skip" class="stat-skip">{{ statOf(item)!.skip }} 跳</span>
+                      </div>
+                    </template>
+                    <span v-else class="text-gray-400">-</span>
                   </td>
                   <td class="ext-key">{{ item.externalKey || '-' }}</td>
                   <td>{{ item.creatorName || '-' }}</td>
@@ -162,12 +181,76 @@
         </n-form-item>
       </n-form>
     </n-modal>
+
+    <!-- 历史执行记录弹窗 -->
+    <n-modal
+      v-model:show="showHistory"
+      preset="card"
+      :title="`执行记录 · ${historyCase?.title ?? ''}`"
+      style="width: 880px"
+      data-test-id="test-cases.history-modal"
+    >
+      <template #header-extra>
+        <span v-if="historyCase?.externalKey" class="ext-key">{{ historyCase.externalKey }}</span>
+      </template>
+      <n-spin :show="historyLoading">
+        <n-space v-if="historySummary" size="small" align="center" class="mb-3" data-test-id="test-cases.history-summary">
+          <n-tag size="small" :bordered="false">共 {{ historySummary.total }} 次</n-tag>
+          <n-tag size="small" type="success">{{ historySummary.pass }} 成功</n-tag>
+          <n-tag size="small" type="error">{{ historySummary.fail + historySummary.error }} 失败</n-tag>
+          <n-tag v-if="historySummary.skip" size="small">{{ historySummary.skip }} 跳过</n-tag>
+          <n-tag size="small" :type="historySummary.total && passRate(historySummary) < 0.8 ? 'warning' : 'info'" :bordered="false">
+            通过率 {{ passRateText(historySummary) }}
+          </n-tag>
+          <span v-if="historySummary.lastStatus" class="text-xs text-gray-400">
+            最近：{{ RUN_CASE_STATUS.label(historySummary.lastStatus) }}（{{ historySummary.lastRunAt }}）
+          </span>
+        </n-space>
+        <n-table v-if="historyList.length" size="small" :bordered="false" :single-line="false">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>状态</th>
+              <th>耗时</th>
+              <th>来源</th>
+              <th>分支</th>
+              <th>记录</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="r in historyList" :key="r.runCaseId">
+              <tr class="hist-row" @click="toggleHistExpand(r.runCaseId)">
+                <td>{{ r.finishedAt }}</td>
+                <td>
+                  <n-tag :type="RUN_CASE_STATUS.tagType(r.status)" size="small">
+                    {{ RUN_CASE_STATUS.label(r.status) }}
+                  </n-tag>
+                </td>
+                <td>{{ fmtMs(r.durationMs) }}</td>
+                <td>{{ r.source || '-' }}</td>
+                <td>{{ r.branch || '-' }}</td>
+                <td>#{{ r.runId }}</td>
+              </tr>
+              <tr v-if="histExpanded.has(r.runCaseId) && r.message">
+                <td colspan="6"><pre class="hist-msg">{{ r.message }}</pre></td>
+              </tr>
+            </template>
+          </tbody>
+        </n-table>
+        <EmptyState
+          v-else-if="!historyLoading"
+          type="search"
+          title="暂无执行记录"
+          description="该用例还没有自动化或手工执行上报"
+        />
+      </n-spin>
+    </n-modal>
   </div>
 </template>
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { CASE_STATUS, CASE_CATEGORY_OPTIONS, casePriorityTagType } from '@/enums/test';
+  import { CASE_STATUS, CASE_CATEGORY_OPTIONS, casePriorityTagType, RUN_CASE_STATUS } from '@/enums/test';
   import { ref, reactive, onMounted, computed } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
@@ -177,8 +260,16 @@
     createTestCase,
     updateTestCase,
     deleteTestCase,
+    getTestCaseStats,
+    getTestCaseRuns,
   } from '@/api/test/index';
-  import type { TestCaseItem, TestCaseCreateData, TestCaseUpdateData } from '@/api/test/index';
+  import type {
+    TestCaseItem,
+    TestCaseCreateData,
+    TestCaseUpdateData,
+    TestCaseStatItem,
+    TestCaseRunItem,
+  } from '@/api/test/index';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -253,6 +344,7 @@
         pageSize: CASES_PAGE_SIZE,
       });
       caseList.value = res?.list || [];
+      loadStats();
     } catch (e) {
       // ignore
     } finally {
@@ -264,6 +356,76 @@
   }
   function afterRemove() {
     loadData();
+  }
+
+  // ---------- 执行统计与历史弹窗（#534） ----------
+  const statsMap = ref(new Map<number, TestCaseStatItem>());
+  function statOf(c: TestCaseItem): TestCaseStatItem | undefined {
+    return statsMap.value.get(c.id);
+  }
+
+  async function loadStats() {
+    try {
+      const res = await getTestCaseStats(projectId.value);
+      const m = new Map<number, TestCaseStatItem>();
+      for (const it of res?.list || []) m.set(it.caseId, it);
+      statsMap.value = m;
+    } catch {
+      // ignore：统计列缺省显示 -
+    }
+  }
+
+  const showHistory = ref(false);
+  const historyLoading = ref(false);
+  const historyCase = ref<TestCaseItem | null>(null);
+  const historySummary = ref<TestCaseStatItem | null>(null);
+  const historyList = ref<TestCaseRunItem[]>([]);
+  const histExpanded = ref(new Set<number>());
+
+  function toggleHistExpand(id: number) {
+    if (histExpanded.value.has(id)) {
+      histExpanded.value.delete(id);
+    } else {
+      histExpanded.value.add(id);
+    }
+    histExpanded.value = new Set(histExpanded.value);
+  }
+
+  async function openHistory(item: TestCaseItem) {
+    historyCase.value = item;
+    showHistory.value = true;
+    historyLoading.value = true;
+    historySummary.value = null;
+    historyList.value = [];
+    histExpanded.value = new Set();
+    try {
+      const res = await getTestCaseRuns(item.id);
+      historySummary.value = res?.summary ?? null;
+      historyList.value = res?.list || [];
+      // 弹窗汇总比列表行新鲜（run 可能刚上报/删除）：回写统计列
+      if (res?.summary) {
+        statsMap.value = new Map(statsMap.value).set(item.id, res.summary);
+      }
+    } catch (e) {
+      message.error('查询执行记录失败');
+    } finally {
+      historyLoading.value = false;
+    }
+  }
+
+  // 通过率分母排除跳过（跳过不算执行结论）
+  function passRate(s: TestCaseStatItem): number {
+    const den = s.pass + s.fail + s.error;
+    return den > 0 ? s.pass / den : 0;
+  }
+  function passRateText(s: TestCaseStatItem): string {
+    const den = s.pass + s.fail + s.error;
+    return den > 0 ? `${Math.round(passRate(s) * 100)}%` : '-';
+  }
+  function fmtMs(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    return `${Math.floor(ms / 60000)}m${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}s`;
   }
 
   // ---------- 排序与模块分组（客户端） ----------
@@ -412,5 +574,38 @@
     font-family: 'JetBrains Mono', Consolas, monospace;
     font-size: 11px;
     color: rgba(128, 128, 128, 0.9);
+  }
+  .stat-sub {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .stat-pass {
+    color: #18a058;
+    margin-right: 6px;
+  }
+  .stat-fail {
+    color: #d03050;
+  }
+  .stat-skip {
+    color: rgba(128, 128, 128, 0.9);
+    margin-left: 6px;
+  }
+  .hist-row {
+    cursor: pointer;
+  }
+  .hist-row:hover {
+    background: rgba(128, 128, 128, 0.06);
+  }
+  .hist-msg {
+    margin: 0;
+    padding: 8px 10px;
+    background: rgba(128, 128, 128, 0.08);
+    border-left: 3px solid rgba(128, 128, 128, 0.4);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 220px;
+    overflow: auto;
   }
 </style>

@@ -1176,6 +1176,107 @@ func TestTestRunReport(t *testing.T) {
 	db.Model("test_cases").Ctx(ctx).Where("title", "synced").Delete()
 }
 
+// ---------- 用例执行统计 / 历史（#534） ----------
+
+func TestTestCaseRunStats(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	// 种子：A=带外部键（sync 语义），B=手工用例（无外部键，靠显式映射）
+	insCase := func(title, ext string) int {
+		d := g.Map{"project_id": 501, "title": title, "priority": "P2", "status": "active", "creator_id": 101}
+		if ext != "" {
+			d["external_key"] = ext
+		}
+		r, err := db.Model("test_cases").Ctx(ctx).Data(d).Insert()
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := r.LastInsertId()
+		return int(id)
+	}
+	caseA := insCase("stat-synced", "t::stat")
+	caseB := insCase("stat-manual", "")
+
+	// 项目 502（临时建，测后删）：同 nodeid 的他项目执行不得计入 A
+	if _, err := db.Model("projects").Ctx(ctx).Data(g.Map{"id": 502, "name": "mx-stats2", "code": "MXS2", "status": 1, "creator_id": 101}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+
+	mk := func(pid int, cases ...apiTest.TestRunCaseReport) *apiTest.TestRunReportReq {
+		return &apiTest.TestRunReportReq{ProjectId: pid, Source: "pytest", Branch: "stats", Cases: cases}
+	}
+	// run1：A 的 pre-sync 旧行（无映射，仅 external_key 落库）
+	if _, err := service.Test().ReportRun(ctxAs(109), mk(501,
+		apiTest.TestRunCaseReport{ExternalKey: "t::stat", Status: "pass"})); err != nil {
+		t.Fatal(err)
+	}
+	// run2：A 的显式映射行（fail）
+	if _, err := service.Test().ReportRun(ctxAs(109), mk(501,
+		apiTest.TestRunCaseReport{ExternalKey: "t::stat", Status: "fail", TestCaseId: caseA})); err != nil {
+		t.Fatal(err)
+	}
+	// run3：B 的显式映射行（error）
+	if _, err := service.Test().ReportRun(ctxAs(109), mk(501,
+		apiTest.TestRunCaseReport{ExternalKey: "t::manual", Status: "error", TestCaseId: caseB, Message: "fixture boom"})); err != nil {
+		t.Fatal(err)
+	}
+	// run4：他项目（502）同 nodeid——不应计入 A（人类管理员上报）
+	if _, err := service.Test().ReportRun(ctxAs(104), mk(502,
+		apiTest.TestRunCaseReport{ExternalKey: "t::stat", Status: "pass"})); err != nil {
+		t.Fatal(err)
+	}
+
+	// ① 批量统计：A=2 次（1 过 1 败，最近 fail），B=1 次（error）
+	st, err := service.Test().CaseStats(ctx, &apiTest.TestCaseStatsReq{ProjectId: 501})
+	if err != nil {
+		t.Fatalf("CaseStats: %v", err)
+	}
+	got := map[int]apiTest.TestCaseStatItem{}
+	for _, it := range st.List {
+		got[it.CaseId] = it
+	}
+	if a, ok := got[caseA]; !ok || a.Total != 2 || a.Pass != 1 || a.Fail != 1 || a.Error != 0 || a.LastStatus != "fail" {
+		t.Errorf("A 统计失真（pre-sync 旧行按外部键计入，他项目同键不计入）: %+v ok=%v", got[caseA], ok)
+	}
+	if b, ok := got[caseB]; !ok || b.Total != 1 || b.Error != 1 || b.LastStatus != "error" {
+		t.Errorf("B 统计失真（无外部键仅按显式映射）: %+v ok=%v", got[caseB], ok)
+	}
+
+	// ② A 历史明细：两行按 run 倒序（fail 在前），汇总与批量一致，行带 run 上下文
+	h, err := service.Test().CaseRunsHistory(ctx, &apiTest.TestCaseRunsReq{Id: caseA})
+	if err != nil {
+		t.Fatalf("CaseRunsHistory: %v", err)
+	}
+	if h.Summary.Total != 2 || h.Summary.Pass != 1 || h.Summary.Fail != 1 {
+		t.Errorf("A 历史汇总失真: %+v", h.Summary)
+	}
+	if len(h.List) != 2 || h.List[0].Status != "fail" || h.List[1].Status != "pass" {
+		t.Errorf("A 历史应按 run 倒序: %+v", h.List)
+	}
+	if len(h.List) == 2 && h.List[0].RunId <= h.List[1].RunId {
+		t.Errorf("历史应最近在前: run %d vs %d", h.List[0].RunId, h.List[1].RunId)
+	}
+	if len(h.List) > 0 && (h.List[0].Branch != "stats" || h.List[0].Source != "pytest") {
+		t.Errorf("历史行应带 run 上下文: %+v", h.List[0])
+	}
+
+	// ③ B 历史（error 行带 message）+ 不存在用例拒绝
+	hb, err := service.Test().CaseRunsHistory(ctx, &apiTest.TestCaseRunsReq{Id: caseB})
+	if err != nil || hb.Summary.Total != 1 || len(hb.List) != 1 || hb.List[0].Message != "fixture boom" {
+		t.Errorf("B 历史失真: err=%v res=%+v", err, hb)
+	}
+	if _, err := service.Test().CaseRunsHistory(ctx, &apiTest.TestCaseRunsReq{Id: 999999}); err == nil || !strings.Contains(err.Error(), "不存在") {
+		t.Errorf("不存在用例应拒（含文案）: %v", err)
+	}
+
+	// 清理（501 共享种子 + 本测试自建 502；run 按 branch=stats 定向清）
+	db.Model("test_runs").Ctx(ctx).Where("project_id IN (501,502)").Where("branch", "stats").Delete()
+	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
+	db.Model("test_cases").Ctx(ctx).WhereIn("id", []int{caseA, caseB}).Delete()
+	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
+}
+
 // ---------- 失败闭环 / Flaky / 趋势（#506） ----------
 
 func TestTestRunClosedLoop(t *testing.T) {

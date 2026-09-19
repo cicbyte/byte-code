@@ -33,6 +33,9 @@ type ITest interface {
 	CaseToBug(ctx context.Context, req *api.TestRunCaseBugReq) (res *api.TestRunCaseBugRes, err error)
 	ListFlaky(ctx context.Context, req *api.TestFlakyListReq) (res *api.TestFlakyListRes, err error)
 	ListTrends(ctx context.Context, req *api.TestTrendReq) (res *api.TestTrendRes, err error)
+	// 用例执行统计 / 历史（#534）
+	CaseStats(ctx context.Context, req *api.TestCaseStatsReq) (res *api.TestCaseStatsRes, err error)
+	CaseRunsHistory(ctx context.Context, req *api.TestCaseRunsReq) (res *api.TestCaseRunsRes, err error)
 }
 
 // IdempotentHitError 执行上报幂等键命中：非失败——controller 转为 {id, duplicate:true}

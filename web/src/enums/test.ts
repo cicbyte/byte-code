@@ -29,3 +29,22 @@ export function casePriorityTagType(p: string): 'error' | 'warning' | 'info' | '
   if (p === 'P2') return 'info';
   return 'default';
 }
+
+/** 执行记录用例状态（test_run_cases.status，pytest 四态） */
+export const RUN_CASE_STATUS = {
+  options: [
+    { label: '通过', value: 'pass' },
+    { label: '失败', value: 'fail' },
+    { label: '错误', value: 'error' },
+    { label: '跳过', value: 'skip' },
+  ],
+  label(s: string): string {
+    return this.options.find((o) => o.value === s)?.label || s;
+  },
+  tagType(s: string): 'success' | 'error' | 'warning' | 'default' {
+    if (s === 'pass') return 'success';
+    if (s === 'fail') return 'error';
+    if (s === 'error') return 'warning';
+    return 'default';
+  },
+};
