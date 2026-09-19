@@ -185,6 +185,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/memories/index.vue'),
           },
           {
+            // 测试总览（#535）：趋势/Flaky/整体质量统计，从执行记录页迁出独立成页
+            path: 'test-overview',
+            name: `${routeName}_test_overview`,
+            meta: {
+              title: '测试总览',
+              group: '测试',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/test/overview/index.vue'),
+          },
+          {
             path: 'test-cases',
             name: `${routeName}_test_cases`,
             meta: {
@@ -214,6 +225,17 @@ const routes: Array<RouteRecordRaw> = [
               hideInMenu: true,
             },
             component: () => import('@/views/test/runs/index.vue'),
+          },
+          {
+            // 执行记录详情（#535）：该次执行整体情况，URL 可深链；
+            // 无 meta.title——工作台菜单按 title 派生，详情页不进菜单
+            path: 'test-runs/:runId',
+            name: `${routeName}_test_run_detail`,
+            meta: {
+              group: '测试',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/test/runs/detail.vue'),
           },
           {
             // 关联项目 + 项目分组（从成员管理拆出）

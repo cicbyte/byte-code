@@ -229,7 +229,9 @@
                 <td>{{ fmtMs(r.durationMs) }}</td>
                 <td>{{ r.source || '-' }}</td>
                 <td>{{ r.branch || '-' }}</td>
-                <td>#{{ r.runId }}</td>
+                <td>
+                  <n-button text type="info" size="small" @click="goRunDetail(r.runId)">#{{ r.runId }}</n-button>
+                </td>
               </tr>
               <tr v-if="histExpanded.has(r.runCaseId) && r.message">
                 <td colspan="6"><pre class="hist-msg">{{ r.message }}</pre></td>
@@ -252,7 +254,7 @@
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { CASE_STATUS, CASE_CATEGORY_OPTIONS, casePriorityTagType, RUN_CASE_STATUS } from '@/enums/test';
   import { ref, reactive, onMounted, computed } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
   import {
@@ -279,6 +281,7 @@
   const formRef = ref<any>(null);
 
   const route = useRoute();
+  const router = useRouter();
   const projectId = computed(() => Number(route.params.projectId));
   const filters = reactive({ category: null as string | null, status: null as string | null, keyword: '' });
 
@@ -426,6 +429,11 @@
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
     return `${Math.floor(ms / 60000)}m${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}s`;
+  }
+
+  function goRunDetail(runId: number) {
+    showHistory.value = false;
+    router.push(`/project/${projectId.value}/test-runs/${runId}`);
   }
 
   // ---------- 排序与模块分组（客户端） ----------

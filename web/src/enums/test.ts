@@ -48,3 +48,22 @@ export const RUN_CASE_STATUS = {
     return 'default';
   },
 };
+
+/** 执行记录来源（test_runs.source） */
+export const TEST_RUN_SOURCE = {
+  options: [
+    { label: 'pytest', value: 'pytest' },
+    { label: 'CI', value: 'ci' },
+    { label: 'JUnit', value: 'junit' },
+    { label: '手工', value: 'manual' },
+  ],
+  label(s: string): string {
+    return this.options.find((o) => o.value === s)?.label || s;
+  },
+  tagType(s: string): 'success' | 'info' | 'warning' | 'default' {
+    if (s === 'pytest') return 'success';
+    if (s === 'ci') return 'info';
+    if (s === 'junit') return 'warning';
+    return 'default';
+  },
+};

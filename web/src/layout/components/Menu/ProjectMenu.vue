@@ -38,6 +38,7 @@
     ReadOutlined,
     SafetyOutlined,
     ControlOutlined,
+    DashboardOutlined,
   } from '@vicons/antd';
   import { useEntityContext } from '@/store/modules/entityContext';
 
@@ -63,6 +64,7 @@
     knowledge: BookOutlined,
     docs: FileTextOutlined,
     memories: BulbOutlined,
+    'test-overview': DashboardOutlined,
     'test-cases': BugOutlined,
     'test-plans': ExperimentOutlined,
     'test-runs': FieldTimeOutlined,
