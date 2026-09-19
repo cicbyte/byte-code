@@ -22,11 +22,11 @@ wheels = [
 
 [[package]]
 name = "byte-code-pytest"
-version = "0.0.1"
+version = "0.0.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f0/aa/c4c06da099dc53b66c5bee2924c1f083c6709e4e216351d4921126d92544/byte_code_pytest-0.0.1.tar.gz", hash = "sha256:dd05767954955c036e8804213af9ca103829071b1c3d7ac23281177752a03075", size = 15689, upload-time = "2026-09-18T15:33:07.852Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/b7/bb52516c951bb523b15e9710f41b210928c595b72b1f69f07577675a0b3e/byte_code_pytest-0.0.2.tar.gz", hash = "sha256:e357423e141fdf01754a288bf80fd0386a26602169365c0e9ad0936955d75b2a", size = 25049, upload-time = "2026-09-19T05:16:03.36Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/a4/b96f283e93ec075a3c4e09df9980eb6c8ce3e48122224030ed648060c580/byte_code_pytest-0.0.1-py3-none-any.whl", hash = "sha256:79941f01afec493898a9179ba5221b3381e7c95742535079d6865313e8624099", size = 10966, upload-time = "2026-09-18T15:33:06.696Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/ae/de8aec8885194adee519781a909acbf6e1a056a4e5df5a022c1a748b8c52/byte_code_pytest-0.0.2-py3-none-any.whl", hash = "sha256:5f80ba741dee1390b1cd48584c0cae7738bcf4ebadde97ebe9caf263fbec2b39", size = 16231, upload-time = "2026-09-19T05:16:01.842Z" },
 ]
 
 [[package]]
@@ -45,7 +45,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "byte-code-pytest", specifier = ">=0.0.1" },
+    { name = "byte-code-pytest", specifier = ">=0.0.2" },
     { name = "drissionpage", specifier = ">=4.1" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pytest", specifier = ">=8.0" },
