@@ -25,9 +25,23 @@
           placeholder="搜索用例"
           style="width: 200px"
           clearable
+          data-test-id="test-cases.search-input"
           @keyup.enter="onFilterChange"
-        / data-test-id="test-cases.search-input">
-        <n-button type="primary" @click="handleCreate">
+        />
+        <n-select
+          v-model:value="sortBy"
+          :options="sortOptions"
+          size="small"
+          style="width: 130px"
+          data-test-id="test-cases.sort"
+        />
+        <n-button size="small" @click="sortDesc = !sortDesc" data-test-id="test-cases.sort-dir">
+          <template #icon>
+            <n-icon><SortDescendingOutlined v-if="sortDesc" /><SortAscendingOutlined v-else /></n-icon>
+          </template>
+          {{ sortDesc ? '降序' : '升序' }}
+        </n-button>
+        <n-button type="primary" @click="handleCreate" data-test-id="test-cases.create-btn">
           <template #icon>
             <n-icon><PlusOutlined /></n-icon>
           </template>
@@ -36,59 +50,75 @@
       </n-space>
 
       <n-spin :show="loading">
-        <EmptyState type="doc" title="暂无测试用例" description="创建用例沉淀测试资产" v-if="!loading && caseList.length === 0" />
+        <EmptyState
+          type="doc"
+          title="暂无测试用例"
+          description="创建用例沉淀测试资产"
+          v-if="!loading && groupedCases.length === 0"
+        />
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
               <th class="col-idx">#</th>
-            <th>标题</th>
+              <th>标题</th>
               <th>分类</th>
-              <th>模块</th>
               <th>优先级</th>
               <th>状态</th>
+              <th>外部键</th>
               <th>创建人</th>
               <th>更新时间</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in caseList" :key="item.id" :data-test-id="`test-cases.row-${item.id}`">
-              <td class="col-idx">{{ __ix + 1 }}</td>
-            <td>{{ item.title }}</td>
-              <td>{{ categoryLabel(item.category) }}</td>
-              <td>{{ item.module }}</td>
-              <td>
-                <n-tag :type="casePriorityTagType(item.priority)" size="small">{{ item.priority }}</n-tag>
-              </td>
-              <td>
-                <n-tag :type="CASE_STATUS.tagType(item.status)" size="small">
-                  {{ CASE_STATUS.label(item.status) }}
-                </n-tag>
-              </td>
-              <td>{{ item.creatorName || '-' }}</td>
-              <td>{{ item.updatedAt }}</td>
-              <td>
-                <n-space size="small">
-                  <n-button text type="info" @click="handleEdit(item)">编辑</n-button>
-                  <n-button text type="error" @click="handleDelete(item)">删除</n-button>
-                </n-space>
-              </td>
-            </tr>
+            <template v-for="g in groupedCases" :key="g.module">
+              <!-- 模块组头：稳定派生色条 + 计数 + 折叠 -->
+              <tr
+                class="module-head"
+                :data-test-id="`test-cases.group-${g.module}`"
+                @click="toggleGroup(g.module)"
+              >
+                <td colspan="9">
+                  <n-space size="small" align="center">
+                    <span class="module-dot" :style="{ background: moduleColor(g.module) }"></span>
+                    <span class="font-medium">{{ g.module }}</span>
+                    <n-tag size="small" :bordered="false">{{ g.cases.length }} 条</n-tag>
+                    <span class="text-xs text-gray-400">
+                      {{ collapsed.has(g.module) ? '展开' : '收起' }}
+                    </span>
+                  </n-space>
+                </td>
+              </tr>
+              <template v-if="!collapsed.has(g.module)">
+                <tr v-for="(item, __ix) in g.cases" :key="item.id" :data-test-id="`test-cases.row-${item.id}`">
+                  <td class="col-idx">{{ __ix + 1 }}</td>
+                  <td>
+                    <span :title="item.externalKey">{{ item.title }}</span>
+                  </td>
+                  <td>{{ categoryLabel(item.category) }}</td>
+                  <td>
+                    <n-tag :type="casePriorityTagType(item.priority)" size="small">{{ item.priority }}</n-tag>
+                  </td>
+                  <td>
+                    <n-tag :type="CASE_STATUS.tagType(item.status)" size="small">
+                      {{ CASE_STATUS.label(item.status) }}
+                    </n-tag>
+                  </td>
+                  <td class="ext-key">{{ item.externalKey || '-' }}</td>
+                  <td>{{ item.creatorName || '-' }}</td>
+                  <td>{{ item.updatedAt }}</td>
+                  <td>
+                    <n-space size="small">
+                      <n-button text type="info" @click="handleEdit(item)">编辑</n-button>
+                      <n-button text type="error" @click="handleDelete(item)">删除</n-button>
+                    </n-space>
+                  </td>
+                </tr>
+              </template>
+            </template>
           </tbody>
         </n-table>
       </n-spin>
-
-      <div class="mt-4 flex justify-end" v-if="total > pagination.size">
-        <n-pagination
-          show-size-picker
-          :page-sizes="[10, 20, 50, 100]"
-          v-model:page="pagination.page"
-          :page-size="pagination.size"
-          :item-count="total"
-          @update:page="onPageChange"
-          @update:page-size="onPageSizeChange"
-        />
-      </div>
     </n-card>
 
     <!-- 新建/编辑弹窗 -->
@@ -142,7 +172,6 @@
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
-  import { usePagedList } from '@/composables/usePagedList';
   import {
     getTestCases,
     createTestCase,
@@ -209,19 +238,93 @@
     // 筛选变更从第 1 页重查：第 N 页改筛选会请求空页显示"暂无"
 
 
-// usePagedList 统一四件套；后端 pageNum/pageSize 差异在 fetcher 内映射
-  const {
-    loading, list: caseList, total, pagination,
-    load: loadData, onFilterChange, afterRemove, onPageChange, onPageSizeChange,
-  } = usePagedList((page: number, size: number) =>
-    getTestCases(projectId.value, {
-      category: filters.category ?? undefined,
-      status: filters.status ?? undefined,
-      keyword: filters.keyword || undefined,
-      pageNum: page,
-      pageSize: size,
-    })
-  );
+// 整页直出（几百条量级分页碍事）：大 pageSize 一次拉全，管理动作在客户端做
+  const loading = ref(false);
+  const caseList = ref<TestCaseItem[]>([]);
+  const CASES_PAGE_SIZE = 999;
+  async function loadData() {
+    loading.value = true;
+    try {
+      const res = await getTestCases(projectId.value, {
+        category: filters.category ?? undefined,
+        status: filters.status ?? undefined,
+        keyword: filters.keyword || undefined,
+        pageNum: 1,
+        pageSize: CASES_PAGE_SIZE,
+      });
+      caseList.value = res?.list || [];
+    } catch (e) {
+      // ignore
+    } finally {
+      loading.value = false;
+    }
+  }
+  function onFilterChange() {
+    loadData();
+  }
+  function afterRemove() {
+    loadData();
+  }
+
+  // ---------- 排序与模块分组（客户端） ----------
+  const sortBy = ref<'priority' | 'status' | 'updatedAt' | 'title'>('priority');
+  const sortDesc = ref(false);
+  const collapsed = ref(new Set<string>());
+  const sortOptions = [
+    { label: '按优先级', value: 'priority' },
+    { label: '按状态', value: 'status' },
+    { label: '按更新时间', value: 'updatedAt' },
+    { label: '按标题', value: 'title' },
+  ];
+  const PRIO_RANK: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
+  const STATUS_RANK: Record<string, number> = { active: 0, deprecated: 1 };
+
+  function cmp(a: TestCaseItem, b: TestCaseItem): number {
+    let d = 0;
+    if (sortBy.value === 'priority') {
+      d = (PRIO_RANK[a.priority] ?? 9) - (PRIO_RANK[b.priority] ?? 9);
+    } else if (sortBy.value === 'status') {
+      d = (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9);
+    } else if (sortBy.value === 'updatedAt') {
+      d = (a.updatedAt || '').localeCompare(b.updatedAt || '');
+    } else {
+      d = a.title.localeCompare(b.title, 'zh');
+    }
+    if (d === 0) d = a.title.localeCompare(b.title, 'zh'); // 稳定次键
+    return sortDesc.value ? -d : d;
+  }
+
+  const groupedCases = computed(() => {
+    const groups = new Map<string, TestCaseItem[]>();
+    for (const c of [...caseList.value].sort(cmp)) {
+      const key = c.module?.trim() || '未分类';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    }
+    return [...groups.entries()]
+      .sort((x, y) => x[0].localeCompare(y[0], 'zh'))
+      .map(([module, cases]) => ({ module, cases }));
+  });
+
+  function toggleGroup(module: string) {
+    if (collapsed.value.has(module)) {
+      collapsed.value.delete(module);
+    } else {
+      collapsed.value.add(module);
+    }
+    collapsed.value = new Set(collapsed.value);
+  }
+
+  // 模块稳定派生色（8 色板按名字 hash，同名恒色）
+  const MODULE_PALETTE = [
+    '#2080f0', '#18a058', '#f0a020', '#d03050',
+    '#7c29cd', '#0fa7a0', '#c26d1a', '#5a8b29',
+  ];
+  function moduleColor(module: string): string {
+    let h = 0;
+    for (const ch of module) h = (h * 31 + ch.codePointAt(0)!) >>> 0;
+    return MODULE_PALETTE[h % MODULE_PALETTE.length];
+  }
 
   function handleCreate() {
     resetForm();
@@ -285,3 +388,29 @@
     loadData();
   });
 </script>
+
+<style scoped>
+  .module-head {
+    cursor: pointer;
+    background: rgba(128, 128, 128, 0.06);
+  }
+  .module-head:hover {
+    background: rgba(128, 128, 128, 0.12);
+  }
+  .module-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ext-key {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px;
+    color: rgba(128, 128, 128, 0.9);
+  }
+</style>
