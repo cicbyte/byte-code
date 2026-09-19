@@ -46,7 +46,15 @@ func (s *sProject) ListGroups(ctx context.Context) (res *api.GroupListRes, err e
 	m := g.DB().Model("project_groups g").Ctx(ctx).
 		LeftJoin("sys_users u", "u.id = g.created_by").
 		Fields("g.id, g.name, g.description, g.created_by, g.created_at, COALESCE(NULLIF(u.real_name, ''), u.username) AS owner_name")
-	if !perm.IsAdmin(ctx, uid) {
+	if isAgentUser(ctx, uid) {
+		// agent（#532/反馈 #20）：同分组隐式关联对 agent 可发现——放行
+		// 「已绑定项目所在的分组」，让 bcode --send 的目标解析有据可查；
+		// 仅只读摘要（description 置空），不可管理他人分组（写路径门禁不变）
+		m = m.Where(
+			"g.id IN (SELECT pgm.group_id FROM project_group_members pgm "+
+				"WHERE pgm.project_id IN (SELECT project_id FROM agent_project_bindings WHERE agent_id = ?))", uid,
+		)
+	} else if !perm.IsAdmin(ctx, uid) {
 		m = m.Where("g.created_by", uid)
 	}
 	rows, err := m.Order("g.id ASC").All()
@@ -56,9 +64,14 @@ func (s *sProject) ListGroups(ctx context.Context) (res *api.GroupListRes, err e
 	// 手工组装：gconv 的 json tag 匹配对蛇形别名不生效（owner_name 落不进
 	// OwnerName），代码库其余 JOIN 查询同为手工行的模式
 	groups := make([]api.GroupListItem, 0, len(rows))
+	agentView := isAgentUser(ctx, uid)
 	for _, r := range rows {
+		desc := r["description"].String()
+		if agentView {
+			desc = "" // 只读摘要口径：agent 不看他人分组描述
+		}
 		groups = append(groups, api.GroupListItem{
-			Id: r["id"].Int(), Name: r["name"].String(), Description: r["description"].String(),
+			Id: r["id"].Int(), Name: r["name"].String(), Description: desc,
 			CreatedBy: r["created_by"].Int(), OwnerName: r["owner_name"].String(), CreatedAt: r["created_at"].String(),
 			Projects: []api.GroupProjectBrief{},
 		})
@@ -174,6 +187,15 @@ func (s *sProject) RemoveProjectFromGroup(ctx context.Context, groupId, projectI
 		return liberr.WrapDb(ctx, err, "从分组移除失败")
 	}
 	return nil
+}
+
+// isAgentUser 请求者是否 agent（type=ai）——分组可见性放宽的判定口径
+func isAgentUser(ctx context.Context, uid int) bool {
+	if uid <= 0 {
+		return false
+	}
+	v, err := g.DB().Model("sys_users").Where("id", uid).Fields("type").Value()
+	return err == nil && v != nil && v.String() == "ai"
 }
 
 // ShareGroup 判断两个项目是否有公共分组（反馈/引用的隐式关联依据）

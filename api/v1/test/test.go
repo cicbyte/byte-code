@@ -241,6 +241,7 @@ type TestRunCaseReport struct {
 	Status      string `json:"status" v:"required|in:pass,fail,error,skip#状态不能为空|状态必须是pass/fail/error/skip"`
 	DurationMs  int    `json:"durationMs" dc:"耗时毫秒"`
 	Message     string `json:"message" dc:"失败信息（截断 traceback），服务端限长"`
+	Code        string `json:"code" dc:"用例源码快照（内联展示，服务端截断 64KB；大文件走附件通道）"`
 }
 
 type TestRunReportReq struct {
@@ -322,6 +323,7 @@ type TestRunCaseItem struct {
 	Status        string `json:"status"`
 	DurationMs    int    `json:"durationMs"`
 	Message       string `json:"message"`
+	Code          string `json:"code,omitempty" dc:"源码快照（有则内联展示）"`
 	BugTaskId     int    `json:"bugTaskId"`
 	BugTaskTitle  string `json:"bugTaskTitle,omitempty"`
 	Flaky         bool   `json:"flaky"`

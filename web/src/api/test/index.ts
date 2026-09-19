@@ -249,6 +249,7 @@ export interface TestRunCaseItem {
   status: string;
   durationMs: number;
   message: string;
+  code?: string;
   bugTaskId: number;
   bugTaskTitle?: string;
   flaky: boolean;

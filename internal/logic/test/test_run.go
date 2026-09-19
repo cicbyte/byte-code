@@ -18,6 +18,10 @@ import (
 
 // ==================== 测试执行记录（Run，#504 pytest P1） ====================
 
+// runCodeMax 单条用例源码快照上限（字符）：内联展示定位用，非代码仓库——
+// 大文件走附件通道（--bcode-code 的 .py.txt 附件）
+const runCodeMax = 65536
+
 // runMessageMax 单条用例失败信息上限（字符）：traceback 全量进库会让单条
 // 记录膨胀到 MB 级，列表/详情渲染与库体积都受伤；插件侧已截断，这里是
 // 服务端兜底（不信任上报方）
@@ -38,6 +42,14 @@ func isDuplicateKeyErr(err error) bool {
 	return strings.Contains(msg, "UNIQUE constraint failed") ||
 		strings.Contains(msg, "Error 1062") ||
 		strings.Contains(msg, "Duplicate entry")
+}
+
+func truncateRunCode(s string) string {
+	if utf8.RuneCountInString(s) <= runCodeMax {
+		return s
+	}
+	r := []rune(s)
+	return string(r[:runCodeMax]) + "\n# ...[code truncated]"
 }
 
 func truncateRunMessage(s string) string {
@@ -133,6 +145,7 @@ func (s *sTest) ReportRun(ctx context.Context, req *api.TestRunReportReq) (id in
 			"status":       c.Status,
 			"duration_ms":  c.DurationMs,
 			"message":      truncateRunMessage(c.Message),
+			"code":         truncateRunCode(c.Code),
 		})
 	}
 
@@ -298,7 +311,7 @@ func (s *sTest) GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, 
 		LeftJoin("test_cases tc", "trc.test_case_id = tc.id").
 		LeftJoin("tasks bt", "trc.bug_task_id = bt.id").
 		Fields("trc.id, trc.test_run_id, trc.test_case_id, tc.title AS test_case_title, "+
-			"trc.external_key, trc.title, trc.status, trc.duration_ms, trc.message, "+
+			"trc.external_key, trc.title, trc.status, trc.duration_ms, trc.message, trc.code, "+
 			"trc.bug_task_id, bt.title AS bug_task_title").
 		Where("trc.test_run_id", id).
 		Order("trc.id ASC").

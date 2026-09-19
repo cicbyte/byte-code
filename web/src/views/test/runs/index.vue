@@ -235,7 +235,7 @@
                   <td>{{ fmtDuration(c.durationMs) }}</td>
                   <td>
                     <n-space size="small" align="center" :wrap="false">
-                      <n-button v-if="c.message" text type="info" size="small" @click="toggleExpand(c.id)">
+                      <n-button v-if="c.message || c.code" text type="info" size="small" @click="toggleExpand(c.id)">
                         {{ expanded.has(c.id) ? '收起' : '查看' }}
                       </n-button>
                       <router-link
@@ -279,6 +279,10 @@
                 <tr v-if="expanded.has(c.id)">
                   <td colspan="6">
                     <pre class="fail-msg">{{ c.message }}</pre>
+                    <template v-if="c.code">
+                      <div class="text-xs text-gray-400 mb-1">源码快照</div>
+                      <pre class="code-snap">{{ c.code }}</pre>
+                    </template>
                   </td>
                 </tr>
               </template>
@@ -708,6 +712,19 @@
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
+  }
+  .code-snap {
+    margin: 8px 0 0;
+    padding: 10px 14px;
+    max-height: 320px;
+    overflow: auto;
+    background: rgba(24, 160, 88, 0.05);
+    border-left: 3px solid rgba(24, 160, 88, 0.4);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    white-space: pre;
   }
   .fail-top-row {
     display: flex;

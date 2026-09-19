@@ -1395,3 +1395,96 @@ func TestTestRunIdempotency(t *testing.T) {
 func attachmentAccessibleForTest(ctx context.Context, entityType string, entityId int) bool {
 	return attachment.AttachmentEntityAccessible(ctx, perm.UserId(ctx), entityType, entityId, "")
 }
+
+// ---------- run 用例内联 code 快照（#531） ----------
+
+func TestTestRunCaseCodeInline(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+	r, err := service.Test().ReportRun(ctxAs(109), &apiTest.TestRunReportReq{
+		ProjectId: 501, Source: "pytest",
+		Cases: []apiTest.TestRunCaseReport{
+			{ExternalKey: "t::with_code", Status: "fail", Message: "boom",
+				Code: "def test_x():\n    assert 1 == 2\n"},
+			{ExternalKey: "t::no_code", Status: "pass"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("上报失败: %v", err)
+	}
+	det, err := service.Test().GetRun(ctx, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var withCode, noCode *apiTest.TestRunCaseItem
+	for i := range det.Cases {
+		if det.Cases[i].ExternalKey == "t::with_code" {
+			withCode = &det.Cases[i]
+		}
+		if det.Cases[i].ExternalKey == "t::no_code" {
+			noCode = &det.Cases[i]
+		}
+	}
+	if withCode == nil || withCode.Code != "def test_x():\n    assert 1 == 2\n" {
+		t.Errorf("code 应原样回读: %+v", withCode)
+	}
+	if noCode == nil || noCode.Code != "" {
+		t.Errorf("未携带 code 的用例应为空: %+v", noCode)
+	}
+	db.Model("test_runs").Ctx(ctx).Where("project_id", 501).Delete()
+	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
+}
+
+// ---------- 分组对 agent 可发现（#532/反馈 #20） ----------
+
+func TestGroupAgentDiscoverability(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+	// 109 已绑定 501：建一个含 501 的分组 + 一个无关分组
+	g1, err0 := db.Model("project_groups").Ctx(ctx).Data(g.Map{
+		"name": "mx-agent-vis", "created_by": 101, "created_at": time.Now().Format("2006-01-02 15:04:05"),
+	}).Insert()
+	if err0 != nil {
+		t.Fatal(err0)
+	}
+	gid1, _ := g1.LastInsertId()
+	db.Model("project_group_members").Ctx(ctx).Data(g.Map{"group_id": gid1, "project_id": 501, "added_by": 101}).Insert()
+	g2, err0 := db.Model("project_groups").Ctx(ctx).Data(g.Map{
+		"name": "mx-agent-irrelevant", "created_by": 101, "created_at": time.Now().Format("2006-01-02 15:04:05"),
+	}).Insert()
+	if err0 != nil {
+		t.Fatal(err0)
+	}
+	gid2, _ := g2.LastInsertId()
+
+	gl, err := s.ListGroups(ctxAs(109))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]api.GroupListItem{}
+	for _, gr := range gl.List {
+		seen[gr.Name] = gr
+	}
+	if _, ok := seen["mx-agent-vis"]; !ok {
+		t.Errorf("agent 应可见含其绑定项目的分组: %+v", gl.List)
+	}
+	if _, ok := seen["mx-agent-irrelevant"]; ok {
+		t.Error("agent 不应可见无关分组")
+	}
+	if seen["mx-agent-vis"].Description != "" {
+		t.Errorf("agent 视角 description 应脱敏为空: %+v", seen["mx-agent-vis"])
+	}
+	// 成员摘要含 501（目标解析的依据）
+	found := false
+	for _, p := range seen["mx-agent-vis"].Projects {
+		if p.Id == 501 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("分组摘要应含绑定项目 501: %+v", seen["mx-agent-vis"].Projects)
+	}
+
+	db.Model("project_groups").Ctx(ctx).Where("id IN (?,?)", gid1, gid2).Delete()
+	db.Model("project_group_members").Ctx(ctx).Where("group_id", gid1).Delete()
+}
