@@ -92,7 +92,7 @@ def test_history_dialog_summary_and_rows(logged_in, frontend, cases_stats_world,
     page = UiBase(logged_in, frontend)
     page.goto(data["ui"]["routes"]["cases"].format(pid=cases_stats_world.pid))
     page.click(f"test-cases.stats-{cases_stats_world.sync_case}")
-    page.wait_ele("test-cases.history-modal", timeout=10)
+    page.wait_ele("test-cases.history-drawer", timeout=10)
     summary = page.text_of("test-cases.history-summary")
     assert "共 2 次" in summary and "1 成功" in summary and "1 失败" in summary, summary
     assert "通过率 50%" in summary, summary
@@ -107,7 +107,7 @@ def test_history_dialog_expand_message(logged_in, frontend, cases_stats_world, d
     page = UiBase(logged_in, frontend)
     page.goto(data["ui"]["routes"]["cases"].format(pid=cases_stats_world.pid))
     page.click(f"test-cases.stats-{cases_stats_world.sync_case}")
-    page.wait_ele("test-cases.history-modal", timeout=10)
+    page.wait_ele("test-cases.history-drawer", timeout=10)
     # 最近一行（run2 fail）点击展开 traceback
-    page.ele("test-cases.history-modal").ele("tag:tbody").ele("tag:tr").click()
+    page.ele("test-cases.history-drawer").ele("tag:tbody").ele("tag:tr").click()
     assert "AssertionError: expected 200" in logged_in.ele("tag:body").text

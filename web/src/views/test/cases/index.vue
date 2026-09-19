@@ -182,71 +182,71 @@
       </n-form>
     </n-modal>
 
-    <!-- 历史执行记录弹窗 -->
-    <n-modal
+    <!-- 历史执行记录抽屉（#538：居中弹窗改右侧抽屉，长列表内滚更顺手） -->
+    <n-drawer
       v-model:show="showHistory"
-      preset="card"
-      :title="`执行记录 · ${historyCase?.title ?? ''}`"
-      style="width: 880px"
-      data-test-id="test-cases.history-modal"
+      :width="720"
+      data-test-id="test-cases.history-drawer"
     >
-      <template #header-extra>
-        <span v-if="historyCase?.externalKey" class="ext-key">{{ historyCase.externalKey }}</span>
-      </template>
-      <n-spin :show="historyLoading">
-        <n-space v-if="historySummary" size="small" align="center" class="mb-3" data-test-id="test-cases.history-summary">
-          <n-tag size="small" :bordered="false">共 {{ historySummary.total }} 次</n-tag>
-          <n-tag size="small" type="success">{{ historySummary.pass }} 成功</n-tag>
-          <n-tag size="small" type="error">{{ historySummary.fail + historySummary.error }} 失败</n-tag>
-          <n-tag v-if="historySummary.skip" size="small">{{ historySummary.skip }} 跳过</n-tag>
-          <n-tag size="small" :type="historySummary.total && passRate(historySummary) < 0.8 ? 'warning' : 'info'" :bordered="false">
-            通过率 {{ passRateText(historySummary) }}
-          </n-tag>
-          <span v-if="historySummary.lastStatus" class="text-xs text-gray-400">
-            最近：{{ RUN_CASE_STATUS.label(historySummary.lastStatus) }}（{{ historySummary.lastRunAt }}）
-          </span>
-        </n-space>
-        <n-table v-if="historyList.length" size="small" :bordered="false" :single-line="false">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>状态</th>
-              <th>耗时</th>
-              <th>来源</th>
-              <th>分支</th>
-              <th>记录</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="r in historyList" :key="r.runCaseId">
-              <tr class="hist-row" @click="toggleHistExpand(r.runCaseId)">
-                <td>{{ r.finishedAt }}</td>
-                <td>
-                  <n-tag :type="RUN_CASE_STATUS.tagType(r.status)" size="small">
-                    {{ RUN_CASE_STATUS.label(r.status) }}
-                  </n-tag>
-                </td>
-                <td>{{ fmtMs(r.durationMs) }}</td>
-                <td>{{ r.source || '-' }}</td>
-                <td>{{ r.branch || '-' }}</td>
-                <td>
-                  <n-button text type="info" size="small" @click="goRunDetail(r.runId)">#{{ r.runId }}</n-button>
-                </td>
+      <n-drawer-content :title="`执行记录 · ${historyCase?.title ?? ''}`" closable>
+        <n-spin :show="historyLoading">
+          <div v-if="historyCase?.externalKey" class="ext-key" style="display: block; margin-bottom: 8px">
+            {{ historyCase.externalKey }}
+          </div>
+          <n-space v-if="historySummary" size="small" align="center" class="mb-3" data-test-id="test-cases.history-summary">
+            <n-tag size="small" :bordered="false">共 {{ historySummary.total }} 次</n-tag>
+            <n-tag size="small" type="success">{{ historySummary.pass }} 成功</n-tag>
+            <n-tag size="small" type="error">{{ historySummary.fail + historySummary.error }} 失败</n-tag>
+            <n-tag v-if="historySummary.skip" size="small">{{ historySummary.skip }} 跳过</n-tag>
+            <n-tag size="small" :type="historySummary.total && passRate(historySummary) < 0.8 ? 'warning' : 'info'" :bordered="false">
+              通过率 {{ passRateText(historySummary) }}
+            </n-tag>
+            <span v-if="historySummary.lastStatus" class="text-xs text-gray-400">
+              最近：{{ RUN_CASE_STATUS.label(historySummary.lastStatus) }}（{{ historySummary.lastRunAt }}）
+            </span>
+          </n-space>
+          <n-table v-if="historyList.length" size="small" :bordered="false" :single-line="false">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>状态</th>
+                <th>耗时</th>
+                <th>来源</th>
+                <th>分支</th>
+                <th>记录</th>
               </tr>
-              <tr v-if="histExpanded.has(r.runCaseId) && r.message">
-                <td colspan="6"><pre class="hist-msg">{{ r.message }}</pre></td>
-              </tr>
-            </template>
-          </tbody>
-        </n-table>
-        <EmptyState
-          v-else-if="!historyLoading"
-          type="search"
-          title="暂无执行记录"
-          description="该用例还没有自动化或手工执行上报"
-        />
-      </n-spin>
-    </n-modal>
+            </thead>
+            <tbody>
+              <template v-for="r in historyList" :key="r.runCaseId">
+                <tr class="hist-row" @click="toggleHistExpand(r.runCaseId)">
+                  <td>{{ r.finishedAt }}</td>
+                  <td>
+                    <n-tag :type="RUN_CASE_STATUS.tagType(r.status)" size="small">
+                      {{ RUN_CASE_STATUS.label(r.status) }}
+                    </n-tag>
+                  </td>
+                  <td>{{ fmtMs(r.durationMs) }}</td>
+                  <td>{{ r.source || '-' }}</td>
+                  <td>{{ r.branch || '-' }}</td>
+                  <td>
+                    <n-button text type="info" size="small" @click="goRunDetail(r.runId)">#{{ r.runId }}</n-button>
+                  </td>
+                </tr>
+                <tr v-if="histExpanded.has(r.runCaseId) && r.message">
+                  <td colspan="6"><pre class="hist-msg">{{ r.message }}</pre></td>
+                </tr>
+              </template>
+            </tbody>
+          </n-table>
+          <EmptyState
+            v-else-if="!historyLoading"
+            type="search"
+            title="暂无执行记录"
+            description="该用例还没有自动化或手工执行上报"
+          />
+        </n-spin>
+      </n-drawer-content>
+    </n-drawer>
   </div>
 </template>
 

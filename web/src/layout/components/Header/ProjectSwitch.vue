@@ -245,12 +245,11 @@
 <style lang="less">
   .ps-panel {
     margin: 0;
-    background: #fff;
+    /* 主题令牌化：raw popover 不吃 naive 主题，写死 #fff 在暗色下变白底浅字（#539） */
+    background: var(--panel-bg, #fff);
     border-radius: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.08),
-      0 1px 4px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.06));
+    box-shadow: var(--panel-shadow-hover, 0 4px 16px rgba(0, 0, 0, 0.08));
     overflow: hidden;
   }
 
@@ -259,7 +258,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px 8px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.04));
   }
 
   .ps-head-label {
@@ -274,7 +273,7 @@
     gap: 2px;
     padding: 2px;
     border-radius: 6px;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--hover-bg, rgba(0, 0, 0, 0.04));
   }
 
   .ps-mode-btn {
@@ -292,7 +291,7 @@
     outline: none;
 
     &.active {
-      background: #fff;
+      background: var(--panel-bg, #fff);
       color: var(--primary-color, #16a34a);
       font-weight: 500;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -306,7 +305,7 @@
 
   .ps-search {
     padding: 6px 10px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.04));
 
     .n-input {
       --n-height: 26px;
@@ -324,7 +323,7 @@
     }
     &::-webkit-scrollbar-thumb {
       border-radius: 2px;
-      background: rgba(0, 0, 0, 0.12);
+      background: var(--scrollbar-thumb, rgba(0, 0, 0, 0.12));
     }
   }
 
@@ -338,7 +337,7 @@
     transition: background 0.12s;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.035);
+      background: var(--hover-bg, rgba(0, 0, 0, 0.035));
     }
 
     &.cur {
@@ -361,7 +360,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--scrollbar-thumb, rgba(0, 0, 0, 0.15));
     transition: all 0.15s;
 
     &.cur {
@@ -391,7 +390,7 @@
     font-family: 'JetBrains Mono', Consolas, monospace;
     font-size: 10px;
     color: var(--text-3, #8b949e);
-    background: rgba(0, 0, 0, 0.045);
+    background: var(--hover-bg, rgba(0, 0, 0, 0.045));
     padding: 1px 5px;
     border-radius: 4px;
     letter-spacing: 0.3px;
@@ -414,7 +413,7 @@
     transition: background 0.12s;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.03);
+      background: var(--hover-bg, rgba(0, 0, 0, 0.03));
 
       .ps-group-name {
         color: var(--primary-color, #16a34a);
@@ -445,7 +444,7 @@
     font-size: 10px;
     font-weight: 600;
     color: var(--text-3, #8b949e);
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--hover-bg, rgba(0, 0, 0, 0.05));
     padding: 1px 6px;
     border-radius: 8px;
     min-width: 18px;
@@ -472,7 +471,7 @@
     align-items: center;
     gap: 5px;
     padding: 8px 14px;
-    border-top: 1px solid rgba(0, 0, 0, 0.04);
+    border-top: 1px solid var(--line, rgba(0, 0, 0, 0.04));
     font-size: 12px;
     color: var(--text-3, #8b949e);
     cursor: pointer;
