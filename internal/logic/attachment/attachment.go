@@ -74,7 +74,7 @@ func (s *sAttachment) Upload(ctx context.Context, req *api.AttachmentUploadReq) 
 		}
 
 		// 实体归属校验：附件必须挂在当前用户可访问的项目实体上
-		if !attachmentEntityAccessible(ctx, uid, req.EntityType, req.EntityId, entityKey) {
+		if !AttachmentEntityAccessible(ctx, uid, req.EntityType, req.EntityId, entityKey) {
 			panic("无权向该实体上传附件")
 		}
 
@@ -283,7 +283,7 @@ func (s *sAttachment) List(ctx context.Context, req *api.AttachmentListReq) (lis
 	if req.EntityType != "doc" && req.EntityId <= 0 {
 		return nil, fmt.Errorf("实体ID不能为空")
 	}
-	if !attachmentEntityAccessible(ctx, perm.UserId(ctx), req.EntityType, req.EntityId, entityKey) {
+	if !AttachmentEntityAccessible(ctx, perm.UserId(ctx), req.EntityType, req.EntityId, entityKey) {
 		return nil, fmt.Errorf("无权访问该实体的附件")
 	}
 	err = g.Try(ctx, func(ctx context.Context) {
@@ -403,7 +403,7 @@ func gconvExport(m g.Map) string {
 // attachmentEntityAccessible 校验当前用户是否有权操作指定实体的附件。
 // entityType 必须与白名单一致，且目标实体所属项目须为当前用户可访问的项目。
 // doc 类型走 entityKey（"{projectId}:{path}"）：按解析出的项目校验
-func attachmentEntityAccessible(ctx context.Context, userId int, entityType string, entityId int, entityKey string) bool {
+func AttachmentEntityAccessible(ctx context.Context, userId int, entityType string, entityId int, entityKey string) bool {
 	if userId <= 0 {
 		return false
 	}
@@ -421,6 +421,13 @@ func attachmentEntityAccessible(ctx context.Context, userId int, entityType stri
 	}
 	if entityId <= 0 {
 		return false
+	}
+	// test_run_case 两跳解析（test_run_cases 无 project_id 列）：
+	// trc.test_run_id → test_runs.project_id——失败截图附件挂执行用例（#527）
+	if entityType == "test_run_case" {
+		runId := perm.EntityFieldInt(ctx, "test_run_cases", entityId, "test_run_id")
+		pid := perm.EntityProjectId(ctx, "test_runs", runId)
+		return pid > 0 && perm.CanAccessProject(ctx, userId, pid)
 	}
 	// 实体类型到含 project_id 列的表映射（与上传白名单一致）
 	entityTable := map[string]string{
@@ -473,7 +480,7 @@ func attachmentByIdAccessible(ctx context.Context, userId, attachmentId int) boo
 	if err != nil || rec == nil {
 		return false
 	}
-	return attachmentEntityAccessible(ctx, userId, rec["entity_type"].String(), rec["entity_id"].Int(), rec["entity_key"].String())
+	return AttachmentEntityAccessible(ctx, userId, rec["entity_type"].String(), rec["entity_id"].Int(), rec["entity_key"].String())
 }
 
 

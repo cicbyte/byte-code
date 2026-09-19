@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "失败用例一键转缺陷并挂接（重复转拒绝）"
+preconditions: "存在失败行未挂缺陷"
+steps: "转缺陷 → 校验任务类型 → 再次转"
+expectedResult: "创建 type=bug 任务并回填；重复转含「已挂接」"
+category: "API 自动化"
+module: "测试执行"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_testruns.py::test_failure_to_bug_closes_loop"

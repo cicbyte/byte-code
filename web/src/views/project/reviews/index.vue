@@ -24,7 +24,7 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="(t, __ix) in pending" :key="t.id">
+            <template v-for="(t, __ix) in pending" :key="t.id" :data-test-id="`reviews.item-${t.id}`">
               <tr>
                 <td class="col-idx">{{ __ix + 1 }}</td>
                 <td>
@@ -44,7 +44,7 @@
                   <n-space :size="8">
                     <n-popconfirm @positive-click="approve(t)">
                       <template #trigger>
-                        <n-button size="tiny" type="success">通过</n-button>
+                        <n-button size="tiny" type="success" :data-test-id="`reviews.approve-btn-${t.id}`">通过</n-button>
                       </template>
                       通过后任务转入已完成（done）。
                     </n-popconfirm>

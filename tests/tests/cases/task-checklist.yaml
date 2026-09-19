@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "任务创建携带步骤清单且顺序保持"
+preconditions: "主项目已建（project_env）"
+steps: "创建带 checklist 的任务并读取详情"
+expectedResult: "标题一致；清单文本按序一致"
+category: "API 自动化"
+module: "任务"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_task_flow.py::test_task_created_with_checklist"

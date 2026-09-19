@@ -38,7 +38,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in logList" :key="item.id">
+            <tr v-for="(item, __ix) in logList" :key="item.id" :data-test-id="`platform-audit.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td>
                 <n-tag size="small">{{ actionLabel(item.action) }}</n-tag>

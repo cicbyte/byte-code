@@ -57,7 +57,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(task, __ix) in taskList" :key="task.id">
+          <tr v-for="(task, __ix) in taskList" :key="task.id" :data-test-id="`tasks.row-${task.id}`">
             <td class="col-idx">{{ __ix + 1 }}</td>
             <td>
               <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
@@ -99,7 +99,7 @@
             <td>{{ task.updatedAt }}</td>
             <td>
               <n-space size="small">
-                <n-button text type="info" @click="openTaskDetail(task)">详情</n-button>
+                <n-button text type="info" @click="openTaskDetail(task)" :data-test-id="`tasks.detail-btn-${task.id}`">详情</n-button>
                 <n-button text type="primary" @click="openEdit(task)">编辑</n-button>
                 <n-button v-if="task.status === 'done'" text type="warning" @click="handleCloseTask(task)">关闭</n-button>
                 <n-button text type="error" @click="handleDelete(task)">删除</n-button>

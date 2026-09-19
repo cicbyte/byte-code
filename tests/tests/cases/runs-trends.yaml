@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "趋势与失败 Top 聚合正确"
+preconditions: "三批执行已上报"
+steps: "查询 trends"
+expectedResult: "runs>=3；Top1=恒败用例"
+category: "API 自动化"
+module: "测试执行"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_testruns.py::test_trends_and_top_failed"

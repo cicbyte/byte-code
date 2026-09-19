@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 错误密码停留在登录页"
+preconditions: "登录页已打开"
+steps: "错误密码提交"
+expectedResult: "URL 仍为 /login"
+category: "UI 自动化"
+module: "认证"
+priority: "P1"
+source: human
+status: active
+externalKey: "ui/test_login.py::test_login_rejected"

@@ -24,7 +24,7 @@
           title="没有反馈"
           description="其他项目发现的线索会投递到这里，由你或 Agent 分析是否建立任务"
         />
-        <div v-for="fb in list" :key="fb.id" class="fb-card">
+        <div v-for="fb in list" :key="fb.id" class="fb-card" :data-test-id="`project-feedbacks.item-${fb.id}`">
           <div class="fb-head">
             <n-tag size="small" :type="fb.status === 'open' ? 'warning' : fb.status === 'converted' ? 'success' : 'default'">
               {{ statusLabel(fb.status) }}

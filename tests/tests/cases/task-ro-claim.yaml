@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "只读能力 agent 认领被拒（能力门禁）"
+preconditions: "agent 能力集被收窄为 tasks_read,docs_read"
+steps: "只读 agent 认领任务"
+expectedResult: "业务拒绝，消息含「写任务」"
+category: "API 自动化"
+module: "任务"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_task_flow.py::test_readonly_agent_blocked_on_claim"

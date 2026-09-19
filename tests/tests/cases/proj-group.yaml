@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "分组归属创建者（数据隔离）"
+preconditions: "管理员已登录"
+steps: "创建分组并查询列表"
+expectedResult: "创建者可见自己的分组"
+category: "API 自动化"
+module: "项目"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_project_flow.py::test_group_belongs_to_creator"

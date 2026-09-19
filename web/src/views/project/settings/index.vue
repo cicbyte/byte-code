@@ -10,7 +10,7 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead><tr><th>项目</th><th>关联时间</th><th style="width: 80px">操作</th></tr></thead>
           <tbody>
-            <tr v-for="r in relations" :key="r.id">
+            <tr v-for="r in relations" :key="r.id" :data-test-id="`project-settings.row-${r.id}`">
               <td>{{ r.name }}（#{{ r.projectId }}）</td>
               <td>{{ (r.createdAt || '').slice(0, 16) }}</td>
               <td><n-button v-if="canGovern" text type="error" size="small" @click="handleRemoveRelation(r)">移除</n-button></td>
@@ -28,7 +28,7 @@
       <n-spin :show="groupsLoading">
         <EmptyState v-if="!groupsLoading && myGroups.length === 0" type="generic" title="未加入任何分组" description="同分组的项目自动互为关联（反馈/引用免准入），比手动建关联更省事" compact />
         <n-space v-else :size="8">
-          <n-tag v-for="g in myGroups" :key="g.id" :closable="canGovern" size="small" type="success" @close="handleRemoveGroup(g)">
+          <n-tag v-for="g in myGroups" :key="g.id" :closable="canGovern" size="small" type="success" @close="handleRemoveGroup(g)" :data-test-id="`project-settings.item-${g.id}`">
             {{ g.name }}
             <span class="text-xs opacity-60 ml-1">({{ (g.projects || []).length }}个项目)</span>
           </n-tag>

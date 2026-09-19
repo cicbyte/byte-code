@@ -51,3 +51,36 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Test anchors stripped from dist
+        run: |
+          hits=$(grep -rl 'data-test-id' dist/ | wc -l)
+          if [ "$hits" != "0" ]; then
+            echo "data-test-id leaked into production build:"; grep -rl 'data-test-id' dist/
+            exit 1
+          fi
+
+  integration:
+    name: Integration tests (API)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          working-directory: tests
+
+      - name: Sync Python deps
+        working-directory: tests
+        run: uv sync --frozen
+
+      # 后端自包含：临时实例（随机端口 + 独立 SQLite + 全量迁移）由 conftest 编排
+      - name: Run API integration tests
+        working-directory: tests
+        run: uv run pytest api -q

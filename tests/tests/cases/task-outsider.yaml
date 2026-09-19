@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "非项目成员越权认领被项目归属校验拒绝"
+preconditions: "viewer 账号存在但未加入项目"
+steps: "viewer 认领项目任务"
+expectedResult: "业务拒绝，含「无权限访问该项目资源」"
+category: "API 自动化"
+module: "任务"
+priority: "P0"
+source: human
+status: active
+externalKey: "api/test_task_flow.py::test_outsider_cannot_claim"

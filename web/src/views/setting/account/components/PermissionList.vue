@@ -14,7 +14,7 @@
           <n-button size="tiny" :loading="loading" @click="load">刷新</n-button>
         </n-space>
         <n-space :size="8">
-          <n-tooltip v-for="p in perms" :key="p.value" trigger="hover">
+          <n-tooltip v-for="p in perms" :key="p.value" trigger="hover" :data-test-id="`setting-account-components.item-${p.value}`">
             <template #trigger>
               <n-tag size="small" :bordered="false" round>{{ p.label }}</n-tag>
             </template>

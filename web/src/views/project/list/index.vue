@@ -4,7 +4,7 @@
       <template #header-extra>
         <!-- 创建项目走权限字典 project_create（后端 CreateProject 同口径；
              role2 预绑，无权限者藏入口） -->
-        <n-button v-if="canCreate" type="primary" @click="handleCreate">
+        <n-button v-if="canCreate" type="primary" @click="handleCreate" data-test-id="project-list.create-btn">
           <template #icon>
             <n-icon><PlusOutlined /></n-icon>
           </template>
@@ -29,7 +29,7 @@
           style="width: 140px"
           @update:value="handleSearch"
         />
-        <n-button type="primary" @click="handleSearch">查询</n-button>
+        <n-button type="primary" @click="handleSearch" data-test-id="project-list.search-btn">查询</n-button>
         <n-button @click="handleReset">重置</n-button>
         <!-- 归属筛选（仅管理员）：管理视角（全部）与个人视角（我参与/我负责）分离 -->
         <n-radio-group
@@ -52,6 +52,7 @@
               hoverable
               size="small"
               style="cursor: pointer"
+              :data-test-id="`project-list.card-${item.id}`"
               @click="handleDetail(item)"
               @contextmenu="onCtxMenu($event, item)"
             >

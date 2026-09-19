@@ -80,7 +80,7 @@
           <n-grid-item>
             <n-h6>CLI 工作流漏斗（去重账号）</n-h6>
             <div v-if="report.funnel.length === 0" class="text-xs text-gray-400">窗口内无 CLI 流量</div>
-            <div v-for="s in report.funnel" :key="s.step" class="funnel-row">
+            <div v-for="s in report.funnel" :key="s.step" class="funnel-row" :data-test-id="`platform-usage.item-${s.step}`">
               <span class="funnel-label">{{ s.step }}. {{ s.label }}</span>
               <div class="funnel-track">
                 <div class="funnel-bar" :style="{ width: funnelPct(s.actors) }"></div>
@@ -100,7 +100,7 @@
                 <tr><th>版本</th><th>调用量</th><th>账号数</th><th>最近使用</th></tr>
               </thead>
               <tbody>
-                <tr v-for="v in report.versions" :key="v.version">
+                <tr v-for="v in report.versions" :key="v.version" :data-test-id="`platform-usage.row-${v.version}`">
                   <td>
                     <n-tag size="small" :bordered="false" :type="v.version === '未识别' ? 'warning' : 'success'">
                       {{ v.version }}

@@ -11,6 +11,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strings"
 	"io"
@@ -26,6 +27,7 @@ import (
 	platApi "github.com/cicbyte/byte-code/api/v1/platform"
 	apiDocs "github.com/cicbyte/byte-code/api/v1/docs"
 	_ "github.com/cicbyte/byte-code/internal/logic/docs"
+	"github.com/cicbyte/byte-code/internal/logic/attachment"
 	_ "github.com/cicbyte/byte-code/internal/logic/platform"
 	_ "github.com/cicbyte/byte-code/internal/logic/test"
 	"github.com/cicbyte/byte-code/internal/service"
@@ -1324,4 +1326,72 @@ func TestTestRunClosedLoop(t *testing.T) {
 	db.Model("tasks").Ctx(ctx).Where("project_id IN (501,502)").Where("creator_id", 101).Delete()
 	db.Model("tasks").Ctx(ctx).Where("id", bg.TaskId).Delete()
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
+}
+
+// ---------- 上报幂等键 + 执行用例附件（#527） ----------
+
+func TestTestRunIdempotency(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+	mk := func(key string) *apiTest.TestRunReportReq {
+		return &apiTest.TestRunReportReq{
+			ProjectId: 501, Source: "pytest", IdempotencyKey: key,
+			Cases: []apiTest.TestRunCaseReport{{ExternalKey: "t::idem", Status: "pass"}},
+		}
+	}
+
+	// ① 同键两次：第二次命中既有 run（duplicate=true 且不新建）
+	r1 := mk("idem-key-1")
+	id1, err := service.Test().ReportRun(ctxAs(109), r1)
+	if err != nil {
+		t.Fatalf("首次上报失败: %v", err)
+	}
+	_, err = service.Test().ReportRun(ctxAs(109), mk("idem-key-1"))
+	var hit *service.IdempotentHitError
+	if !errors.As(err, &hit) || hit.RunId != id1 {
+		t.Fatalf("同键重报应命中既有 #%d: %v", id1, err)
+	}
+	if cnt, _ := db.Model("test_runs").Ctx(ctx).Where("idempotency_key", "idem-key-1").Count(); cnt != 1 {
+		t.Errorf("同键只应有一行: %d", cnt)
+	}
+	// ② 异键正常新建；③ 空键每次新建（NULL 不参与唯一约束）
+	id2, err := service.Test().ReportRun(ctxAs(109), mk("idem-key-2"))
+	if err != nil || id2 == id1 {
+		t.Errorf("异键应新建: %d %v", id2, err)
+	}
+	a, _ := service.Test().ReportRun(ctxAs(109), mk(""))
+	b, _ := service.Test().ReportRun(ctxAs(109), mk(""))
+	if a == b {
+		t.Errorf("空键不应去重: %d == %d", a, b)
+	}
+
+	// ④ 附件实体门禁：test_run_case 两跳解析——成员可挂、无关用户拒
+	trcId := 0
+	if v, _ := db.Model("test_run_cases").Ctx(ctx).Where("test_run_id", id1).Fields("id").Value(); v != nil {
+		trcId = v.Int()
+	}
+	if trcId == 0 {
+		t.Fatal("找不到 run 用例行")
+	}
+	if !attachmentAccessibleForTest(ctxAs(103), "test_run_case", trcId) {
+		t.Error("项目成员应可向执行用例挂附件")
+	}
+	if attachmentAccessibleForTest(ctxAs(106), "test_run_case", trcId) {
+		t.Error("非项目成员应被拒（106 无任何项目关系）")
+	}
+
+	// ⑤ 上报压测防退化（间歇性失败的观察项锚定）：串行 20 次零业务错
+	for i := 0; i < 20; i++ {
+		if _, err := service.Test().ReportRun(ctxAs(109), mk("")); err != nil {
+			t.Fatalf("压测第 %d 次上报失败: %v", i, err)
+		}
+	}
+
+	db.Model("test_runs").Ctx(ctx).Where("project_id", 501).Delete()
+	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
+}
+
+// 附件门禁直测：logic/attachment 已导出 AttachmentEntityAccessible（纯判断可直调）
+func attachmentAccessibleForTest(ctx context.Context, entityType string, entityId int) bool {
+	return attachment.AttachmentEntityAccessible(ctx, perm.UserId(ctx), entityType, entityId, "")
 }

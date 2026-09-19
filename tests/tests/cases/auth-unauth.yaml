@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "未携带凭据访问受保护接口返回 401"
+preconditions: "临时后端已启动"
+steps: "无 token 头 GET /api/v1/projects"
+expectedResult: "HTTP 401"
+category: "API 自动化"
+module: "认证"
+priority: "P0"
+source: human
+status: active
+externalKey: "api/test_auth.py::test_unauthenticated_rejected"

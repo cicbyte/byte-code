@@ -18,13 +18,13 @@
               size="small"
               :bordered="false"
               :type="statusTagType(sc.status)"
-            >
+             :data-test-id="`my-tasks.item-${sc.status}`">
               {{ statusLabel(sc.status) }} {{ sc.count }}
             </n-tag>
           </n-space>
           <n-space v-if="stats?.byProject?.length" size="small" align="center" class="stat-status">
             <span class="stat-proj-label">活跃分布</span>
-            <n-tag v-for="pr in stats.byProject" :key="pr.projectId" size="small" round>
+            <n-tag v-for="pr in stats.byProject" :key="pr.projectId" size="small" round :data-test-id="`my-tasks.item-${pr.projectId}`">
               {{ pr.projectName || `#${pr.projectId}` }} · {{ pr.active }}
             </n-tag>
           </n-space>
@@ -44,7 +44,7 @@
         <n-radio-group v-model:value="statusFilter" size="small" @update:value="onFilterChange">
           <n-radio-button value="">未完成</n-radio-button>
           <n-radio-button value="all">全部</n-radio-button>
-          <n-radio-button v-for="s in TASK_STATUS" :key="s.value" :value="s.value">{{ s.label }}</n-radio-button>
+          <n-radio-button v-for="s in TASK_STATUS" :key="s.value" :value="s.value" :data-test-id="`my-tasks.item-${s.value}`">{{ s.label }}</n-radio-button>
         </n-radio-group>
         <n-select
           v-model:value="projectId"

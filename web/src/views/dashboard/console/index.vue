@@ -86,7 +86,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="task in stats.recentTasks" :key="task.id">
+            <tr v-for="task in stats.recentTasks" :key="task.id" :data-test-id="`dashboard.row-${task.id}`">
               <td>
                 <n-button text type="info" @click="gotoTask(task)">{{ task.title }}</n-button>
               </td>

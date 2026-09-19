@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 
 	api "github.com/cicbyte/byte-code/api/v1/test"
 	"github.com/cicbyte/byte-code/internal/consts"
@@ -117,6 +118,12 @@ func (c *testController) TestPlanResults(ctx context.Context, req *api.TestPlanR
 func (c *testController) TestRunReport(ctx context.Context, req *api.TestRunReportReq) (res *api.TestRunReportRes, err error) {
 	res = new(api.TestRunReportRes)
 	id, err := service.Test().ReportRun(ctx, req)
+	// 幂等命中不是错误：转 {id, duplicate:true}（调用方重试安全）
+	var hit *service.IdempotentHitError
+	if errors.As(err, &hit) {
+		res.Id, res.Duplicate, err = hit.RunId, true, nil
+		return
+	}
 	res.Id = id
 	return
 }

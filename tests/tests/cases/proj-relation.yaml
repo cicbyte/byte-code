@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "目标项目配置关联后可接收跨项目反馈"
+preconditions: "主项目与关联项目已建；agent 已绑定主项目"
+steps: "关联项目侧添加对主项目的关联行 → agent 投递反馈"
+expectedResult: "反馈创建成功"
+category: "API 自动化"
+module: "项目"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_project_flow.py::test_relation_enables_feedback_route"

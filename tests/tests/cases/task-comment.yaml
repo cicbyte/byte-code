@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "agent 评论入流且管理员可读（IM 同流）"
+preconditions: "任务已建；agent 已绑定项目"
+steps: "agent 发评论 → admin 查评论列表"
+expectedResult: "列表含该评论内容"
+category: "API 自动化"
+module: "任务"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_task_flow.py::test_agent_can_comment_and_admin_sees"

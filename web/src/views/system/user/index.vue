@@ -34,14 +34,14 @@
           </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in users" :key="item.id">
+            <tr v-for="(item, __ix) in users" :key="item.id" :data-test-id="`system-user.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
               <td class="font-medium">{{ item.username }}</td>
               <td>{{ item.realName || '-' }}</td>
               <td>{{ item.email || '-' }}</td>
               <td>
                 <n-space :size="4" v-if="(item.roles || []).length">
-                  <n-tag v-for="r in item.roles" :key="r.id" size="small" :bordered="false" type="info">{{ r.name }}</n-tag>
+                  <n-tag v-for="r in item.roles" :key="r.id" size="small" :bordered="false" type="info" :data-test-id="`system-user.item-${r.id}`">{{ r.name }}</n-tag>
                 </n-space>
                 <span v-else class="text-gray-400">-</span>
               </td>

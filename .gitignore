@@ -193,3 +193,10 @@ avatars/
 data/
 .bytewiki/
 resource/attachments/
+
+# 集成测试（tests/）Python 产物
+tests/.venv/
+tests/__pycache__/
+.pytest_cache/
+tests/.uv-cache/
+tests/.vite-itest.log

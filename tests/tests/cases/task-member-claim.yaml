@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "项目成员可认领未指派 open 任务"
+preconditions: "存在 open 任务"
+steps: "成员认领并查询详情"
+expectedResult: "status=in_progress"
+category: "API 自动化"
+module: "任务"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_task_flow.py::test_project_member_can_claim"

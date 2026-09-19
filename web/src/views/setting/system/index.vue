@@ -9,7 +9,7 @@
             :key="item.key"
             :class="{ 'thing-cell-on': state.type === item.key }"
             @click="switchType(item)"
-          >
+           :data-test-id="`setting-system.item-${item.key}`">
             <template #header>{{ item.name }}</template>
             <template #description>{{ item.desc }}</template>
           </n-thing>

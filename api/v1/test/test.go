@@ -245,20 +245,25 @@ type TestRunCaseReport struct {
 
 type TestRunReportReq struct {
 	g.Meta     `path:"/projects/{projectId}/test-runs" method:"post" tags:"测试管理" summary:"上报测试执行记录"`
-	ProjectId  int                 `json:"-" in:"path" v:"required#项目ID不能为空"`
-	Source     string              `json:"source" d:"pytest" v:"in:manual,pytest,ci,junit#来源必须是manual/pytest/ci/junit"`
-	Branch     string              `json:"branch" dc:"git 分支"`
-	GitSha     string              `json:"gitSha" dc:"git commit"`
-	Env        string              `json:"env" dc:"环境标识（local/ci 等）"`
-	StartedAt  string              `json:"startedAt" dc:"开始时间 YYYY-MM-DD HH:MM:SS，空则由服务端推导"`
-	FinishedAt string              `json:"finishedAt" dc:"结束时间，空则取当前"`
-	DurationMs int                 `json:"durationMs" dc:"总耗时毫秒（缺省用起止差推导）"`
-	Cases      []TestRunCaseReport `json:"cases" v:"required#用例结果不能为空"`
+	ProjectId  int    `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Source     string `json:"source" d:"pytest" v:"in:manual,pytest,ci,junit#来源必须是manual/pytest/ci/junit"`
+	Branch     string `json:"branch" dc:"git 分支"`
+	GitSha     string `json:"gitSha" dc:"git commit"`
+	Env        string `json:"env" dc:"环境标识（local/ci 等）"`
+	StartedAt  string `json:"startedAt" dc:"开始时间 YYYY-MM-DD HH:MM:SS，空则由服务端推导"`
+	FinishedAt string `json:"finishedAt" dc:"结束时间，空则取当前"`
+	DurationMs int    `json:"durationMs" dc:"总耗时毫秒（缺省用起止差推导）"`
+	// 幂等键（可选）：同项目内命中既有 run 直接返回（插件/CI 网络重试安全）；
+	// 建议 sha256(git_sha + startedAt + hostname) 一类稳定派生
+	IdempotencyKey string              `json:"idempotencyKey" v:"max-length:128#幂等键上限128字符"`
+	Cases          []TestRunCaseReport `json:"cases" v:"required#用例结果不能为空"`
 }
 
 type TestRunReportRes struct {
 	g.Meta `mime:"application/json"`
 	Id     int `json:"id"`
+	// true=幂等命中返回的既有 run（未新建）
+	Duplicate bool `json:"duplicate"`
 }
 
 type TestRunListReq struct {

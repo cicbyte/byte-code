@@ -26,14 +26,14 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in userList" :key="item.id">
+            <tr v-for="(item, __ix) in userList" :key="item.id" :data-test-id="`platform-agents.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td><span class="agent-account">{{ item.username }}</span></td>
             <td>{{ item.realName || '-' }}</td>
             <td>{{ item.capabilities || '-' }}</td>
             <td>
                 <n-space :size="4">
-                  <n-tag v-for="pn in item.projects || []" :key="pn" size="small" :bordered="false">{{ pn }}</n-tag>
+                  <n-tag v-for="pn in item.projects || []" :key="pn" size="small" :bordered="false" :data-test-id="`platform-agents.item-${pn}`">{{ pn }}</n-tag>
                   <span v-if="!(item.projects || []).length" class="text-gray-400">-</span>
                 </n-space>
               </td>
@@ -64,12 +64,12 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead><tr><th>项目</th><th>能力集</th><th>接入时间</th></tr></thead>
           <tbody>
-            <tr v-for="b in bindingList" :key="b.projectId">
+            <tr v-for="b in bindingList" :key="b.projectId" :data-test-id="`platform-agents.row-${b.projectId}`">
               <td>{{ b.projectName }}（{{ b.projectCode }}）</td>
               <td>
                 <n-tag v-if="!b.capabilities" size="small" type="success" :bordered="false">全部能力</n-tag>
                 <n-space v-else :size="4" style="display: inline-flex">
-                  <n-tag v-for="c in b.capabilities.split(',')" :key="c" size="small" :bordered="false" type="warning">{{ capLabel(c) }}</n-tag>
+                  <n-tag v-for="c in b.capabilities.split(',')" :key="c" size="small" :bordered="false" type="warning" :data-test-id="`platform-agents.item-${c}`">{{ capLabel(c) }}</n-tag>
                 </n-space>
               </td>
               <td>{{ (b.joinedAt || '').slice(0, 16) }}</td>

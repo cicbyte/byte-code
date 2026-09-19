@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "看板已阻塞列渲染 blocked 卡片"
+preconditions: "世界含 blocked 任务"
+steps: "打开看板页"
+expectedResult: "blocked 列与卡片可见"
+category: "UI 自动化"
+module: "看板"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_board_and_task.py::test_board_blocked_column"

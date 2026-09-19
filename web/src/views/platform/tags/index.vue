@@ -21,7 +21,7 @@
             @close="handleDelete(item)"
             @click="handleEdit(item)"
             style="cursor: pointer"
-          >
+           :data-test-id="`platform-tags.item-${item.id}`">
             {{ item.name }}
           </n-tag>
         </n-space>

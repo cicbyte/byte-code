@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "agent bc_ key 可经 ai/login 换人类同构 token"
+preconditions: "agent 已注册并接入项目"
+steps: "POST /api/auth/ai/login {apiKey}"
+expectedResult: "返回可用 token"
+category: "API 自动化"
+module: "认证"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_auth.py::test_agent_ai_login_swaps_key_for_token"

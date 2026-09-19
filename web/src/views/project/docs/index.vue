@@ -30,7 +30,7 @@
             class="mb-2"
             @keyup.enter="handleSearch"
             @clear="exitSearchMode"
-          >
+           data-test-id="project-docs.search-input">
             <template #suffix>
               <n-icon style="cursor: pointer" @click="handleSearch"><SearchOutlined /></n-icon>
             </template>
@@ -75,7 +75,7 @@
                 size="small"
                 type="success"
               >已发布</n-tag>
-              <n-tag v-for="t in currentFile.meta?.tags || []" :key="t" size="small">{{ t }}</n-tag>
+              <n-tag v-for="t in currentFile.meta?.tags || []" :key="t" size="small" :data-test-id="`project-docs.item-${t}`">{{ t }}</n-tag>
             </n-space>
           </template>
           <template v-if="currentFile" #header-extra>
@@ -143,7 +143,7 @@
               <span class="text-xs text-gray-400">截图/设计稿/参考资料挂在本文档上</span>
             </n-space>
             <div v-if="docAttachments.length === 0" class="text-xs text-gray-400 mb-2">暂无附件</div>
-            <n-space v-for="a in docAttachments" :key="a.id" justify="space-between" align="center" class="w-full doc-att-row">
+            <n-space v-for="a in docAttachments" :key="a.id" justify="space-between" align="center" class="w-full doc-att-row" :data-test-id="`project-docs.item-${a.id}`">
               <n-space :size="8" align="center">
                 <span class="text-sm">{{ a.originalName }}</span>
                 <span class="text-xs text-gray-400">{{ formatSize(a.fileSize) }}</span>

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "管理员改密后可正常登录且不再强制改密"
+preconditions: "种子 admin（admin/admin123）存在且 backend fixture 已完成首登改密（新密码见 data/users.yaml）"
+steps: "用新密码调用 POST /api/login"
+expectedResult: "返回 token；mustChangePassword=false"
+category: "API 自动化"
+module: "认证"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_auth.py::test_admin_login_after_onboarding"

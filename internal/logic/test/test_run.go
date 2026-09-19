@@ -3,10 +3,12 @@ package test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 
 	api "github.com/cicbyte/byte-code/api/v1/test"
+	service "github.com/cicbyte/byte-code/internal/service"
 	liberr "github.com/cicbyte/byte-code/library/liberr"
 	"github.com/cicbyte/byte-code/utility/activity"
 	"github.com/cicbyte/byte-code/utility/perm"
@@ -26,6 +28,17 @@ const runCasesMax = 5000
 
 // runTimeLayout 与库内时间列约定一致（VARCHAR(19)；gtime 微秒超长教训 #484）
 const runTimeLayout = "2006-01-02 15:04:05"
+
+// isDuplicateKeyErr 唯一索引冲突判定（SQLite "UNIQUE constraint failed" / MySQL 1062）
+func isDuplicateKeyErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNIQUE constraint failed") ||
+		strings.Contains(msg, "Error 1062") ||
+		strings.Contains(msg, "Duplicate entry")
+}
 
 func truncateRunMessage(s string) string {
 	if utf8.RuneCountInString(s) <= runMessageMax {
@@ -58,6 +71,17 @@ func (s *sTest) ReportRun(ctx context.Context, req *api.TestRunReportReq) (id in
 	}
 	if len(req.Cases) == 0 || len(req.Cases) > runCasesMax {
 		return 0, fmt.Errorf("用例结果数量须在 1~%d 之间", runCasesMax)
+	}
+
+	// 幂等键命中：同项目内已有同键 run 直接返回（插件/CI 网络重试安全）；
+	// 并发竞态由迁移 80 的 (project_id, idempotency_key) 唯一索引兜底
+	if req.IdempotencyKey != "" {
+		if v, qerr := g.DB().Model("test_runs").Ctx(ctx).
+			Where("project_id", req.ProjectId).
+			Where("idempotency_key", req.IdempotencyKey).
+			Fields("id").Value(); qerr == nil && v != nil {
+			return 0, &service.IdempotentHitError{RunId: v.Int()}
+		}
 	}
 
 	uid := perm.UserId(ctx)
@@ -133,12 +157,14 @@ func (s *sTest) ReportRun(ctx context.Context, req *api.TestRunReportReq) (id in
 	}
 
 	actorType := "human"
+	// activities.actor_type CHECK 白名单是 ('human','ai','system')——agent 上报
+	// 落 'ai'（#504 曾误传 'agent' 被 CHECK 静默拒绝，活动流缺记录）
 	if v, _ := g.DB().Model("sys_users").Where("id", uid).Fields("type").Value(); v != nil && v.String() == "ai" {
-		actorType = "agent"
+		actorType = "ai"
 	}
 
 	txErr := g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		result, ierr := tx.Ctx(ctx).Model("test_runs").Insert(g.Map{
+		insertData := g.Map{
 			"project_id":   req.ProjectId,
 			"source":       req.Source,
 			"branch":       req.Branch,
@@ -154,8 +180,21 @@ func (s *sTest) ReportRun(ctx context.Context, req *api.TestRunReportReq) (id in
 			"started_at":   startedStr,
 			"finished_at":  finishedStr,
 			"created_at":   now.Format(runTimeLayout),
-		})
+		}
+		if req.IdempotencyKey != "" {
+			insertData["idempotency_key"] = req.IdempotencyKey
+		}
+		result, ierr := tx.Ctx(ctx).Model("test_runs").Insert(insertData)
 		if ierr != nil {
+			// 唯一索引冲突（并发同键双写）：回查既有 run 幂等返回
+			if req.IdempotencyKey != "" && isDuplicateKeyErr(ierr) {
+				if v, qerr := tx.Ctx(ctx).Model("test_runs").
+					Where("project_id", req.ProjectId).
+					Where("idempotency_key", req.IdempotencyKey).
+					Fields("id").Value(); qerr == nil && v != nil {
+					return &service.IdempotentHitError{RunId: v.Int()}
+				}
+			}
 			return ierr
 		}
 		lastId, _ := result.LastInsertId()

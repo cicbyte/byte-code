@@ -7,6 +7,7 @@ import vueJsx from '@vitejs/plugin-vue-jsx';
 
 import { configHtmlPlugin } from './html';
 import { configCompressPlugin } from './compress';
+import { configTestIdStripPlugin } from './testId';
 
 export function createVitePlugins(viteEnv: ViteEnv, isBuild: boolean) {
   const { VITE_BUILD_COMPRESS, VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE } = viteEnv;
@@ -28,6 +29,8 @@ export function createVitePlugins(viteEnv: ViteEnv, isBuild: boolean) {
   vitePlugins.push(configHtmlPlugin(viteEnv, isBuild));
 
   if (isBuild) {
+    // 生产构建剥离测试锚点（须先于 vue 编译处理模板源码）
+    vitePlugins.push(...configTestIdStripPlugin(isBuild));
     // rollup-plugin-gzip
     vitePlugins.push(
       configCompressPlugin(VITE_BUILD_COMPRESS, VITE_BUILD_COMPRESS_DELETE_ORIGIN_FILE)

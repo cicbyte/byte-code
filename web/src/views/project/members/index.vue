@@ -31,7 +31,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(member, __ix) in memberList" :key="`${member.userType}-${member.id}`">
+            <tr v-for="(member, __ix) in memberList" :key="`${member.userType}-${member.id}`" :data-test-id="`project-members.row-${`${member.userType}-${member.id}`}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td>
                 <n-space :size="4" align="center">
@@ -150,7 +150,7 @@
         </n-alert>
         <n-checkbox-group v-model:value="capsSelected">
           <n-space :size="[24, 6]">
-            <n-checkbox v-for="c in AGENT_CAPS" :key="c.key" :value="c.key" :label="c.label" />
+            <n-checkbox v-for="c in AGENT_CAPS" :key="c.key" :value="c.key" :label="c.label" / :data-test-id="`project-members.item-${c.key}`">
           </n-space>
         </n-checkbox-group>
         <n-text depth="3" style="font-size: 12px">

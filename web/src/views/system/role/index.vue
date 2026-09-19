@@ -30,7 +30,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in roles" :key="item.id">
+            <tr v-for="(item, __ix) in roles" :key="item.id" :data-test-id="`system-role.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
               <td class="font-medium">
                 {{ item.name }}
@@ -39,7 +39,7 @@
               <td>{{ item.explain || '-' }}</td>
               <td>
                 <n-space :size="4" v-if="scopeTitles(item).length">
-                  <n-tag v-for="t in scopeTitles(item)" :key="t" size="small" :bordered="false">{{ t }}</n-tag>
+                  <n-tag v-for="t in scopeTitles(item)" :key="t" size="small" :bordered="false" :data-test-id="`system-role.item-${t}`">{{ t }}</n-tag>
                 </n-space>
                 <span v-else class="text-gray-400">无（仅个人可见页面）</span>
               </td>

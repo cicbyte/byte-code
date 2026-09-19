@@ -1,6 +1,12 @@
 <template>
   <div class="board">
-    <div v-for="col in boardColumns" :key="col.value" class="board-col" :data-status="col.value">
+    <div
+      v-for="col in boardColumns"
+      :key="col.value"
+      class="board-col"
+      :data-status="col.value"
+      :data-test-id="`board.col-${col.value}`"
+    >
       <div class="board-col-head">
         <span class="board-col-title">{{ col.label }}</span>
         <n-tag size="small" round :bordered="false">{{ columnTasks[col.value].length }}</n-tag>
@@ -15,7 +21,7 @@
           @change="onDrop(col.value, $event)"
         >
           <template #item="{ element }">
-            <div class="task-card" @click="openTaskDetail(element)">
+            <div class="task-card" :data-test-id="`board.card-${element.id}`" @click="openTaskDetail(element)">
               <div class="task-title">{{ element.title }}</div>
               <div class="task-meta">
                 <n-tag :type="typeTagType(element.type)" size="tiny" :bordered="false">

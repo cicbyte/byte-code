@@ -38,6 +38,7 @@
             :key="item.id"
             class="notice-row clickable"
             :class="{ unread: item.isRead === 0 }"
+            :data-test-id="`notifications.row-${item.id}`"
             @click="openSource(item)"
           >
             <div class="notice-main">

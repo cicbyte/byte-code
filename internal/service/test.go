@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	api "github.com/cicbyte/byte-code/api/v1/test"
 )
@@ -32,6 +33,15 @@ type ITest interface {
 	CaseToBug(ctx context.Context, req *api.TestRunCaseBugReq) (res *api.TestRunCaseBugRes, err error)
 	ListFlaky(ctx context.Context, req *api.TestFlakyListReq) (res *api.TestFlakyListRes, err error)
 	ListTrends(ctx context.Context, req *api.TestTrendReq) (res *api.TestTrendRes, err error)
+}
+
+// IdempotentHitError 执行上报幂等键命中：非失败——controller 转为 {id, duplicate:true}
+type IdempotentHitError struct {
+	RunId int
+}
+
+func (e *IdempotentHitError) Error() string {
+	return fmt.Sprintf("重复上报：返回既有执行记录 #%d", e.RunId)
 }
 
 var localTest ITest

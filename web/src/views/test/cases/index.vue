@@ -26,7 +26,7 @@
           style="width: 200px"
           clearable
           @keyup.enter="onFilterChange"
-        />
+        / data-test-id="test-cases.search-input">
         <n-button type="primary" @click="handleCreate">
           <template #icon>
             <n-icon><PlusOutlined /></n-icon>
@@ -52,7 +52,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in caseList" :key="item.id">
+            <tr v-for="(item, __ix) in caseList" :key="item.id" :data-test-id="`test-cases.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td>{{ item.title }}</td>
               <td>{{ categoryLabel(item.category) }}</td>

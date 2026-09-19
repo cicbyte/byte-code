@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "项目成员列表包含 owner 与普通成员"
+preconditions: "主项目已建、成员已加入"
+steps: "owner 查询成员列表"
+expectedResult: "用户名集合覆盖 admin 与成员"
+category: "API 自动化"
+module: "项目"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_project_flow.py::test_project_member_list"

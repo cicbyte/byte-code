@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "token 头与 Authorization Bearer 两种形态等效"
+preconditions: "已获取有效 token"
+steps: "分别以 token 头 / Bearer 调 /api/admin_info"
+expectedResult: "两次均成功且 username 一致"
+category: "API 自动化"
+module: "认证"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_auth.py::test_token_header_forms_equivalent"

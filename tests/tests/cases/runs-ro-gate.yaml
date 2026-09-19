@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "test_execute 能力门禁：只读 agent 上报被拒"
+preconditions: "agent 能力集不含 test_execute"
+steps: "只读 agent POST test-runs"
+expectedResult: "业务拒绝，消息含「上报测试执行」"
+category: "API 自动化"
+module: "测试执行"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_testruns.py::test_readonly_agent_cannot_report"

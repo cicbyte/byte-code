@@ -16,7 +16,7 @@
           description="分组归属创建者，各管各的互不可见；同分组的项目自动互为关联（反馈/引用免手动建关联）"
         />
         <div v-else class="group-list">
-          <div v-for="g in groups" :key="g.id" class="group-card">
+          <div v-for="g in groups" :key="g.id" class="group-card" :data-test-id="`platform-groups.item-${g.id}`">
             <div class="group-head">
               <span class="group-name">{{ g.name }}</span>
               <n-tag size="tiny" :bordered="false">{{ (g.projects || []).length }} 个项目</n-tag>
@@ -40,7 +40,7 @@
                 size="small"
                 closable
                 @close="handleRemoveMember(g, p)"
-              >
+               :data-test-id="`platform-groups.item-${p.id}`">
                 {{ p.name }}
                 <span class="text-xs opacity-50 ml-1">{{ p.code }}</span>
               </n-tag>

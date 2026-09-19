@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "错误密码登录被拒（防爆破口径文案）"
+preconditions: "admin 账号存在"
+steps: "以错误密码登录"
+expectedResult: "业务拒绝，消息含「用户名或密码错误」"
+category: "API 自动化"
+module: "认证"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_auth.py::test_wrong_password_rejected"

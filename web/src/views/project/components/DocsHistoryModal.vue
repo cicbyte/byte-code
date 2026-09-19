@@ -10,7 +10,7 @@
     <n-spin :show="loading">
       <EmptyState type="doc" title="暂无历史版本" v-if="!loading && items.length === 0" description="保存或删除文档时会自动快照" />
       <n-list v-else bordered clickable>
-        <n-list-item v-for="it in items" :key="it.snapshot" @click="preview(it.snapshot)">
+        <n-list-item v-for="it in items" :key="it.snapshot" @click="preview(it.snapshot)" :data-test-id="`project-components.item-${it.snapshot}`">
           <template #prefix>
             <n-icon size="16"><HistoryOutlined /></n-icon>
           </template>

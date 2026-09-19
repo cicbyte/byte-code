@@ -20,7 +20,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in milestones" :key="item.id">
+            <tr v-for="(item, __ix) in milestones" :key="item.id" :data-test-id="`project-milestones.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td>{{ item.name }}</td>
               <td>{{ item.description || '-' }}</td>

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 登录成功跳转控制台"
+preconditions: "临时后端与 vite dev 已就绪；admin 已过首登改密"
+steps: "填写用户名/密码（data-test-id 定位）→ 点登录"
+expectedResult: "URL 离开 /login 且工作台外壳渲染"
+category: "UI 自动化"
+module: "认证"
+priority: "P0"
+source: human
+status: active
+externalKey: "ui/test_login.py::test_login_ok"

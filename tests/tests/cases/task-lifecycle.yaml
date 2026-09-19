@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "任务全链状态机：建→认领→完成→审核通过→done"
+preconditions: "task_chain（agent 已完成提交）与 review_env（admin 已通过）就绪"
+steps: "读取任务终态"
+expectedResult: "status=done"
+category: "API 自动化"
+module: "任务"
+priority: "P0"
+source: human
+status: active
+externalKey: "api/test_task_flow.py::test_task_flow_status_lifecycle"

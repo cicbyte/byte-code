@@ -16,11 +16,11 @@
         <EmptyState v-if="!loading && list.length === 0" type="search" title="没有匹配的 QA"
           description="解决问题后把「坑 + 解法」沉淀进来，人和 Agent 都能复用" />
         <n-space v-else vertical :size="14">
-          <div v-for="qa in list" :key="qa.id" class="qa-card" @click="toggle(qa.id)">
+          <div v-for="qa in list" :key="qa.id" class="qa-card" @click="toggle(qa.id)" :data-test-id="`project-qas.item-${qa.id}`">
             <div class="qa-q">
               <span class="qa-hit">{{ qa.hits }}</span>
               <span class="qa-q-text">{{ qa.question }}</span>
-              <n-tag v-for="tg in splitTags(qa.tags)" :key="tg" size="tiny" :bordered="false" class="ml-2">{{ tg }}</n-tag>
+              <n-tag v-for="tg in splitTags(qa.tags)" :key="tg" size="tiny" :bordered="false" class="ml-2" :data-test-id="`project-qas.item-${tg}`">{{ tg }}</n-tag>
               <span class="qa-meta">{{ qa.updater }} · {{ (qa.updatedAt || '').slice(0, 10) }}</span>
             </div>
             <div v-if="expanded === qa.id" class="qa-a">

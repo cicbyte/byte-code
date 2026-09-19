@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "任务详情抽屉打开且标题可读"
+preconditions: "看板列渲染通过（依赖标记）；任务列表已加载"
+steps: "点「详情」→ 读 task-detail.title"
+expectedResult: "抽屉打开、标题非空"
+category: "UI 自动化"
+module: "任务"
+priority: "P1"
+source: human
+status: active
+externalKey: "ui/test_board_and_task.py::test_task_detail_drawer"

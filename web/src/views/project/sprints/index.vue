@@ -20,7 +20,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(sprint, __ix) in sprints" :key="sprint.id">
+            <tr v-for="(sprint, __ix) in sprints" :key="sprint.id" :data-test-id="`project-sprints.row-${sprint.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td>{{ sprint.name }}</td>
               <td>{{ sprint.goal }}</td>
@@ -78,7 +78,7 @@
           <h4 class="mb-2">已绑定（{{ boundTasks.length }}）</h4>
           <EmptyState type="task" title="暂无绑定任务" v-if="boundTasks.length === 0" description="从下方未绑定列表添加任务" compact />
           <n-space v-else vertical :size="4">
-            <n-space v-for="t in boundTasks" :key="t.id" justify="space-between" align="center" class="w-full">
+            <n-space v-for="t in boundTasks" :key="t.id" justify="space-between" align="center" class="w-full" :data-test-id="`project-sprints.item-${t.id}`">
               <span class="text-sm">{{ t.title }}</span>
               <n-button text type="error" size="tiny" @click="handleUnbind(t)">移除</n-button>
             </n-space>
@@ -87,7 +87,7 @@
           <h4 class="mb-2">未绑定（{{ unboundTasks.length }}）</h4>
           <EmptyState type="task" title="没有可绑定的任务" v-if="unboundTasks.length === 0" description="项目内任务均已绑定" compact />
           <n-space v-else vertical :size="4">
-            <n-space v-for="t in unboundTasks" :key="t.id" justify="space-between" align="center" class="w-full">
+            <n-space v-for="t in unboundTasks" :key="t.id" justify="space-between" align="center" class="w-full" :data-test-id="`project-sprints.item-${t.id}`">
               <n-space :size="6" align="center">
                 <span class="text-sm">{{ t.title }}</span>
                 <!-- 属其它 Sprint 的任务绑定即改派，显式标识防误操作 -->

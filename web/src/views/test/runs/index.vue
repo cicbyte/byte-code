@@ -3,7 +3,7 @@
     <!-- 趋势总览：通过率折线 + 失败数柱（双 y 轴），下挂失败 Top -->
     <n-card :bordered="false" title="测试趋势" class="proCard" v-if="trendRuns.length > 0 || trendLoading">
       <n-spin :show="trendLoading">
-        <div ref="trendChartRef" style="width: 100%; height: 220px" v-if="trendRuns.length > 0"></div>
+        <div ref="trendChartRef" style="width: 100%; height: 220px" v-if="trendRuns.length > 0" data-test-id="runs.trend-chart"></div>
         <n-empty description="暂无执行数据" v-else-if="!trendLoading" style="padding: 24px 0" />
         <div class="mt-2 flex flex-wrap gap-4" v-if="topFailed.length > 0">
           <div style="min-width: 320px; flex: 1">
@@ -22,7 +22,7 @@
 
     <n-card :bordered="false" class="proCard">
       <n-tabs type="line" v-model:value="activeTab">
-        <n-tab-pane name="runs" tab="执行记录">
+        <n-tab-pane name="runs" tab="执行记录" data-test-id="runs.tab-runs">
           <template #tab>
             执行记录
           </template>
@@ -78,7 +78,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, __ix) in runList" :key="item.id">
+                <tr v-for="(item, __ix) in runList" :key="item.id" :data-test-id="`runs.row-${item.id}`">
                   <td class="col-idx">{{ __ix + 1 }}</td>
                   <td>
                     <n-tag :type="sourceTagType(item.source)" size="small">{{ sourceLabel(item.source) }}</n-tag>
@@ -103,7 +103,7 @@
                   <td>{{ item.finishedAt || item.createdAt }}</td>
                   <td>
                     <n-space size="small">
-                      <n-button text type="info" @click="openDetail(item)">详情</n-button>
+                      <n-button text type="info" @click="openDetail(item)" :data-test-id="`runs.detail-btn-${item.id}`">详情</n-button>
                       <n-button text type="error" @click="handleDelete(item)">删除</n-button>
                     </n-space>
                   </td>
@@ -123,7 +123,7 @@
         </n-tab-pane>
 
         <!-- Flaky：近期窗口内状态抖动的用例 -->
-        <n-tab-pane name="flaky" :tab="`Flaky 用例${flakyList.length ? `（${flakyList.length}）` : ''}`">
+        <n-tab-pane name="flaky" data-test-id="runs.tab-flaky" :tab="`Flaky 用例${flakyList.length ? `（${flakyList.length}）` : ''}`">
           <n-spin :show="flakyLoading">
             <EmptyState
               type="doc"
@@ -205,11 +205,12 @@
           <n-table :bordered="false" :single-line="false" size="small">
             <thead>
               <tr>
-                <th style="width: 38%">用例</th>
+                <th style="width: 34%">用例</th>
                 <th>映射平台用例</th>
                 <th>状态</th>
                 <th>耗时</th>
                 <th>失败信息 / 缺陷</th>
+                <th>附件</th>
               </tr>
             </thead>
             <tbody>
@@ -251,15 +252,32 @@
                         type="error"
                         size="small"
                         @click="openBugDialog(c)"
+                        :data-test-id="`runs.bug-btn-${c.id}`"
                       >
                         转缺陷
                       </n-button>
                       <span v-if="!c.message && !c.bugTaskId && c.status !== 'fail' && c.status !== 'error'" class="text-gray-400">-</span>
                     </n-space>
                   </td>
+                  <td>
+                    <n-space size="small" :wrap="false">
+                      <n-tag
+                        v-for="a in caseAttachments(c.id)"
+                        :key="a.id"
+                        size="small"
+                        :bordered="false"
+                        class="cursor-pointer"
+                        :title="a.originalName"
+                        @click="openAttachment(a.id)"
+                      >
+                        {{ attachLabel(a.originalName) }}
+                      </n-tag>
+                      <span v-if="caseAttachments(c.id).length === 0" class="text-gray-400">-</span>
+                    </n-space>
+                  </td>
                 </tr>
                 <tr v-if="expanded.has(c.id)">
-                  <td colspan="5">
+                  <td colspan="6">
                     <pre class="fail-msg">{{ c.message }}</pre>
                   </td>
                 </tr>
@@ -310,6 +328,8 @@
     getTestTrends,
     caseToBug,
   } from '@/api/test/index';
+  import { getAttachments, downloadAttachment } from '@/api/attachment/index';
+  import type { AttachmentItem } from '@/api/attachment/index';
   import type { TestRunItem, TestRunDetail, TestFlakyItem, TestTrendRun, TestFailTop } from '@/api/test/index';
 
   const message = useMessage();
@@ -559,6 +579,40 @@
     await loadDetail(runId);
   }
 
+  // 执行用例附件（失败截图等，entityType=test_run_case）：详情加载时对失败/错误行并行拉取
+  const attachmentsMap = ref<Record<number, AttachmentItem[]>>({});
+  function caseAttachments(caseId: number): AttachmentItem[] {
+    return attachmentsMap.value[caseId] || [];
+  }
+  async function openAttachment(id: number) {
+    try {
+      const res = await downloadAttachment(id);
+      if (res?.url) window.open(res.url, '_blank');
+    } catch (e) {
+      message.error('获取附件失败');
+    }
+  }
+  function attachLabel(filename: string): string {
+    if (/\.(png|jpe?g|gif|webp)$/i.test(filename)) return '截图';
+    if (/\.log$/i.test(filename)) return '日志';
+    return filename.length > 12 ? filename.slice(0, 10) + '…' : filename;
+  }
+  async function loadCaseAttachments(cases: { id: number; status: string }[]) {
+    const targets = cases.filter((c) => c.status === 'fail' || c.status === 'error');
+    const results = await Promise.all(
+      targets.map((c) =>
+        getAttachments('test_run_case', c.id)
+          .then((r) => ({ id: c.id, list: r?.list || [] }))
+          .catch(() => ({ id: c.id, list: [] }))
+      )
+    );
+    const map: Record<number, AttachmentItem[]> = {};
+    for (const r of results) {
+      if (r.list.length) map[r.id] = r.list;
+    }
+    attachmentsMap.value = map;
+  }
+
   async function loadDetail(runId: number) {
     detailLoading.value = true;
     runDetail.value = null;
@@ -571,6 +625,7 @@
         currentRun.value = det;
       }
       caseFilter.value = det && det.failed + det.errors > 0 ? 'bad' : 'all';
+      loadCaseAttachments(det ? det.cases : []);
     } catch (e) {
       message.error('加载执行详情失败');
     } finally {

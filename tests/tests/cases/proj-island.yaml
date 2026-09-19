@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "未关联且不同分组的目标项目拒收反馈（防任意投递）"
+preconditions: "存在「孤岛」项目（无关联 / 不同组）"
+steps: "向孤岛项目投反馈"
+expectedResult: "业务拒绝，消息含「未关联」"
+category: "API 自动化"
+module: "项目"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_project_flow.py::test_feedback_rejected_without_relation"

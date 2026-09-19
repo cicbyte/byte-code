@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "项目成员可见该项目的项目列表"
+preconditions: "成员已加入主项目"
+steps: "成员身份 GET /api/v1/projects"
+expectedResult: "列表含主项目 id"
+category: "API 自动化"
+module: "项目"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_project_flow.py::test_member_sees_project"

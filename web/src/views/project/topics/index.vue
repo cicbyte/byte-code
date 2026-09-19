@@ -17,7 +17,7 @@
       <n-spin :show="loading">
         <EmptyState v-if="!loading && list.length === 0" type="task" title="没有专题"
           description="先在知识库写 PRD，再创建专题关联它，拆解阶段后交给 Agent 持续推进" />
-        <div v-for="t in list" :key="t.id" class="topic-card">
+        <div v-for="t in list" :key="t.id" class="topic-card" :data-test-id="`project-topics.item-${t.id}`">
           <div class="tp-head" @click="toggle(t.id)">
             <span class="tp-caret">{{ expanded === t.id ? '▾' : '▸' }}</span>
             <n-tag size="small" :type="t.status === 'active' ? 'info' : t.status === 'completed' ? 'success' : 'default'">

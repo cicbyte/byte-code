@@ -42,7 +42,7 @@
         <!-- 基本信息 -->
         <n-descriptions label-placement="left" :column="2" bordered size="small" class="mb-4">
           <n-descriptions-item label="标题" :span="2">
-            <span class="font-medium">{{ task.title }}</span>
+            <span class="font-medium" data-test-id="task-detail.title">{{ task.title }}</span>
           </n-descriptions-item>
           <n-descriptions-item label="状态">
             <n-tag size="small" :type="statusTagType(task.status)">{{ statusLabel(task.status) }}</n-tag>
@@ -79,7 +79,7 @@
 
         <!-- 描述：markdown 渲染（agent 侧描述习惯 md；与 artifacts 同款
              MdPreview + DOMPurify 消毒，替换原裸 v-html） -->
-        <n-card id="sec-desc" title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }">
+        <n-card id="sec-desc" title="描述" size="small" class="mb-4" :bordered="true" :segmented="{ content: true }" data-test-id="task-detail.desc-card">
           <MdPreview
             v-if="task.description"
             :id="`md-desc-${task.id}`"
@@ -231,7 +231,7 @@
           <div v-if="checklist.length === 0" class="text-xs text-gray-400">
             未设置步骤（勾选即进展，可跨会话接续）
           </div>
-          <div v-for="(item, i) in checklist" :key="i" class="checklist-row">
+          <div v-for="(item, i) in checklist" :key="i" class="checklist-row" :data-test-id="`task-detail.checklist-item-${i}`">
             <n-checkbox
               :checked="item.done"
               @update:checked="(v: boolean) => toggleCheck(i, v)"
@@ -316,6 +316,7 @@
               :key="comment.id"
               class="chat-row"
               :class="{ mine: isMyComment(comment) }"
+              :data-test-id="`task-detail.comment-${comment.id}`"
             >
               <!-- 头像位：Agent 用 sparkle，人用首字母圆 -->
               <div v-if="!isMyComment(comment)" class="chat-avatar" :class="{ agent: comment.userType === 'ai' }">
@@ -355,10 +356,11 @@
               :options="mentionOptions"
               :prefix="['@']"
               style="flex: 1"
+              data-test-id="task-detail.comment-input"
               @keydown.enter.exact.prevent="handleAddComment"
             />
             <n-space justify="end">
-              <n-button type="primary" @click="handleAddComment" :loading="submitting">发送</n-button>
+              <n-button type="primary" @click="handleAddComment" :loading="submitting" data-test-id="task-detail.comment-send">发送</n-button>
             </n-space>
           </n-space>
         </n-card>

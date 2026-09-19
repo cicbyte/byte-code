@@ -25,7 +25,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, __ix) in planList" :key="item.id">
+            <tr v-for="(item, __ix) in planList" :key="item.id" :data-test-id="`test-plans.row-${item.id}`">
               <td class="col-idx">{{ __ix + 1 }}</td>
             <td>
                 <n-button text type="info" @click="openPlanDetail(item)">{{ item.name }}</n-button>
@@ -124,7 +124,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in planResults.results" :key="r.id">
+              <tr v-for="r in planResults.results" :key="r.id" :data-test-id="`test-plans.row-${r.id}`">
                 <td>{{ r.testCaseTitle }}</td>
                 <td>{{ r.assigneeName || '-' }}</td>
                 <td>

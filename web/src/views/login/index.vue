@@ -58,6 +58,7 @@
               v-model:value="formInline.username"
               placeholder="请输入用户名"
               class="login-input"
+              data-test-id="login.username"
             >
               <template #prefix>
                 <n-icon size="18" color="#94a3b8">
@@ -74,6 +75,7 @@
               showPasswordOn="click"
               placeholder="请输入密码"
               class="login-input"
+              data-test-id="login.password"
             >
               <template #prefix>
                 <n-icon size="18" color="#94a3b8">
@@ -95,6 +97,7 @@
             :loading="loading"
             block
             class="login-button"
+            data-test-id="login.submit"
           >
             登录
           </n-button>

@@ -25,7 +25,7 @@
             :time="item.createdAt"
             :class="{ 'act-clickable': jumpable(item) }"
             @click="jumpTarget(item)"
-          >
+           :data-test-id="`platform-activities.item-${item.id}`">
             <template #header>
               <n-space size="small" align="center">
                 <span class="font-medium">{{ item.actorName }}</span>

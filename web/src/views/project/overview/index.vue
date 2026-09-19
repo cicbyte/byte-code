@@ -95,7 +95,7 @@
         <n-card :bordered="false" size="small" title="最近动态" class="h-full">
           <EmptyState type="notify" title="暂无动态" v-if="activities.length === 0" compact />
           <n-space v-else vertical :size="10">
-            <n-space v-for="a in activities" :key="a.id" align="center" :size="8" :class="{ 'act-clickable': jumpable(a) }" @click="jumpTarget(a)">
+            <n-space v-for="a in activities" :key="a.id" align="center" :size="8" :class="{ 'act-clickable': jumpable(a) }" @click="jumpTarget(a)" :data-test-id="`project-overview.item-${a.id}`">
               <n-tag size="tiny" :type="a.actorType === 'ai' ? 'warning' : 'info'" :bordered="false">
                 {{ a.actorType === 'ai' ? 'Agent' : '用户' }}
               </n-tag>
@@ -124,7 +124,7 @@
                 size="small"
                 :type="REQ_STATUS.tagType(c.value)"
                 :bordered="false"
-              >{{ c.label }} {{ c.count }}</n-tag>
+               :data-test-id="`project-overview.item-${c.label}`">{{ c.label }} {{ c.count }}</n-tag>
             </n-space>
           </n-space>
         </n-card>
@@ -145,7 +145,7 @@
               round
               :bordered="false"
               :type="m.role === 'owner' ? 'success' : 'default'"
-            >
+             :data-test-id="`project-overview.item-${m.userId}`">
               {{ m.realName || m.username }}{{ m.role === 'owner' ? ' · 负责人' : '' }}
             </n-tag>
           </n-space>
