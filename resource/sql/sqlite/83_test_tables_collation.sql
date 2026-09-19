@@ -1,0 +1,4 @@
+-- 同 mysql/83：测试表排序规则对齐（#540/#541）
+-- MySQL 侧把迁移 77 建的 test_runs/test_run_cases CONVERT 到 utf8mb4_unicode_ci
+--（77 建表缺 COLLATE，MySQL 8 默认给了 0900_ai_ci，与基线混用后在跨表
+-- external_key 等值比较上报 Error 1267）；SQLite 无排序规则混用问题，占位。

@@ -16,3 +16,7 @@
   duplicate column 之类的错误导致启动循环。 SQLite 侧的「单文件整体事务、失败可完整重试」
   保证在 MySQL DDL 上不成立——写 MySQL 增量时尽量单文件单语句、动列的迁移尤其要想清楚
   失败恢复路径（必要时分两个迁移号走）。首次在真实 MySQL 上跑通前不要视为已验证。
+- **建表语句必须显式写 `COLLATE=utf8mb4_unicode_ci`**：只写 `DEFAULT CHARSET=utf8mb4`
+  会吃服务器/库默认排序规则（MySQL 8 为 utf8mb4_0900_ai_ci），与基线表混用后，
+  跨表字符串等值比较（join/where）报 Error 1267 Illegal mix of collations——
+  迁移 77 建的 test_runs/test_run_cases 在生产实报过（#540/#541），迁移 83 对齐补修。

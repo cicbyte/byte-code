@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS `test_runs` (
     `created_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY `idx_test_runs_project` (`project_id`),
     KEY `idx_test_runs_created` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `test_run_cases` (
     `id`           INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -34,6 +34,6 @@ CREATE TABLE IF NOT EXISTS `test_run_cases` (
     KEY `idx_trc_run` (`test_run_id`),
     KEY `idx_trc_case` (`test_case_id`),
     KEY `idx_trc_ext` (`external_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE `test_cases` ADD COLUMN `external_key` VARCHAR(512) NOT NULL DEFAULT '', ADD INDEX `idx_test_cases_ext` (`project_id`, `external_key`);
