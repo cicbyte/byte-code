@@ -27,6 +27,12 @@ def ui_release(admin, project_env):
         f"/api/v1/releases/{rid}/files",
         files={"file": ("app.zip", b"ui-bytes", "application/zip")},
     )
+    # 第二个文件专供行内删除闭环（删了不影响后续直链流程）
+    admin.http.post(
+        f"/api/v1/releases/{rid}/files",
+        files={"file": ("legacy.zip", b"old-bytes", "application/zip")},
+    )
+    files = admin.get(f"/api/v1/releases/{rid}/files")["list"]
 
     class NS:
         pass
@@ -35,6 +41,7 @@ def ui_release(admin, project_env):
     ns.pid = pid
     ns.rid = rid
     ns.rid2 = rid2
+    ns.fids = {f["fileName"]: f["id"] for f in files}
     return ns
 
 
@@ -59,6 +66,20 @@ def test_releases_page_renders_create_and_share(logged_in, frontend, ui_release,
     assert toggle is not None and "展开完整说明" in (toggle.text or "")
     toggle.click()
     assert "收起" in (card.ele(".rel-notes-toggle", timeout=5).text or "")
+
+    # 行内快捷操作：hover 文件行显现 直链/删除，行内删除 legacy.zip 闭环
+    legacy = ui_release.fids["legacy.zip"]
+    page.ele(f"releases.file-{legacy}").hover()
+    # JS 点击：DP 二次定位的滚动会丢失 :hover（ops 回到 display:none 无矩形），真实用户无此问题
+    page.ele(f"releases.row-del-{legacy}").click(by_js=True)
+    dlg = logged_in.ele("css:.n-dialog")  # 限定对话框内找「删除」，避免命中卡头同名按钮
+    confirm = [b for b in dlg.eles("css:.n-dialog__action .n-button") if (b.text or "").strip() == "删除"]
+    assert confirm, "确认对话框未出现删除按钮"
+    confirm[0].click()
+    assert logged_in.wait.ele_deleted("css:.n-dialog", timeout=8)  # 等对话框关闭过渡完成
+    legacy_sel = page.sel(f"releases.file-{legacy}")
+    assert logged_in.wait.ele_deleted(legacy_sel, timeout=8)
+    assert "legacy.zip" not in (logged_in.ele("tag:body").text or "")
 
     # 新建发布弹窗闭环（新行 id 由后端分配，用版本号文本断言）
     page.click("releases.create-btn")

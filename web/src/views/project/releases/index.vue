@@ -137,6 +137,27 @@
                   <n-tag v-if="f.shared" size="tiny" :bordered="false" type="success">已分享</n-tag>
                   <span class="rel-asset-count text-xs text-gray-400">{{ f.downloadCount }} 次下载</span>
                   <span class="rel-asset-size">{{ fmtSize(f.fileSize) }}</span>
+                  <!-- 行内快捷操作（hover 显现，GitHub 同款）：免进「文件」弹窗即可直链/删除 -->
+                  <span class="rel-asset-ops" @click.stop>
+                    <n-button
+                      text
+                      type="info"
+                      size="tiny"
+                      @click="doShare(f, 0)"
+                      :data-test-id="`releases.row-share-${f.id}`"
+                    >
+                      直链
+                    </n-button>
+                    <n-button
+                      text
+                      type="error"
+                      size="tiny"
+                      @click="doDeleteFile(f)"
+                      :data-test-id="`releases.row-del-${f.id}`"
+                    >
+                      删除
+                    </n-button>
+                  </span>
                 </div>
               </div>
               <div v-else class="text-xs text-gray-400" style="padding: 4px 0 2px">未上传文件</div>
@@ -879,5 +900,16 @@
     flex-shrink: 0;
     min-width: 56px;
     text-align: right;
+  }
+  /* 行内快捷操作：hover 才显现，免进文件管理弹窗 */
+  .rel-asset-ops {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+    margin-left: 6px;
+  }
+  .rel-asset-row:hover .rel-asset-ops {
+    display: flex;
   }
 </style>
