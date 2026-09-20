@@ -14,13 +14,19 @@ export interface DirtyGuardDeps {
 export function useDirtyGuard(deps: DirtyGuardDeps) {
   const dialog = useDialog();
 
+  // 编辑器（CodeMirror）会把 CRLF 规范化为 LF：快照与现值都按 LF 归一并剥 BOM
+  // 后再比较，否则 Windows 换行的文档一打开即误报脏（#558）
+  function normalizeForCompare(s: string): string {
+    return s.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  }
+
   // 编辑内容与打开时快照不一致即脏；二进制/未打开视为干净
   const openedSnapshot = ref('');
   const dirty = computed(
     () =>
       !!deps.currentFile.value &&
       !deps.currentFile.value.binary &&
-      deps.editContent.value !== openedSnapshot.value
+      normalizeForCompare(deps.editContent.value) !== normalizeForCompare(openedSnapshot.value)
   );
 
   function markOpened(content: string) {
