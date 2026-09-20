@@ -21,7 +21,8 @@ def ui_release(admin, project_env):
         },
     )["id"]
     rid2 = admin.post(
-        f"/api/v1/projects/{pid}/releases", {"version": "v0.9.0", "title": "旧版本", "notes": "旧"}
+        f"/api/v1/projects/{pid}/releases",
+        {"version": "v0.9.0", "title": "旧版本", "notes": "旧", "channel": "nightly"},
     )["id"]
     admin.http.post(
         f"/api/v1/releases/{rid}/files",
@@ -59,6 +60,13 @@ def test_releases_page_renders_create_and_share(logged_in, frontend, ui_release,
     page.click(tl_old)
     assert "tag=v0.9.0" in (logged_in.url or "")
     assert "active" in (page.ele(tl_old).attr("class") or "")
+
+    # 渠道筛选 pill：点每日只剩 nightly 版本，点全部恢复
+    page.click("releases.channel-nightly")
+    assert page.wait_ele(f"releases.row-{ui_release.rid2}", timeout=8)
+    assert not logged_in.eles(page.sel(f"releases.row-{ui_release.rid}"))
+    page.click("releases.channel-all")
+    assert page.wait_ele(f"releases.row-{ui_release.rid}", timeout=8)
 
     # 长说明折叠出现「展开完整说明」，点击展开后变「收起」（元素下钻定位后代）
     card = page.ele(f"releases.row-{ui_release.rid}")

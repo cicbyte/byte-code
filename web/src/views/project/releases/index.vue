@@ -3,13 +3,19 @@
     <n-card :bordered="false" class="proCard">
       <n-space size="small" align="center" justify="space-between" class="mb-3">
         <n-space size="small" align="center">
-          <n-select
-            v-model:value="channelFilter"
-            :options="channelFilterOptions"
-            size="small"
-            style="width: 110px"
-            @update:value="reload"
-          />
+          <!-- 渠道筛选：分段 pill（当前态可见，优于下拉框） -->
+          <div class="rel-filter" data-test-id="releases.channel-filter">
+            <button
+              v-for="opt in filterTabs"
+              :key="opt.value"
+              class="rel-filter-chip"
+              :class="{ active: channelFilter === opt.value }"
+              :data-test-id="`releases.channel-${opt.value || 'all'}`"
+              @click="setChannel(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
           <span class="text-xs text-gray-400">本地打包上传，团队内直接下载，免IM传文件</span>
         </n-space>
         <n-button type="primary" size="small" @click="openCreate" data-test-id="releases.create-btn">
@@ -308,10 +314,16 @@
     { label: '内测（beta）', value: 'beta' },
     { label: '每日（nightly）', value: 'nightly' },
   ];
-  const channelFilterOptions = [
-    { label: '全部渠道', value: '' },
-    ...channelOptions,
+  // 渠道筛选分段 pill：'' 即全部（不筛），去掉「全部渠道」选项的语义重复
+  const filterTabs = [
+    { label: '全部', value: '' },
+    ...channelOptions.map((c) => ({ label: c.label.split('（')[0], value: c.value })),
   ];
+  function setChannel(v: string) {
+    if (channelFilter.value === v) return;
+    channelFilter.value = v;
+    reload();
+  }
   function channelLabel(c: string) {
     return channelOptions.find((o) => o.value === c)?.label || c;
   }
@@ -378,7 +390,7 @@
   const total = ref(0);
   const page = ref(1);
   const pageSize = 20;
-  const channelFilter = ref<string | null>(null);
+  const channelFilter = ref('');
   const expandedNotes = ref(new Set<number>());
 
   async function loadData() {
@@ -655,6 +667,36 @@
 </script>
 
 <style scoped>
+  /* 渠道筛选分段 pill：容器胶囊描边，active 实心主题色 */
+  .rel-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--line, #e9e9e7);
+    border-radius: 999px;
+    background: var(--panel-bg, #fff);
+  }
+  .rel-filter-chip {
+    border: 0;
+    background: transparent;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--text-2, #57606a);
+    cursor: pointer;
+    transition:
+      background 0.15s,
+      color 0.15s;
+  }
+  .rel-filter-chip:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.035));
+  }
+  .rel-filter-chip.active {
+    background: var(--primary-color, #16a34a);
+    color: #fff;
+  }
   .rel-body {
     display: flex;
     align-items: flex-start;
