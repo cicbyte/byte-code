@@ -1,4 +1,4 @@
--- 迁移 77：测试执行记录（pytest 深度支持 P1，#504）
+-- 迁移 77：测试执行记录（pytest 深度支持 P1）
 -- test_runs = 一次批量上报（pytest session / CI job / 手工批次）
 -- test_run_cases = 逐用例结果；external_key 存 pytest nodeid，test_case_id 可空（未映射）
 -- test_cases 补 external_key 列支撑 --bcode-sync 按 nodeid 幂等自动建用例

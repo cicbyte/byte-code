@@ -61,7 +61,7 @@
       />
     </n-card>
 
-    <!-- 分析报告（#426）：趋势 / CLI 漏斗 / 版本分布 / 任务效率 -->
+    <!-- 分析报告：趋势 / CLI 漏斗 / 版本分布 / 任务效率 -->
     <n-card :bordered="false" class="proCard mt-4" :loading="reportLoading">
       <template #header>
         分析报告

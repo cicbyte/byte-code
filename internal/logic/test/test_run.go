@@ -16,7 +16,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// ==================== 测试执行记录（Run，#504 pytest P1） ====================
+// ==================== 测试执行记录（Run，pytest P1） ====================
 
 // runCodeMax 单条用例源码快照上限（字符）：内联展示定位用，非代码仓库——
 // 大文件走附件通道（--bcode-code 的 .py.txt 附件）
@@ -30,7 +30,7 @@ const runMessageMax = 8000
 // runCasesMax 单次上报用例数上限：防滥用（正常 pytest session 远低于此）
 const runCasesMax = 5000
 
-// runTimeLayout 与库内时间列约定一致（VARCHAR(19)；gtime 微秒超长教训 #484）
+// runTimeLayout 与库内时间列约定一致（VARCHAR(19)；gtime 微秒超长教训）
 const runTimeLayout = "2006-01-02 15:04:05"
 
 // isDuplicateKeyErr 唯一索引冲突判定（SQLite "UNIQUE constraint failed" / MySQL 1062）
@@ -171,7 +171,7 @@ func (s *sTest) ReportRun(ctx context.Context, req *api.TestRunReportReq) (id in
 
 	actorType := "human"
 	// activities.actor_type CHECK 白名单是 ('human','ai','system')——agent 上报
-	// 落 'ai'（#504 曾误传 'agent' 被 CHECK 静默拒绝，活动流缺记录）
+	// 落 'ai'（曾误传 'agent' 被 CHECK 静默拒绝，活动流缺记录）
 	if v, _ := g.DB().Model("sys_users").Where("id", uid).Fields("type").Value(); v != nil && v.String() == "ai" {
 		actorType = "ai"
 	}
@@ -322,7 +322,7 @@ func (s *sTest) GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, 
 	if cases != nil {
 		res.Cases = cases
 	}
-	// flaky 富化：窗口内同 key 既有 pass 又有 fail/error 即标（#506）
+	// flaky 富化：窗口内同 key 既有 pass 又有 fail/error 即标
 	if flaky, ferr := flakyKeysForRun(ctx, res.TestRunItem.ProjectId); ferr == nil {
 		for i := range res.Cases {
 			res.Cases[i].Flaky = flaky[res.Cases[i].ExternalKey]

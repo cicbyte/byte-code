@@ -78,7 +78,7 @@ def boot(admin_username: str, admin_initial: str, admin_new: str) -> BootedBacke
   address: ":{port}"
   openapiPath: ""
   swaggerPath: ""
-  # 发布文件大包上传（#552）：与 manifest 口径一致，否则默认上限直接掐连接
+  # 发布文件大包上传：与 manifest 口径一致，否则默认上限直接掐连接
   clientMaxBodySize: "2048m"
 logger:
   level: "error"

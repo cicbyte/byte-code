@@ -642,7 +642,7 @@ func (c *projectController) DeleteComment(ctx context.Context, req *api.CommentD
 	return
 }
 
-// ==================== 项目发布（Releases，#551） ====================
+// ==================== 项目发布（Releases） ====================
 
 func (c *projectController) ReleaseCreate(ctx context.Context, req *api.ReleaseCreateReq) (res *api.ReleaseCreateRes, err error) {
 	res = new(api.ReleaseCreateRes)

@@ -1,4 +1,4 @@
--- 迁移 81：attachments.entity_type CHECK 扩 test_run_case（执行用例失败截图，#527）
+-- 迁移 81：attachments.entity_type CHECK 扩 test_run_case（执行用例失败截图）
 -- 与 Go 层白名单对齐补 project；SQLite 改 CHECK 须整表重建（列定义不变仅约束扩）
 CREATE TABLE `attachments_rebuild81` (
     `id`             INTEGER PRIMARY KEY AUTOINCREMENT,

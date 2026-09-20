@@ -182,7 +182,7 @@
       </n-form>
     </n-modal>
 
-    <!-- 历史执行记录抽屉（#538：居中弹窗改右侧抽屉，长列表内滚更顺手） -->
+    <!-- 历史执行记录抽屉（居中弹窗改右侧抽屉，长列表内滚更顺手） -->
     <n-drawer
       v-model:show="showHistory"
       :width="720"
@@ -361,7 +361,7 @@
     loadData();
   }
 
-  // ---------- 执行统计与历史弹窗（#534） ----------
+  // ---------- 执行统计与历史弹窗 ----------
   const statsMap = ref(new Map<number, TestCaseStatItem>());
   function statOf(c: TestCaseItem): TestCaseStatItem | undefined {
     return statsMap.value.get(c.id);

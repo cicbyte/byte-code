@@ -23,7 +23,7 @@ def test_group_isolation_between_creators(admin, project_env, data):
 
 
 def test_agent_sees_bound_project_groups(admin, project_env):
-    """#532：agent 可见「已绑定项目所在分组」，description 脱敏。"""
+    """agent 可见「已绑定项目所在分组」，description 脱敏。"""
     g = admin.post("/api/v1/groups", {"name": "agent-可见分组", "description": "内部说明"})["id"]
     admin.post(f"/api/v1/groups/{g}/projects", {"projectId": project_env.pid})
     rows = project_env.agent.get("/api/v1/groups")["list"]

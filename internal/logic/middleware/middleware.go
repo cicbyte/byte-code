@@ -190,7 +190,7 @@ var projectEntityRules = []struct {
 var testPlanCaseRe = regexp.MustCompile(`^/api/v1/test-plan-cases/(\d+)`)
 
 // testRunCaseRe /test-run-cases/{id} 两跳解析（test_run_cases.test_run_id -> test_runs.project_id）：
-// 失败转缺陷端点（#506）的成员校验依据
+// 失败转缺陷端点的成员校验依据
 var testRunCaseRe = regexp.MustCompile(`^/api/v1/test-run-cases/(\d+)`)
 
 // commentRe /comments/{id} 两跳解析（comments.task_id -> tasks.project_id）：
@@ -198,7 +198,7 @@ var testRunCaseRe = regexp.MustCompile(`^/api/v1/test-run-cases/(\d+)`)
 var commentRe = regexp.MustCompile(`^/api/v1/comments/(\d+)`)
 
 // releaseFileRe /release-files/{id} 两跳解析（release_files.release_id ->
-// project_releases.project_id）：发布文件管理端点的成员校验依据（#552）
+// project_releases.project_id）：发布文件管理端点的成员校验依据
 var releaseFileRe = regexp.MustCompile(`^/api/v1/release-files/(\d+)`)
 
 // resolveProjectId 从请求路径解析所属项目 id：直接项目路径、两跳计划用例/评论、

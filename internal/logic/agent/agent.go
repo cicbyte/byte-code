@@ -514,7 +514,7 @@ func UpdateAgentCapabilities(ctx context.Context, projectId, agentId int, caps [
 		return fmt.Errorf("Agent 未接入本项目")
 	}
 	// 变更即时通知 agent 账号（CLI/Web 通知中心均可见）——收紧后 agent
-	// 不必等下次 403 才发现（PRD §5 遗留 #415）
+	// 不必等下次 403 才发现（PRD §5 遗留）
 	summary := "全部能力"
 	if len(keys) > 0 {
 		labels := make([]string, 0, len(keys))

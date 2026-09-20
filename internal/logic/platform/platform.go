@@ -238,7 +238,7 @@ func (s *sPlatform) ReadNotification(ctx context.Context, id int) (err error) {
 		// MySQL 只计「实际变更行」：已是已读态的 1→1 更新返回 0（SQLite
 		// 计匹配行无此差异）——需存在性复核区分「已读（幂等成功）」与
 		// 「真不存在」。生产实测：移交决议后端已标读，前端补一次标读
-		// 在 MySQL 上误报「通知不存在」即此因（#496）
+		// 在 MySQL 上误报「通知不存在」即此因
 		cnt, cerr := g.DB().Model("notifications").Ctx(ctx).
 			Where("id", id).
 			Where("user_id", userId).

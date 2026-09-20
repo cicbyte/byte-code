@@ -274,7 +274,7 @@ export function deleteTestRun(id: number) {
   return Alova.Delete(`/v1/test-runs/${id}`);
 }
 
-// ==================== 失败闭环 / Flaky / 趋势（#506） ====================
+// ==================== 失败闭环 / Flaky / 趋势 ====================
 
 /** Flaky 用例（近期窗口内 pass/fail 混现） */
 export interface TestFlakyItem {
@@ -345,7 +345,7 @@ export function caseToBug(
   return Alova.Post<TestRunCaseBugResult>(`/v1/test-run-cases/${runCaseId}/bug`, data);
 }
 
-// ==================== 用例执行统计 / 历史（#534） ====================
+// ==================== 用例执行统计 / 历史 ====================
 
 /** 单用例跨 run 执行统计（fail 与 error 分列，「失败」合并口径由展示层定） */
 export interface TestCaseStatItem {

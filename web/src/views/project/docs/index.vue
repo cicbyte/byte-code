@@ -419,7 +419,7 @@
     }
   }
 
-  // ==================== 文档附件（#430：挂路径键 projectId:path） ====================
+  // ==================== 文档附件（挂路径键 projectId:path） ====================
   const docAttInputRef = ref<HTMLInputElement | null>(null);
   const docAttachments = ref<any[]>([]);
   const uploadingDocAtt = ref(false);

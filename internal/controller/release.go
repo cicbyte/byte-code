@@ -8,7 +8,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// ReleaseCtrl 发布公开访问控制器（#552）：分享直链下载免鉴权。
+// ReleaseCtrl 发布公开访问控制器：分享直链下载免鉴权。
 // 独立成控制器而非挂在 ProjectCtrl 上——ProjectCtrl 整绑在认证组，
 // 公开端点须只进公开路由组（避免重复注册/被鉴权拦截）。
 var ReleaseCtrl = releaseController{}

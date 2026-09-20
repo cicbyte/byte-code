@@ -868,8 +868,8 @@
     max-height: 180px;
     overflow: hidden;
     /* 底部渐隐提示可展开（GitHub 同款视觉） */
-    mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, 70%, transparent 100%);
   }
   .rel-notes-toggle {
     margin-top: 4px;

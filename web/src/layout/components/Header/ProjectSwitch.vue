@@ -245,7 +245,7 @@
 <style lang="less">
   .ps-panel {
     margin: 0;
-    /* 主题令牌化：raw popover 不吃 naive 主题，写死 #fff 在暗色下变白底浅字（#539） */
+    /* 主题令牌化：raw popover 不吃 naive 主题，写死 #fff 在暗色下变白底浅字 */
     background: var(--panel-bg, #fff);
     border-radius: 12px;
     border: 1px solid var(--line, rgba(0, 0, 0, 0.06));

@@ -423,7 +423,7 @@ func AttachmentEntityAccessible(ctx context.Context, userId int, entityType stri
 		return false
 	}
 	// test_run_case 两跳解析（test_run_cases 无 project_id 列）：
-	// trc.test_run_id → test_runs.project_id——失败截图附件挂执行用例（#527）
+	// trc.test_run_id → test_runs.project_id——失败截图附件挂执行用例
 	if entityType == "test_run_case" {
 		runId := perm.EntityFieldInt(ctx, "test_run_cases", entityId, "test_run_id")
 		pid := perm.EntityProjectId(ctx, "test_runs", runId)

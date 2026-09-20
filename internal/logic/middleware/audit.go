@@ -52,7 +52,7 @@ func (s *sMiddleware) MiddlewareAuditLog(r *ghttp.Request) {
 		target.entityId = createdIdFromBody(r.Response.Buffer())
 		if target.entityId == 0 {
 			// 动作端点（/tasks/81/claim 等）响应无新实体 id：目标 id
-			// 取路径中动作词前的数字段（#424 实测此前一直记 0）
+			// 取路径中动作词前的数字段（实测此前一直记 0）
 			target.entityId = entityIdBeforeVerb(path)
 		}
 		if target.entityType == "projects" {
@@ -174,7 +174,7 @@ func enrichVaultTarget(r *ghttp.Request, t *targetInfo, path string) {
 var postEntityVerbs = map[string]bool{
 	"claim":    true,
 	"burndown": true,
-	// 任务生命周期动作词（#420 审计导出时发现缺失：complete 被当作目标类型）
+	// 任务生命周期动作词（审计导出时发现缺失：complete 被当作目标类型）
 	"complete": true,
 	"release":  true,
 	"reopen":   true,
@@ -182,10 +182,10 @@ var postEntityVerbs = map[string]bool{
 	"unblock":  true,
 	"log":      true,
 	"review":   true,
-	// watcher 订阅动作（#424）
+	// watcher 订阅动作
 	"watch":   true,
 	"unwatch": true,
-	// 其余 {实体}/{id}/{动作} 形态的 POST 端点（#424 实测同缺陷）：
+	// 其余 {实体}/{id}/{动作} 形态的 POST 端点（实测同缺陷）：
 	// 动作词缺登记会把 targetType 记成动作词、targetId 记 0
 	"attach":    true,
 	"convert":   true,

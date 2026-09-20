@@ -108,7 +108,7 @@ var AgentCaps = map[string]string{
 // 全能力（只有管理侧显式设置过能力集的 agent 才受限；NULL 与空串同义——
 // 迁移 69 之前的存量绑定 capabilities 为 NULL，v0.3.0 曾把 NULL 误判成
 // 无绑定行导致存量 agent 被锁，v0.3.1 修正）。无绑定行不再放行
-// （#443）：仅当存在 project_members 行（早期手工加的存量 agent）按成员
+// ：仅当存在 project_members 行（早期手工加的存量 agent）按成员
 // 资格放行，否则明确拒绝——未接入项目的 agent 不应能操作其任务。
 // 调整即时生效（无缓存）
 func AgentRequire(ctx context.Context, projectId int, cap string) error {
@@ -121,7 +121,7 @@ func AgentRequire(ctx context.Context, projectId int, cap string) error {
 		return nil
 	}
 	// 全局资源（project_id=0，如全局记忆读）：无「项目 0 的绑定」概念，
-	// 以前靠无行兜底放行（#443 关洞时误伤 agent 全局读，此处显式豁免）；
+	// 以前靠无行兜底放行（关洞时误伤 agent 全局读，此处显式豁免）；
 	// 全局写操作由管理路由 AdminAuth 把关，不经过这里
 	if projectId <= 0 {
 		return nil
@@ -175,7 +175,7 @@ func SessionProjectId(ctx context.Context) int {
 	return 0
 }
 
-// AgentSessionGuard 「当前项目」约束（#443）：agent 请求携带会话时，任务类
+// AgentSessionGuard 「当前项目」约束：agent 请求携带会话时，任务类
 // 操作的目标项目必须与会话项目一致——同一 agent 多项目绑定时防跨会话/
 // 跨项目错领（在 A 项目会话里认领/操作 B 项目任务）。人类与无会话请求
 // 不约束（后者由 AgentRequire 的准入门禁兜底）

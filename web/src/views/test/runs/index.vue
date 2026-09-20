@@ -151,7 +151,7 @@
     return `${m}m${String(s).padStart(2, '0')}s`;
   }
 
-  // ---------- 执行记录列表（#535 瘦身：总览/详情已独立成页） ----------
+  // ---------- 执行记录列表（瘦身：总览/详情已独立成页） ----------
   const loading = ref(false);
   const runList = ref<TestRunItem[]>([]);
   const total = ref(0);

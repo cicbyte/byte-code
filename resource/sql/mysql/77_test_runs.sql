@@ -1,4 +1,4 @@
--- 同 sqlite/77：测试执行记录（pytest 深度支持 P1，#504）
+-- 同 sqlite/77：测试执行记录（pytest 深度支持 P1）
 -- external_key 用 VARCHAR(512)（可索引；TEXT 建索引需前缀长度，迁移 73 同款教训）
 -- errors 列名避开 MySQL 保留字 ERROR 的裸用风险
 CREATE TABLE IF NOT EXISTS `test_runs` (

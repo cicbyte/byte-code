@@ -1,4 +1,4 @@
-"""项目发布（Releases，#551/#552）：独立文件体系/门禁/大文件/分享直链/级联。"""
+"""项目发布（Releases）：独立文件体系/门禁/大文件/分享直链/级联。"""
 
 import pytest
 
@@ -55,7 +55,7 @@ def test_create_gates_and_version_unique(admin, project_env, rel_world):
 
 
 def test_upload_gates_and_same_name_rejected(admin, project_env, rel_world):
-    """上传收 maintainer；版本内同名拒传；>20MB 文件放行（#552 上限 2GB）。"""
+    """上传收 maintainer；版本内同名拒传；>20MB 文件放行（上限 2GB）。"""
     fid = _upload(admin, rel_world.rid, name="app-1.0.0.zip", content=b"A" * 1024)["id"]
     assert fid
     expect_biz(

@@ -309,7 +309,7 @@ func newAgile(t *testing.T, table, title string) int {
 }
 
 func TestMaintainerTaskBypass(t *testing.T) {
-	// assignee 之外，maintainer 也可完成/阻塞/解除（P2 #419 补齐口径）
+	// assignee 之外，maintainer 也可完成/阻塞/解除（P2 补齐口径）
 	tid := newTask(t, 101)
 	if err := s.CompleteTask(ctxAs(102), &api.TaskCompleteReq{Id: tid}); err != nil {
 		t.Errorf("maintainer 完成他人任务应放行: %v", err)
@@ -345,7 +345,7 @@ func TestDeleteAgileGates(t *testing.T) {
 	}
 }
 
-// ---------- P2 watcher 订阅（#424） ----------
+// ---------- P2 watcher 订阅 ----------
 
 // watchNotifCount 某用户在某任务上指定标题的通知条数
 func watchNotifCount(t *testing.T, uid, taskId int, title string) int {
@@ -434,7 +434,7 @@ func TestTaskWatchers(t *testing.T) {
 	}
 }
 
-// ---------- P3 @全员（#429） ----------
+// ---------- P3 @全员 ----------
 
 func TestMentionAll(t *testing.T) {
 	tid := newTask(t, 101)
@@ -562,7 +562,7 @@ func TestMyTaskStats(t *testing.T) {
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
 }
 
-// ---------- 认领门禁收紧（#443：未接入拒绝 + 会话项目约束） ----------
+// ---------- 认领门禁收紧（未接入拒绝 + 会话项目约束） ----------
 
 func ctxAsAgent(uid, sessionProject int) context.Context {
 	ctx := ctxAs(uid)
@@ -637,7 +637,7 @@ func TestClaimGates(t *testing.T) {
 	db.Model("sys_users").Ctx(ctx).Where("id", 110).Delete()
 }
 
-// ---------- 发件侧反馈视图（#447） ----------
+// ---------- 发件侧反馈视图 ----------
 
 func TestFeedbackSent(t *testing.T) {
 	ctx := context.Background()
@@ -774,7 +774,7 @@ func TestGlobalMemoryProposal(t *testing.T) {
 	if n := gmpNotifCount(t, 108, "全局记忆提案已采纳"); n != 1 {
 		t.Errorf("提交者应收 1 条采纳通知, got %d", n)
 	}
-	// agent 可读全局记忆（MemGet(0)——#443 曾误伤 projectId=0 的读路径）
+	// agent 可读全局记忆（MemGet(0)——曾误伤 projectId=0 的读路径）
 	gm, gerr := service.Docs().MemGet(ctxAs(108), 0, "mx-prop")
 	if gerr != nil || gm.Value != "mx-value-2" {
 		t.Errorf("agent 全局记忆读取应放行: err=%v value=%v", gerr, gm)
@@ -867,7 +867,7 @@ func TestOwnerTransferInvite(t *testing.T) {
 	if n := ptNotifCount(t, 101, "移交邀请已接受"); n != 1 {
 		t.Errorf("发起方应收接受通知, got %d", n)
 	}
-	// 列表回填 + 决议自动标读（#486）：受邀人视角该邀请通知应已读且
+	// 列表回填 + 决议自动标读：受邀人视角该邀请通知应已读且
 	// transferStatus=accepted——前端据此不再渲染接受/拒绝
 	nres, nerr := service.Platform().ListNotifications(ctxAs(103), &platApi.NotificationListReq{Size: 50})
 	if nerr != nil {
@@ -885,7 +885,7 @@ func TestOwnerTransferInvite(t *testing.T) {
 	}
 	// resolved_at 必须是 19 字符定长（YYYY-MM-DD HH:MM:SS）——gtime 对象
 	// 会被驱动带微秒写入（26 字符），MySQL VARCHAR(19) 列直接 Data too
-	// long（生产 #484；SQLite TEXT 存得下所以靠断言抓写法回归）
+	// long（生产；SQLite TEXT 存得下所以靠断言抓写法回归）
 	if rv, _ := db.Model("project_transfers").Where("id", tid2).Fields("resolved_at").Value(); rv != nil {
 		if v := rv.String(); !timeRegExp.MatchString(v) {
 			t.Errorf("resolved_at 应为 YYYY-MM-DD HH:MM:SS 实际时间, got %q", v)
@@ -1063,7 +1063,7 @@ func TestProjectScope(t *testing.T) {
 	}
 }
 
-// ---------- 测试执行记录（#504 pytest P1） ----------
+// ---------- 测试执行记录（pytest P1） ----------
 
 func TestTestRunReport(t *testing.T) {
 	ctx := context.Background()
@@ -1176,7 +1176,7 @@ func TestTestRunReport(t *testing.T) {
 	db.Model("test_cases").Ctx(ctx).Where("title", "synced").Delete()
 }
 
-// ---------- 用例执行统计 / 历史（#534） ----------
+// ---------- 用例执行统计 / 历史 ----------
 
 func TestTestCaseRunStats(t *testing.T) {
 	ctx := context.Background()
@@ -1277,7 +1277,7 @@ func TestTestCaseRunStats(t *testing.T) {
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
 }
 
-// ---------- 失败闭环 / Flaky / 趋势（#506） ----------
+// ---------- 失败闭环 / Flaky / 趋势 ----------
 
 func TestTestRunClosedLoop(t *testing.T) {
 	ctx := context.Background()
@@ -1369,7 +1369,7 @@ func TestTestRunClosedLoop(t *testing.T) {
 		t.Errorf("任务描述应含失败信息: %q", taskRow["description"].String())
 	}
 	if cnt, _ := db.Model("notifications").Ctx(ctx).Where("source_type", "task").Where("source_id", bg.TaskId).Count(); cnt == 0 {
-		t.Errorf("绑定 agent 应收到可认领广播（#109/#108 已绑定 501）")
+		t.Errorf("绑定 agent 应收到可认领广播（已绑定 501）")
 	}
 	linkRow, _ := db.Model("test_run_cases").Ctx(ctx).Where("id", badCaseId).One()
 	if linkRow["bug_task_id"].Int() != bg.TaskId {
@@ -1429,7 +1429,7 @@ func TestTestRunClosedLoop(t *testing.T) {
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
 }
 
-// ---------- 上报幂等键 + 执行用例附件（#527） ----------
+// ---------- 上报幂等键 + 执行用例附件 ----------
 
 func TestTestRunIdempotency(t *testing.T) {
 	ctx := context.Background()
@@ -1497,7 +1497,7 @@ func attachmentAccessibleForTest(ctx context.Context, entityType string, entityI
 	return attachment.AttachmentEntityAccessible(ctx, perm.UserId(ctx), entityType, entityId, "")
 }
 
-// ---------- run 用例内联 code 快照（#531） ----------
+// ---------- run 用例内联 code 快照 ----------
 
 func TestTestRunCaseCodeInline(t *testing.T) {
 	ctx := context.Background()
@@ -1536,7 +1536,7 @@ func TestTestRunCaseCodeInline(t *testing.T) {
 	db.Model("test_run_cases").Ctx(ctx).Where("test_run_id NOT IN (SELECT id FROM test_runs)").Delete()
 }
 
-// ---------- 分组对 agent 可发现（#532/反馈 #20） ----------
+// ---------- 分组对 agent 可发现 ----------
 
 func TestGroupAgentDiscoverability(t *testing.T) {
 	ctx := context.Background()
@@ -1590,7 +1590,7 @@ func TestGroupAgentDiscoverability(t *testing.T) {
 	db.Model("project_group_members").Ctx(ctx).Where("group_id", gid1).Delete()
 }
 
-// ---------- 项目发布（#551） ----------
+// ---------- 项目发布 ----------
 
 func TestProjectRelease(t *testing.T) {
 	ctx := context.Background()
@@ -1622,7 +1622,7 @@ func TestProjectRelease(t *testing.T) {
 	db.Model("project_members").Ctx(ctx).Where("project_id", 502).Delete()
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
 
-	// ③ 发布文件（#552 独立体系）：聚合回填 + 分享令牌幂等/吊销 + 删除门禁与级联
+	// ③ 发布文件（独立体系）：聚合回填 + 分享令牌幂等/吊销 + 删除门禁与级联
 	fid, err := db.Model("release_files").Ctx(ctx).Data(g.Map{
 		"release_id": rid, "file_name": "app.zip", "file_size": 2048,
 		"mime_type": "application/zip", "storage_key": "release/501/v1.0.0/app.zip",

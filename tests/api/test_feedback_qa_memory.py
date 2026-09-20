@@ -11,7 +11,7 @@ pytestmark = pytest.mark.order(2)
 
 
 def test_feedback_sent_view(admin, project_env):
-    """#447：agent 的已发送反馈视图（自建反馈，跨模块无依赖）。"""
+    """agent 的已发送反馈视图（自建反馈，跨模块无依赖）。"""
     # 能力按「来源项目」校验：来源必须是 agent 接入的项目（pid）
     p = admin.post("/api/v1/projects", {"name": "集成测试-发送方", "code": "SENT"})["id"]
     admin.post(f"/api/v1/projects/{p}/relations", {"relatedProjectId": project_env.pid})

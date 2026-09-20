@@ -15,7 +15,7 @@ import (
 // ==================== 项目分组（多对多）：同 group 自动互为关联 ====================
 
 func (s *sProject) CreateGroup(ctx context.Context, req *api.GroupCreateReq) (id int, err error) {
-	// 分组私有化（#480）：任何人类用户可建自己的分组（归属即边界），
+	// 分组私有化：任何人类用户可建自己的分组（归属即边界），
 	// agent 不参与组织结构。此前挂 platform_groups 菜单权限——私有化后
 	// 普通项目 owner 建不了自己的分组，与归属语义矛盾，故移除
 	if isAgent, aerr := actorIsAgent(ctx); aerr != nil {
@@ -47,7 +47,7 @@ func (s *sProject) ListGroups(ctx context.Context) (res *api.GroupListRes, err e
 		LeftJoin("sys_users u", "u.id = g.created_by").
 		Fields("g.id, g.name, g.description, g.created_by, g.created_at, COALESCE(NULLIF(u.real_name, ''), u.username) AS owner_name")
 	if isAgentUser(ctx, uid) {
-		// agent（#532/反馈 #20）：同分组隐式关联对 agent 可发现——放行
+		// agent：同分组隐式关联对 agent 可发现——放行
 		// 「已绑定项目所在的分组」，让 bcode --send 的目标解析有据可查；
 		// 仅只读摘要（description 置空），不可管理他人分组（写路径门禁不变）
 		m = m.Where(
@@ -229,7 +229,7 @@ func groupOwnedByCreator(ctx context.Context, groupId int) error {
 	return nil
 }
 
-// detachOwnerGroups 项目移出指定用户名下全部分组（移交自动退出，#480）。
+// detachOwnerGroups 项目移出指定用户名下全部分组（移交自动退出）。
 // 只动该用户创建的分组——第三方（如超管）建的跨项目分组不随人事变动。
 // 走 Model 子查询删除而非裸 Exec——Model API 在 g.DB() 与 gdb.TX 上签名
 // 一致（Exec 一个带 ctx 一个不带，曾需闭包抹平），ownerId<=0 视为无变化

@@ -113,7 +113,7 @@ func (c *testController) TestPlanResults(ctx context.Context, req *api.TestPlanR
 	return service.Test().GetPlanResults(ctx, req)
 }
 
-// ==================== 测试执行记录（Run，#504） ====================
+// ==================== 测试执行记录（Run） ====================
 
 func (c *testController) TestRunReport(ctx context.Context, req *api.TestRunReportReq) (res *api.TestRunReportRes, err error) {
 	res = new(api.TestRunReportRes)
@@ -153,7 +153,7 @@ func (c *testController) TestRunDelete(ctx context.Context, req *api.TestRunDele
 	return
 }
 
-// ==================== 失败闭环 / Flaky / 趋势（#506） ====================
+// ==================== 失败闭环 / Flaky / 趋势 ====================
 
 func (c *testController) TestRunCaseBug(ctx context.Context, req *api.TestRunCaseBugReq) (res *api.TestRunCaseBugRes, err error) {
 	return service.Test().CaseToBug(ctx, req)
@@ -167,7 +167,7 @@ func (c *testController) TestTrend(ctx context.Context, req *api.TestTrendReq) (
 	return service.Test().ListTrends(ctx, req)
 }
 
-// ==================== 用例执行统计 / 历史（#534） ====================
+// ==================== 用例执行统计 / 历史 ====================
 
 func (c *testController) TestCaseStats(ctx context.Context, req *api.TestCaseStatsReq) (res *api.TestCaseStatsRes, err error) {
 	return service.Test().CaseStats(ctx, req)

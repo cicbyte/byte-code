@@ -20,14 +20,14 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 )
 
-// ==================== 项目发布（Releases，#551/#552） ====================
+// ==================== 项目发布（Releases） ====================
 // 发布是项目治理级动作：建/删收 maintainer 档；读与下载全成员 + 绑定 agent。
 // 文件独立体系（release_files）：按 release/{projectId}/{version}/{文件名}
 // 组织、单文件上限 2GB、公开令牌直链分享（吊销=清 token）
 
 const releaseTimeLayout = "2006-01-02 15:04:05"
 
-// releaseFileMaxSize 安装包动辄几百 MB（#552 用户口径）：发布文件专属上限 2GB
+// releaseFileMaxSize 安装包动辄几百 MB（用户口径）：发布文件专属上限 2GB
 //（附件通道仍 20MB 不变）；服务端 clientMaxBodySize 须同步抬高
 const releaseFileMaxSize = int64(2) << 30
 
@@ -212,7 +212,7 @@ func (s *sProject) DeleteRelease(ctx context.Context, id int) (err error) {
 	return nil
 }
 
-// ---------- 发布文件（#552） ----------
+// ---------- 发布文件 ----------
 
 // releaseFileCtx 取文件行 + 所属发布 + 项目 id；供文件域各操作统一鉴权
 type releaseFileRow struct {

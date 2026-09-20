@@ -160,7 +160,7 @@ func (s *sProject) RespondOwnerTransfer(ctx context.Context, req *api.OwnerTrans
 		if rerr != nil {
 			return rerr
 		}
-		// 分组私有化（#480）：项目自动退出原负责人名下分组（事务内，
+		// 分组私有化：项目自动退出原负责人名下分组（事务内，
 		// 与角色变更同生共死）；第三方分组不动
 		var derr error
 		exited, derr = detachOwnerGroups(ctx, tx, pid, curOwner)

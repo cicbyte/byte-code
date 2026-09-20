@@ -196,7 +196,7 @@ func (s *sProject) DismissFeedback(ctx context.Context, req *api.FeedbackDismiss
 
 func gtimeNow() string { return time.Now().Format("2006-01-02 15:04:05") }
 
-// ListSentFeedbacks 发件侧视图（#447）：当前用户发出的反馈跨项目列表——
+// ListSentFeedbacks 发件侧视图：当前用户发出的反馈跨项目列表——
 // 「发成功了吗/对方处理了没」主动可查（此前只能被动等 convert/dismiss
 // 通知）。收件箱读取按目标项目准入，发件人不一定有；本端点只按
 // created_by=当前用户过滤，天然自限定，无需项目准入

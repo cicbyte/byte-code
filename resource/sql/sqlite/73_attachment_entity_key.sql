@@ -1,4 +1,4 @@
--- 迁移 73：附件路径键（文档页附件，#430）
+-- 迁移 73：附件路径键（文档页附件）
 -- attachments.entity_id 是整数，任务/需求/测试用例等整数 id 实体直接用；
 -- 现行文档是路径型 vault 无整数 id——entity_type='doc' 改走 entity_key，
 -- 格式 "{projectId}:{docPath}"（如 "6:/design/arch.md"），权限按解析出的

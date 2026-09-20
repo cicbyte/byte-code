@@ -199,7 +199,7 @@
     try {
       const { respondOwnerTransfer } = await import('@/api/project/index');
       await respondOwnerTransfer(item.sourceId, action);
-      // 后端决议时已自动标读（勿补调，MySQL 变更行口径会误报，#496）
+      // 后端决议时已自动标读（勿补调，MySQL 变更行口径会误报）
       item.isRead = 1;
       fetchUnread();
       window.$message?.success(action === 'accept' ? '已接受移交，你现在是该项目负责人' : '已拒绝移交邀请');

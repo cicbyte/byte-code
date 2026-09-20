@@ -231,7 +231,7 @@ type TestPlanCaseResult struct {
 	ExecutedAt    string `json:"executedAt"`
 }
 
-// ==================== 测试执行记录（Run，#504 pytest P1） ====================
+// ==================== 测试执行记录（Run，pytest P1） ====================
 
 // TestRunCaseReport 单用例上报项：pytest 侧逐条结果
 type TestRunCaseReport struct {
@@ -338,7 +338,7 @@ type TestRunDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// ==================== 失败闭环 / Flaky / 趋势（#506 P3） ====================
+// ==================== 失败闭环 / Flaky / 趋势（P3） ====================
 
 type TestRunCaseBugReq struct {
 	g.Meta   `path:"/test-run-cases/{id}/bug" method:"post" tags:"测试管理" summary:"失败用例转缺陷任务"`
@@ -409,7 +409,7 @@ type TestFailTop struct {
 	TotalCount  int    `json:"totalCount"`
 }
 
-// ==================== 用例执行统计 / 历史（#534） ====================
+// ==================== 用例执行统计 / 历史 ====================
 
 type TestCaseStatsReq struct {
 	g.Meta    `path:"/projects/{projectId}/test-cases/stats" method:"get" tags:"测试管理" summary:"用例执行统计（批量）"`

@@ -1,6 +1,6 @@
 import { Alova } from '@/utils/http/alova/index';
 
-/** 项目发布条目（#551/#552：本地打包上传、团队内下载） */
+/** 项目发布条目（本地打包上传、团队内下载） */
 export interface ReleaseItem {
   id: number;
   projectId: number;
@@ -41,7 +41,7 @@ export interface ReleaseUpdateData {
   channel?: string;
 }
 
-/** 发布文件（#552 独立体系：按 项目/版本 组织、支持分享直链） */
+/** 发布文件（独立体系：按 项目/版本 组织、支持分享直链） */
 export interface ReleaseFileItem {
   id: number;
   releaseId: number;

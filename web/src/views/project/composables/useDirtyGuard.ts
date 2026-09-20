@@ -15,7 +15,7 @@ export function useDirtyGuard(deps: DirtyGuardDeps) {
   const dialog = useDialog();
 
   // 编辑器（CodeMirror）会把 CRLF 规范化为 LF：快照与现值都按 LF 归一并剥 BOM
-  // 后再比较，否则 Windows 换行的文档一打开即误报脏（#558）
+  // 后再比较，否则 Windows 换行的文档一打开即误报脏
   function normalizeForCompare(s: string): string {
     return s.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   }

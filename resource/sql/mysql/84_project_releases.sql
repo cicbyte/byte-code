@@ -1,4 +1,4 @@
--- 同 sqlite/84：项目发布（Releases，#551/#552）+ 独立发布文件表
+-- 同 sqlite/84：项目发布（Releases）+ 独立发布文件表
 CREATE TABLE IF NOT EXISTS `project_releases` (
     `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `project_id` INT NOT NULL,

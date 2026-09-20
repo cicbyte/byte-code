@@ -5,7 +5,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// ==================== 项目发布（Releases，#551/#552） ====================
+// ==================== 项目发布（Releases） ====================
 // 内部项目不走外部 CI：本地打包 → 推平台 → 团队内下载；
 // 文件是独立体系（release_files）：按 项目/版本 组织、支持几百 MB 安装包、
 // 公开令牌直链分享（/api/release-files/public/{token} 免鉴权下载）
@@ -74,7 +74,7 @@ type ReleaseDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
-// ---------- 发布文件（#552 独立体系） ----------
+// ---------- 发布文件（独立体系） ----------
 
 type ReleaseFileListReq struct {
 	g.Meta `path:"/releases/{id}/files" method:"get" tags:"项目发布" summary:"发布文件列表"`

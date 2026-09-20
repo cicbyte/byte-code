@@ -26,7 +26,7 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/project/list/index.vue'),
       },
       {
-        // 分组私有化（#480）：归属创建者，任何登录用户可管理自己的分组
+        // 分组私有化：归属创建者，任何登录用户可管理自己的分组
         //（入口不再挂权限字典；数据边界在后端按 created_by 过滤）
         path: 'groups',
         name: `${routeName}_groups`,
@@ -185,7 +185,7 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/memories/index.vue'),
           },
           {
-            // 测试总览（#535）：趋势/Flaky/整体质量统计，从执行记录页迁出独立成页
+            // 测试总览：趋势/Flaky/整体质量统计，从执行记录页迁出独立成页
             path: 'test-overview',
             name: `${routeName}_test_overview`,
             meta: {
@@ -216,7 +216,7 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/test/plans/index.vue'),
           },
           {
-            // 执行记录（#504）：pytest/CI 批量上报的落点与逐用例结果
+            // 执行记录：pytest/CI 批量上报的落点与逐用例结果
             path: 'test-runs',
             name: `${routeName}_test_runs`,
             meta: {
@@ -227,7 +227,7 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/test/runs/index.vue'),
           },
           {
-            // 执行记录详情（#535）：该次执行整体情况，URL 可深链；
+            // 执行记录详情：该次执行整体情况，URL 可深链；
             // 无 meta.title——工作台菜单按 title 派生，详情页不进菜单
             path: 'test-runs/:runId',
             name: `${routeName}_test_run_detail`,
@@ -250,7 +250,7 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/discussions/index.vue'),
           },
           {
-            // 项目发布（#551）：本地打包上传、团队内下载安装包
+            // 项目发布：本地打包上传、团队内下载安装包
             path: 'releases',
             name: `${routeName}_releases`,
             meta: {

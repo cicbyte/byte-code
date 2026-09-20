@@ -10,7 +10,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// ==================== 用例执行统计 / 历史（#534） ====================
+// ==================== 用例执行统计 / 历史 ====================
 
 // 匹配口径（见 CaseStats/CaseRunsHistory 的 join/where）：显式映射
 // trc.test_case_id 命中，或 external_key 相同——后者兼容 --bcode-sync

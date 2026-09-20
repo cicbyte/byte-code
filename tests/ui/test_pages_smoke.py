@@ -33,7 +33,7 @@ def test_docs_page_renders(logged_in, frontend, ui_world, data):
 
 
 def test_docs_crlf_no_false_dirty(logged_in, frontend, ui_world, backend, admin, data):
-    """CRLF 文档打开后未编辑直接切换，不弹「未保存」（#558：编辑器把 CRLF
+    """CRLF 文档打开后未编辑直接切换，不弹「未保存」（编辑器把 CRLF
     规范化为 LF，换行差异不计为脏）。
     注：真编辑仍拦截的正向对照已在真实浏览器人工验证（headless DP 模拟 CM6
     键入不可行），自动用例只锁本任务回归方向——不误报。"""

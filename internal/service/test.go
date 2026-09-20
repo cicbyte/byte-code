@@ -24,16 +24,16 @@ type ITest interface {
 	AddCasesToPlan(ctx context.Context, req *api.TestPlanAddCaseReq) (err error)
 	ExecuteCase(ctx context.Context, req *api.TestCaseExecuteReq) (err error)
 	GetPlanResults(ctx context.Context, req *api.TestPlanResultsReq) (res *api.TestPlanResultsRes, err error)
-	// 测试执行记录（Run，#504）
+	// 测试执行记录（Run）
 	ReportRun(ctx context.Context, req *api.TestRunReportReq) (id int, err error)
 	ListRuns(ctx context.Context, req *api.TestRunListReq) (total int, list []api.TestRunItem, err error)
 	GetRun(ctx context.Context, id int) (res *api.TestRunDetailRes, err error)
 	DeleteRun(ctx context.Context, id int) (err error)
-	// 失败闭环 / Flaky / 趋势（#506）
+	// 失败闭环 / Flaky / 趋势
 	CaseToBug(ctx context.Context, req *api.TestRunCaseBugReq) (res *api.TestRunCaseBugRes, err error)
 	ListFlaky(ctx context.Context, req *api.TestFlakyListReq) (res *api.TestFlakyListRes, err error)
 	ListTrends(ctx context.Context, req *api.TestTrendReq) (res *api.TestTrendRes, err error)
-	// 用例执行统计 / 历史（#534）
+	// 用例执行统计 / 历史
 	CaseStats(ctx context.Context, req *api.TestCaseStatsReq) (res *api.TestCaseStatsRes, err error)
 	CaseRunsHistory(ctx context.Context, req *api.TestCaseRunsReq) (res *api.TestCaseRunsRes, err error)
 }
