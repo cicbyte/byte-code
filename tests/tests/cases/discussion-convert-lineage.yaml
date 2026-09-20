@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "讨论转任务：血缘互链与重复转拒绝"
+preconditions: "存在开放讨论"
+steps: "convert 转任务 → 重复转 → 查任务描述与讨论状态"
+expectedResult: "任务创建含来源标注；讨论 converted+回链；重复转明确拒绝"
+category: "API 自动化"
+module: "讨论区"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_discussions.py::test_convert_to_task_lineage"

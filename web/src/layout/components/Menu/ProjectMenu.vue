@@ -40,6 +40,7 @@
     ControlOutlined,
     DashboardOutlined,
     RocketOutlined,
+    MessageOutlined,
   } from '@vicons/antd';
   import { useEntityContext } from '@/store/modules/entityContext';
 
@@ -71,6 +72,7 @@
     'test-runs': FieldTimeOutlined,
     members: TeamOutlined,
     releases: RocketOutlined,
+    discussions: MessageOutlined,
     database: DatabaseOutlined,
   };
 
@@ -80,6 +82,7 @@
     规划: AimOutlined,
     知识: ReadOutlined,
     测试: SafetyOutlined,
+    讨论: MessageOutlined,
     管理: ControlOutlined,
   };
 

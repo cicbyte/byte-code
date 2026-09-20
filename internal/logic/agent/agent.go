@@ -391,6 +391,23 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 			})
 		}
 	}
+	// 最近活跃讨论：想法/议题背景，供 agent 了解上下文；
+	// 参与回复需 discuss 能力位，此处只读注入
+	res.Discussions = []api.DiscussionBrief{}
+	dcRows, derr := g.DB().Model("discussions").Ctx(ctx).
+		Fields("id, title, status, updated_at").
+		Where("project_id", projectId).Where("status != 'archived'").
+		Order("updated_at DESC").Limit(5).All()
+	if derr == nil {
+		for _, r := range dcRows {
+			cnt, _ := g.DB().Model("discussion_replies").Ctx(ctx).
+				Where("discussion_id", r["id"].Int()).Count()
+			res.Discussions = append(res.Discussions, api.DiscussionBrief{
+				Id: r["id"].Int(), Title: r["title"].String(), Status: r["status"].String(),
+				ReplyCount: cnt, UpdatedAt: r["updated_at"].String(),
+			})
+		}
+	}
 	// 分配给本 agent 的进行中专题（长任务工作流入口）
 	res.ActiveTopics = []api.TopicBrief{}
 	tpRows, terr := g.DB().Model("topics t").Ctx(ctx).

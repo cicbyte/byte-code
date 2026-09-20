@@ -27,6 +27,16 @@ type IProject interface {
 	RevokeReleaseFileShare(ctx context.Context, id int) (err error)
 	ServeReleaseFilePublic(ctx context.Context, r *ghttp.Request, token string)
 
+	// 讨论区
+	CreateDiscussion(ctx context.Context, req *api.DiscussionCreateReq) (id int, err error)
+	ListDiscussions(ctx context.Context, req *api.DiscussionListReq) (total int, list []api.DiscussionItem, err error)
+	DiscussionDetail(ctx context.Context, id int) (res *api.DiscussionDetailRes, err error)
+	UpdateDiscussion(ctx context.Context, req *api.DiscussionUpdateReq) (err error)
+	DeleteDiscussion(ctx context.Context, id int) (err error)
+	ArchiveDiscussion(ctx context.Context, id int) (status string, err error)
+	CreateDiscussionReply(ctx context.Context, req *api.DiscussionReplyCreateReq) (id int, err error)
+	ConvertDiscussion(ctx context.Context, req *api.DiscussionConvertReq) (taskId int, err error)
+
 	// 项目成员
 	AddMember(ctx context.Context, req *api.MemberAddReq) (err error)
 	RemoveMember(ctx context.Context, projectId, userId int) (err error)

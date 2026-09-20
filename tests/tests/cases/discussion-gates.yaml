@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "讨论门禁：编辑仅作者/maintainer、归档恢复、删除级联"
+preconditions: "非作者成员、maintainer、agent 各一"
+steps: "非作者编辑 → maintainer 编辑 → 归档/恢复 → 删除"
+expectedResult: "越权拒（含 maintainer 文案）；归档可恢复；回复级联删除"
+category: "API 自动化"
+module: "讨论区"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_discussions.py::test_non_author_edit_rejected_maintainer_allowed"

@@ -88,6 +88,7 @@ type SessionCreateRes struct {
 	PendingFeedbacks []FeedbackBrief  `json:"pendingFeedbacks" dc:"待分析跨项目反馈（阅读后 convert 建任务或 dismiss 忽略）"`
 	ActiveTopics     []TopicBrief     `json:"activeTopics" dc:"分配给本 agent 的进行中专题（bcode topic work 推进）"`
 	TopQas           []QaBrief        `json:"topQas" dc:"高频 QA（按命中数前 5；遇到问题先查 QA 库再问人）"`
+	Discussions      []DiscussionBrief `json:"discussions" dc:"最近活跃讨论（提供想法背景；参与需 discuss 能力位）"`
 }
 
 type ProjectBrief struct {
@@ -212,4 +213,12 @@ type QaBrief struct {
 	Question string `json:"question"`
 	Answer   string `json:"answer"`
 	Hits     int    `json:"hits"`
+}
+
+type DiscussionBrief struct {
+	Id         int    `json:"id"`
+	Title      string `json:"title"`
+	Status     string `json:"status" dc:"open/converted/archived"`
+	ReplyCount int    `json:"replyCount"`
+	UpdatedAt  string `json:"updatedAt"`
 }

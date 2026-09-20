@@ -38,9 +38,10 @@ class UiBase:
 
     def _input_node(self, anchor):
         """锚点内的真实输入节点：锚点多落在组件根（如 n-input 的 div），
-        直接在其上 .input() 会命中页面首个 input——必须显式下钻。"""
+        直接在其上 .input() 会命中页面首个 input——必须显式下钻。
+        n-input type=textarea 渲染 <textarea>，一并下钻。"""
         e = self.wait_ele(anchor)
-        return e.ele("tag:input") or e
+        return e.ele("tag:input") or e.ele("tag:textarea") or e
 
     def input(self, anchor: str, text: str):
         node = self._input_node(anchor)

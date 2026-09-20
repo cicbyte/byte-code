@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "讨论区：成员发起、agent 回复与通知"
+preconditions: "项目含成员与已接入 agent"
+steps: "成员发起讨论 → agent 回复 → 查详情"
+expectedResult: "成员可发起；agent 回复 user_type=ai；回复数聚合正确"
+category: "API 自动化"
+module: "讨论区"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_discussions.py::test_member_creates_and_lists"

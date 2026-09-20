@@ -173,6 +173,73 @@ func (c *projectController) UnwatchTask(ctx context.Context, req *api.TaskUnwatc
 	return &api.TaskUnwatchRes{}, nil
 }
 
+// ==================== 讨论区 ====================
+
+func (c *projectController) CreateDiscussion(ctx context.Context, req *api.DiscussionCreateReq) (*api.DiscussionCreateRes, error) {
+	id, err := service.Project().CreateDiscussion(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.DiscussionCreateRes{Id: id}, nil
+}
+
+func (c *projectController) ListDiscussions(ctx context.Context, req *api.DiscussionListReq) (res *api.DiscussionListRes, err error) {
+	if req.PageNum == 0 {
+		req.PageNum = 1
+	}
+	total, list, err := service.Project().ListDiscussions(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	res = new(api.DiscussionListRes)
+	res.Total = total
+	res.CurrentPage = req.PageNum
+	res.List = list
+	return
+}
+
+func (c *projectController) DiscussionDetail(ctx context.Context, req *api.DiscussionDetailReq) (*api.DiscussionDetailRes, error) {
+	return service.Project().DiscussionDetail(ctx, req.Id)
+}
+
+func (c *projectController) UpdateDiscussion(ctx context.Context, req *api.DiscussionUpdateReq) (*api.DiscussionUpdateRes, error) {
+	if err := service.Project().UpdateDiscussion(ctx, req); err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return new(api.DiscussionUpdateRes), nil
+}
+
+func (c *projectController) DeleteDiscussion(ctx context.Context, req *api.DiscussionDeleteReq) (*api.DiscussionDeleteRes, error) {
+	if err := service.Project().DeleteDiscussion(ctx, req.Id); err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return new(api.DiscussionDeleteRes), nil
+}
+
+func (c *projectController) ArchiveDiscussion(ctx context.Context, req *api.DiscussionArchiveReq) (*api.DiscussionArchiveRes, error) {
+	status, err := service.Project().ArchiveDiscussion(ctx, req.Id)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.DiscussionArchiveRes{Status: status}, nil
+}
+
+func (c *projectController) CreateDiscussionReply(ctx context.Context, req *api.DiscussionReplyCreateReq) (*api.DiscussionReplyCreateRes, error) {
+	id, err := service.Project().CreateDiscussionReply(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.DiscussionReplyCreateRes{Id: id}, nil
+}
+
+func (c *projectController) ConvertDiscussion(ctx context.Context, req *api.DiscussionConvertReq) (*api.DiscussionConvertRes, error) {
+	taskId, err := service.Project().ConvertDiscussion(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.DiscussionConvertRes{TaskId: taskId, DiscussId: req.Id}, nil
+}
+
 func (c *projectController) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (res *api.TaskReleaseRes, err error) {
 	err = service.Project().ReleaseTask(ctx, req)
 	res = new(api.TaskReleaseRes)

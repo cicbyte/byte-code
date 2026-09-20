@@ -238,6 +238,18 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/test/runs/detail.vue'),
           },
           {
+            // 讨论区：论坛式想法/议题线程，成员与 agent 均可参与，
+            // 成熟后转任务；不进任务工作流
+            path: 'discussions',
+            name: `${routeName}_discussions`,
+            meta: {
+              title: '讨论区',
+              group: '讨论',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/discussions/index.vue'),
+          },
+          {
             // 项目发布（#551）：本地打包上传、团队内下载安装包
             path: 'releases',
             name: `${routeName}_releases`,

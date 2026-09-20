@@ -31,4 +31,5 @@ export const AGENT_CAPS: Array<{ key: string; label: string }> = [
   { key: 'feedback', label: '投递反馈' },
   { key: 'qa', label: '维护问答库' },
   { key: 'test_execute', label: '上报测试执行' },
+  { key: 'discuss', label: '参与讨论' },
 ];

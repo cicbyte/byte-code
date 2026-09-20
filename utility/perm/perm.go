@@ -100,6 +100,7 @@ var AgentCaps = map[string]string{
 	"feedback":     "投递反馈",
 	"qa":           "维护问答库",
 	"test_execute": "上报测试执行",
+	"discuss":      "参与讨论",
 }
 
 // AgentRequire Agent 能力门禁（PRD §5.2）：人类调用直通（受角色/成员体系

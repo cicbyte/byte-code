@@ -1685,3 +1685,109 @@ func TestProjectRelease(t *testing.T) {
 		t.Errorf("发布文件应级联删除，残留 %d", cnt)
 	}
 }
+
+// ---------- 讨论区：能力位 / 作者门禁 / 转任务血缘 ----------
+
+func TestDiscussion(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	// ① 发起：成员直通；无 discuss 能力的 agent（108）拒；空能力集 agent（109=全量）放行
+	did, err := s.CreateDiscussion(ctxAs(103), &api.DiscussionCreateReq{ProjectId: 501, Title: "缓存策略怎么选", Body: "背景：读多写少"})
+	if err != nil {
+		t.Fatalf("成员发起讨论应放行: %v", err)
+	}
+	if _, err := s.CreateDiscussion(ctxAsAgent(108, 501), &api.DiscussionCreateReq{ProjectId: 501, Title: "应拒"}); err == nil || !strings.Contains(err.Error(), "能力") {
+		t.Errorf("无 discuss 能力 agent 发起应拒（含文案）: %v", err)
+	}
+	aid, err := s.CreateDiscussion(ctxAsAgent(109, 501), &api.DiscussionCreateReq{ProjectId: 501, Title: "agent 观察到的测试缺口"})
+	if err != nil {
+		t.Fatalf("全能力 agent 发起应放行: %v", err)
+	}
+
+	// ② 回复：user_type 服务端推导 + 能力门禁 + 作者通知不炸
+	rid, err := s.CreateDiscussionReply(ctxAsAgent(109, 501), &api.DiscussionReplyCreateReq{Id: did, Content: "agent 回复：建议本地缓存"})
+	if err != nil {
+		t.Fatalf("全能力 agent 回复应放行: %v", err)
+	}
+	if _, err := s.CreateDiscussionReply(ctxAsAgent(108, 501), &api.DiscussionReplyCreateReq{Id: did, Content: "应拒"}); err == nil || !strings.Contains(err.Error(), "能力") {
+		t.Errorf("无 discuss 能力 agent 回复应拒（含文案）: %v", err)
+	}
+	if _, err := s.CreateDiscussionReply(ctxAs(102), &api.DiscussionReplyCreateReq{Id: did, Content: "mnt 回复"}); err != nil {
+		t.Fatalf("成员回复应放行: %v", err)
+	}
+	detail, err := s.DiscussionDetail(ctx, did)
+	if err != nil {
+		t.Fatalf("详情应可查: %v", err)
+	}
+	if len(detail.Replies) != 2 {
+		t.Fatalf("应有 2 条回复: %d", len(detail.Replies))
+	}
+	for _, r := range detail.Replies {
+		if r.Id == rid && r.UserType != "ai" {
+			t.Errorf("agent 回复 user_type 应为 ai: %+v", r)
+		}
+	}
+
+	// ③ 列表：总数/回复数聚合/状态过滤
+	total, list, err := s.ListDiscussions(ctx, &api.DiscussionListReq{ProjectId: 501})
+	if err != nil || total < 2 {
+		t.Fatalf("列表应 >=2 条: total=%d err=%v", total, err)
+	}
+	replyCnt := map[int]int{}
+	for _, it := range list {
+		replyCnt[it.Id] = it.ReplyCount
+	}
+	if replyCnt[did] != 2 {
+		t.Errorf("回复数聚合失真: %+v", replyCnt)
+	}
+	_, openList, _ := s.ListDiscussions(ctx, &api.DiscussionListReq{ProjectId: 501, Status: "open"})
+	for _, it := range openList {
+		if it.Status != "open" {
+			t.Errorf("状态过滤失效: %+v", it)
+		}
+	}
+
+	// ④ 编辑门禁：非作者 member 拒；maintainer 放行
+	if err := s.UpdateDiscussion(ctxAs(107), &api.DiscussionUpdateReq{Id: aid, Title: "越权"}); err == nil || !strings.Contains(err.Error(), "maintainer") {
+		t.Errorf("非作者编辑应拒（含文案）: %v", err)
+	}
+	if err := s.UpdateDiscussion(ctxAs(102), &api.DiscussionUpdateReq{Id: aid, Title: "agent 观察到的测试缺口（mnt 补充）"}); err != nil {
+		t.Fatalf("maintainer 编辑应放行: %v", err)
+	}
+
+	// ⑤ 转任务：作者转化 → 血缘互链；重复转明确拒绝；任务落库含来源标注
+	taskId, err := s.ConvertDiscussion(ctxAs(103), &api.DiscussionConvertReq{Id: did, Type: "feature"})
+	if err != nil {
+		t.Fatalf("作者转任务应放行: %v", err)
+	}
+	if _, err := s.ConvertDiscussion(ctxAs(103), &api.DiscussionConvertReq{Id: did}); err == nil || !strings.Contains(err.Error(), "已转") {
+		t.Errorf("重复转应拒（含文案）: %v", err)
+	}
+	detail2, _ := s.DiscussionDetail(ctx, did)
+	if detail2.Status != "converted" || detail2.ConvertedTaskId != taskId {
+		t.Errorf("讨论转化态失真: %+v", detail2)
+	}
+	trow, _ := db.Model("tasks").Ctx(ctx).Where("id", taskId).One()
+	if trow.IsEmpty() || !strings.Contains(trow["description"].String(), "来自讨论") {
+		t.Errorf("任务应含讨论来源标注: %+v", trow)
+	}
+
+	// ⑥ 归档/恢复 + 删除级联
+	st, err := s.ArchiveDiscussion(ctxAs(109), aid)
+	if err != nil || st != "archived" {
+		t.Fatalf("作者归档应放行: st=%s err=%v", st, err)
+	}
+	if st, _ = s.ArchiveDiscussion(ctxAs(102), aid); st != "open" {
+		t.Errorf("maintainer 恢复应回到 open: %s", st)
+	}
+	if _, err := s.CreateDiscussionReply(ctxAs(103), &api.DiscussionReplyCreateReq{Id: aid, Content: "恢复后再回"}); err != nil {
+		t.Fatalf("恢复后应可回复: %v", err)
+	}
+	if err := s.DeleteDiscussion(ctxAs(102), aid); err != nil {
+		t.Fatalf("maintainer 删除应放行: %v", err)
+	}
+	if cnt, _ := db.Model("discussion_replies").Ctx(ctx).Where("discussion_id", aid).Count(); cnt != 0 {
+		t.Errorf("回复应级联删除: %d", cnt)
+	}
+}

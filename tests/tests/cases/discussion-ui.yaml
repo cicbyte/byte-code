@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 讨论页：列表/回复/转任务闭环"
+preconditions: "API 已造讨论线程"
+steps: "打开讨论详情 → 回复 → 转任务 → 新建讨论"
+expectedResult: "详情渲染；回复出现；已转任务链接；新建成功"
+category: "UI 自动化"
+module: "讨论区"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_discussions_page.py::test_discussions_create_reply_convert"
