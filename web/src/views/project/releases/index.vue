@@ -27,9 +27,39 @@
           description="本地构建后新建发布并上传安装包，团队成员即可在此下载"
           v-if="!loading && list.length === 0"
         />
-        <!-- GitHub Releases 风格卡片流：一版一卡（Latest/说明 markdown/资产区块） -->
-        <div v-else class="rel-cards">
-          <div v-for="r in list" :key="r.id" class="rel-card" :data-test-id="`releases.row-${r.id}`">
+        <!-- GitHub Releases 风格：左侧版本时间轴导航 + 右侧一版一卡 -->
+        <div v-else class="rel-body">
+          <aside class="rel-timeline" data-test-id="releases.timeline">
+            <div class="rel-tl-head">版本 · {{ list.length }}</div>
+            <div class="rel-tl-list">
+              <div
+                v-for="r in list"
+                :key="r.id"
+                class="rel-tl-item"
+                :class="{ active: r.id === activeId }"
+                :data-test-id="`releases.timeline-item-${r.id}`"
+                @click="gotoRelease(r)"
+              >
+                <span class="rel-tl-dot" :class="`ch-${r.channel}`"></span>
+                <div class="rel-tl-main">
+                  <div class="rel-tl-ver-row">
+                    <span class="rel-tl-version">{{ r.version }}</span>
+                    <span v-if="isLatest(r)" class="rel-tl-latest">Latest</span>
+                  </div>
+                  <span class="rel-tl-time">{{ relTime(r.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+          <div class="rel-cards">
+            <div
+              v-for="r in list"
+              :key="r.id"
+              class="rel-card"
+              :class="{ flash: r.id === flashId }"
+              :ref="(el) => setCardRef(r.id, el)"
+              :data-test-id="`releases.row-${r.id}`"
+            >
             <div class="rel-head">
               <div class="rel-head-main">
                 <n-space size="small" align="center" :wrap="false">
@@ -63,10 +93,14 @@
 
             <!-- 发布说明：markdown 渲染，超长折叠 + 展开/收起（GitHub 同款交互） -->
             <div v-if="r.notes" class="rel-notes-wrap">
-              <div class="rel-notes" :class="{ clamp: !expandedNotes.has(r.id) }">
+              <div
+                class="rel-notes"
+                :class="{ clamp: !expandedNotes.has(r.id) }"
+                :ref="(el) => setNotesRef(r.id, el)"
+              >
                 <MdPreview :id="'md-rel-' + r.id" :model-value="r.notes" :sanitize="safeHtml" />
               </div>
-              <div v-if="notesLong(r)" class="rel-notes-toggle" @click="toggleNotes(r.id)">
+              <div v-if="overflowNotes.has(r.id)" class="rel-notes-toggle" @click="toggleNotes(r.id)">
                 {{ expandedNotes.has(r.id) ? '收起' : '展开完整说明' }}
               </div>
             </div>
@@ -107,6 +141,7 @@
               </div>
               <div v-else class="text-xs text-gray-400" style="padding: 4px 0 2px">未上传文件</div>
             </div>
+          </div>
           </div>
         </div>
       </n-spin>
@@ -220,8 +255,8 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { ref, reactive, computed, onMounted } from 'vue';
-  import { useRoute } from 'vue-router';
+  import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined, FileOutlined, FileZipOutlined } from '@vicons/antd';
   import { MdPreview } from 'md-editor-v3';
@@ -244,6 +279,7 @@
   const message = useMessage();
   const dialog = useDialog();
   const route = useRoute();
+  const router = useRouter();
   const projectId = computed(() => Number(route.params.projectId));
 
   const channelOptions = [
@@ -290,9 +326,21 @@
     if (r.channel !== 'stable') return false;
     return list.value.find((x) => x.channel === 'stable')?.id === r.id;
   }
-  // 说明是否超长需要折叠（GitHub：长 changelog 默认截断）
-  function notesLong(r: ReleaseItem): boolean {
-    return (r.notes || '').length > 200;
+  // 说明是否溢出需要折叠开关：按真实渲染高度判定（字符数猜不准——
+  // 标题/代码块等 markdown 密集内容短文也会超 180px），渲染后量 scrollHeight
+  const notesEls = new Map<number, HTMLElement>();
+  function setNotesRef(id: number, el: unknown) {
+    if (el) notesEls.set(id, el as HTMLElement);
+    else notesEls.delete(id);
+  }
+  const overflowNotes = ref(new Set<number>());
+  async function measureNotes() {
+    await nextTick();
+    const s = new Set<number>();
+    for (const [id, el] of notesEls) {
+      if (el.scrollHeight - el.clientHeight > 2) s.add(id);
+    }
+    overflowNotes.value = s;
   }
   // markdown 消毒：与 QA 页/任务评论同口径
   function safeHtml(md: string): string {
@@ -324,6 +372,8 @@
       total.value = res?.total || 0;
       expandedNotes.value = new Set();
       loadFiles();
+      measureNotes();
+      applyQueryVersion();
     } catch (e) {
       // ignore
     } finally {
@@ -338,6 +388,61 @@
     if (expandedNotes.value.has(id)) expandedNotes.value.delete(id);
     else expandedNotes.value.add(id);
     expandedNotes.value = new Set(expandedNotes.value);
+  }
+
+  // ---------- 版本时间轴（GitHub 式导航）----------
+  const activeId = ref<number | null>(null);
+  const flashId = ref<number | null>(null);
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+  const cardEls = new Map<number, HTMLElement>();
+  function setCardRef(id: number, el: unknown) {
+    if (el) cardEls.set(id, el as HTMLElement);
+    else cardEls.delete(id);
+  }
+  // 点击时间轴：滚动定位到卡片 + 短暂高亮 + URL 记版本（可分享/刷新直达）
+  function gotoRelease(r: ReleaseItem) {
+    activeId.value = r.id;
+    flashId.value = r.id;
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => (flashId.value = null), 1600);
+    scrollCardTo(r.id);
+    // markdown/文件异步回填会持续撑高布局，刷新直达时首次滚动会偏：多轮校正
+    for (const delay of [400, 1000, 1800]) {
+      setTimeout(() => scrollCardTo(r.id), delay);
+    }
+    router.replace({ query: { ...route.query, tag: r.version } });
+  }
+  function scrollCardTo(id: number) {
+    cardEls.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  // 进页/刷新按 ?tag= 直达对应版本
+  async function applyQueryVersion() {
+    const v = route.query.tag;
+    if (typeof v === 'string' && v) {
+      const r = list.value.find((x) => x.version === v);
+      if (r) {
+        await nextTick();
+        gotoRelease(r);
+        return;
+      }
+    }
+    activeId.value = list.value[0]?.id ?? null;
+  }
+  // scrollspy：capture 接住内层滚动容器，取最贴近视口顶部的卡片联动高亮
+  let spyTick = false;
+  function onScrollSpy() {
+    if (spyTick) return;
+    spyTick = true;
+    requestAnimationFrame(() => {
+      spyTick = false;
+      let cur: number | null = null;
+      for (const r of list.value) {
+        const el = cardEls.get(r.id);
+        if (el && el.getBoundingClientRect().top <= 140) cur = r.id;
+        else break;
+      }
+      if (cur !== null) activeId.value = cur;
+    });
   }
 
   // ---------- 文件 ----------
@@ -520,20 +625,145 @@
 
   onMounted(() => {
     loadData();
+    window.addEventListener('scroll', onScrollSpy, true);
+  });
+  onBeforeUnmount(() => {
+    window.removeEventListener('scroll', onScrollSpy, true);
+    if (flashTimer) clearTimeout(flashTimer);
   });
 </script>
 
 <style scoped>
+  .rel-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+  }
   .rel-cards {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+  /* 左侧版本时间轴（GitHub tags 导航同款视觉：竖线 + 渠道色节点） */
+  .rel-timeline {
+    position: sticky;
+    top: 12px;
+    width: 176px;
+    flex-shrink: 0;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    padding: 2px 0;
+  }
+  .rel-tl-head {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2, #57606a);
+    padding: 2px 0 8px 20px;
+  }
+  .rel-tl-list {
+    position: relative;
+  }
+  .rel-tl-list::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--line, #e9e9e7);
+  }
+  .rel-tl-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    padding: 5px 8px 5px 20px;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .rel-tl-item:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.035));
+  }
+  .rel-tl-item.active {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.035));
+  }
+  .rel-tl-dot {
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--panel-bg, #fff);
+    background: var(--text-3, #8b949e);
+    box-sizing: border-box;
+  }
+  .rel-tl-dot.ch-stable {
+    background: #18a058;
+  }
+  .rel-tl-dot.ch-beta {
+    background: #f0a020;
+  }
+  .rel-tl-dot.ch-nightly {
+    background: #2080f0;
+  }
+  .rel-tl-item.active .rel-tl-dot {
+    transform: scale(1.2);
+  }
+  .rel-tl-main {
+    min-width: 0;
+  }
+  .rel-tl-ver-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rel-tl-version {
+    font-size: 12px;
+    color: var(--text-2, #57606a);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rel-tl-item.active .rel-tl-version {
+    color: var(--primary-color, #16a34a);
+    font-weight: 600;
+  }
+  .rel-tl-latest {
+    flex-shrink: 0;
+    font-size: 10px;
+    line-height: 16px;
+    color: #18a058;
+    border: 1px solid currentColor;
+    border-radius: 10px;
+    padding: 0 5px;
+  }
+  .rel-tl-time {
+    font-size: 11px;
+    color: var(--text-3, #8b949e);
+    white-space: nowrap;
   }
   .rel-card {
     border: 1px solid var(--line, #e9e9e7);
     border-radius: 8px;
     padding: 14px 18px;
     background: var(--panel-bg, #fff);
+    scroll-margin-top: 16px;
+    transition:
+      border-color 0.3s,
+      box-shadow 0.3s;
+  }
+  /* 时间轴点击直达后的短暂高亮 */
+  .rel-card.flash {
+    border-color: var(--primary-color, #16a34a);
+    box-shadow: 0 0 0 3px rgba(24, 160, 88, 0.12);
+  }
+  @media (max-width: 1080px) {
+    .rel-timeline {
+      display: none;
+    }
   }
   .rel-head {
     display: flex;
@@ -597,6 +827,17 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+  /* n-upload 根节点参与 flex 收缩会把手头的文字 span 压到 min-content
+     （Assets N 竖排、3.0KB 断词）：全部禁止收缩，上传按钮推到行尾 */
+  .rel-assets-head > span {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .rel-assets-head > :deep(.n-upload) {
+    flex-shrink: 0;
+    margin-left: auto;
+    width: fit-content; /* naive 内部 100% 宽残留会反向溢出容器，收敛到按钮实际宽度 */
   }
   .rel-asset-rows {
     margin-top: 4px;
