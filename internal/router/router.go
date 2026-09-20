@@ -27,6 +27,9 @@ func (router *Router) BindController(ctx context.Context, group *ghttp.RouterGro
 		group.Group("/v1", func(group *ghttp.RouterGroup) {
 			group.Bind(
 				controller.AgentCtl.Register,
+				// 发布分享直链（#552）：凭令牌免鉴权下载——分享即链接，
+				// 吊销/过期即 404
+				controller.ReleaseCtrl.ReleaseFilePublic,
 			)
 		})
 	})

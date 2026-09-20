@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "发布文件上传：门禁/同名拒/超 20MB 放行"
+preconditions: "存在发布"
+steps: "member 上传（拒）；同名再传（拒）；上传 21MB 文件"
+expectedResult: "门禁与同名拒；大文件成功（上限 2GB）"
+category: "API 自动化"
+module: "发布"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_releases.py::test_upload_gates_and_same_name_rejected"

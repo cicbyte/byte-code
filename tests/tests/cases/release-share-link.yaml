@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "分享直链：免鉴权下载/幂等/计数/吊销失效"
+preconditions: "存在发布文件"
+steps: "生成直链 → 裸 HTTP 下载 → 吊销再下"
+expectedResult: "字节一致且免登录；幂等同链；计数+1；吊销后 404"
+category: "API 自动化"
+module: "发布"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_releases.py::test_share_public_link_noauth_and_revoke"

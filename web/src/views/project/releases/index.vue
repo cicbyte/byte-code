@@ -1,7 +1,7 @@
 <template>
   <div>
     <n-card :bordered="false" class="proCard">
-      <n-space size="small" align="center" justify="space-between" class="mb-2">
+      <n-space size="small" align="center" justify="space-between" class="mb-3">
         <n-space size="small" align="center">
           <n-select
             v-model:value="channelFilter"
@@ -27,77 +27,88 @@
           description="本地构建后新建发布并上传安装包，团队成员即可在此下载"
           v-if="!loading && list.length === 0"
         />
-        <n-table v-else :bordered="false" :single-line="false" size="small">
-          <thead>
-            <tr>
-              <th>版本</th>
-              <th>标题</th>
-              <th>文件</th>
-              <th>发布人</th>
-              <th>时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="r in list" :key="r.id">
-              <tr :data-test-id="`releases.row-${r.id}`">
-                <td>
-                  <n-space size="small" :wrap="false" align="center">
-                    <n-tag size="small" type="success">{{ r.version }}</n-tag>
-                    <n-tag size="small" :bordered="false" :type="channelTagType(r.channel)">
-                      {{ channelLabel(r.channel) }}
-                    </n-tag>
-                  </n-space>
-                </td>
-                <td>
-                  <span :title="r.notes">{{ r.title }}</span>
-                </td>
-                <td>
-                  <n-space size="small" :wrap="false" align="center">
-                    <n-tag
-                      v-for="f in filesOf(r.id)"
-                      :key="f.id"
-                      size="small"
-                      class="cursor-pointer"
-                      :title="`${f.originalName}（${fmtSize(f.fileSize)}）点击下载`"
-                      :data-test-id="`releases.file-${f.id}`"
-                      @click="download(f.id)"
-                    >
-                      {{ shortName(f.originalName) }} · {{ fmtSize(f.fileSize) }}
-                    </n-tag>
-                    <n-upload
-                      :show-file-list="false"
-                      :custom-request="(o: any) => uploadFile(r.id, o)"
-                      multiple
-                    >
-                      <n-button text type="info" size="small" :data-test-id="`releases.upload-${r.id}`">
-                        + 上传
-                      </n-button>
-                    </n-upload>
-                    <span v-if="r.fileCount === 0" class="text-gray-400 text-xs">未上传文件</span>
-                  </n-space>
-                </td>
-                <td>{{ r.createdByName || '-' }}</td>
-                <td>{{ r.createdAt }}</td>
-                <td>
-                  <n-space size="small">
-                    <n-button text type="info" @click="openEdit(r)" :data-test-id="`releases.edit-btn-${r.id}`">
-                      编辑
-                    </n-button>
-                    <n-button text type="error" @click="handleDelete(r)" :data-test-id="`releases.del-btn-${r.id}`">
-                      删除
-                    </n-button>
-                  </n-space>
-                </td>
-              </tr>
-              <tr v-if="r.notes">
-                <td colspan="6" class="notes-cell" @click="toggleNotes(r.id)">
-                  <pre class="notes-text" :class="{ clamp: !expandedNotes.has(r.id) }">{{ r.notes }}</pre>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </n-table>
+        <!-- GitHub Releases 风格卡片流：一版一卡（Latest/说明 markdown/资产区块） -->
+        <div v-else class="rel-cards">
+          <div v-for="r in list" :key="r.id" class="rel-card" :data-test-id="`releases.row-${r.id}`">
+            <div class="rel-head">
+              <div class="rel-head-main">
+                <n-space size="small" align="center" :wrap="false">
+                  <span class="rel-version">{{ r.version }}</span>
+                  <n-tag size="small" :bordered="false" :type="channelTagType(r.channel)">
+                    {{ channelLabel(r.channel) }}
+                  </n-tag>
+                  <n-tag v-if="isLatest(r)" size="small" type="success" data-test-id="releases.latest-badge">
+                    Latest
+                  </n-tag>
+                </n-space>
+                <div class="rel-title-row">
+                  <span class="rel-title">{{ r.title }}</span>
+                  <span class="rel-meta">
+                    {{ r.createdByName || '-' }} · {{ relTime(r.createdAt) }}（{{ r.createdAt }}）
+                  </span>
+                </div>
+              </div>
+              <n-space size="small" :wrap="false">
+                <n-button text type="primary" size="small" @click="openFiles(r)" :data-test-id="`releases.files-btn-${r.id}`">
+                  文件
+                </n-button>
+                <n-button text type="info" size="small" @click="openEdit(r)" :data-test-id="`releases.edit-btn-${r.id}`">
+                  编辑
+                </n-button>
+                <n-button text type="error" size="small" @click="handleDelete(r)" :data-test-id="`releases.del-btn-${r.id}`">
+                  删除
+                </n-button>
+              </n-space>
+            </div>
+
+            <!-- 发布说明：markdown 渲染，超长折叠 + 展开/收起（GitHub 同款交互） -->
+            <div v-if="r.notes" class="rel-notes-wrap">
+              <div class="rel-notes" :class="{ clamp: !expandedNotes.has(r.id) }">
+                <MdPreview :id="'md-rel-' + r.id" :model-value="r.notes" :sanitize="safeHtml" />
+              </div>
+              <div v-if="notesLong(r)" class="rel-notes-toggle" @click="toggleNotes(r.id)">
+                {{ expandedNotes.has(r.id) ? '收起' : '展开完整说明' }}
+              </div>
+            </div>
+
+            <!-- 资产区块：Assets N · 总大小 + 文件行 -->
+            <div class="rel-assets">
+              <div class="rel-assets-head">
+                <span class="text-xs font-medium">Assets {{ r.fileCount }}</span>
+                <span class="text-xs text-gray-400" v-if="r.fileCount">{{ fmtSize(r.totalSizeBytes) }}</span>
+                <n-upload
+                  :show-file-list="false"
+                  :custom-request="(o: any) => uploadFile(r.id, o)"
+                  multiple
+                >
+                  <n-button text type="info" size="tiny" :data-test-id="`releases.upload-${r.id}`">
+                    + 上传
+                  </n-button>
+                </n-upload>
+              </div>
+              <div v-if="filesOf(r.id).length" class="rel-asset-rows">
+                <div
+                  v-for="f in filesOf(r.id)"
+                  :key="f.id"
+                  class="rel-asset-row"
+                  :data-test-id="`releases.file-${f.id}`"
+                  :title="`${f.fileName}（${fmtSize(f.fileSize)}）点击下载`"
+                  @click="downloadFile(f)"
+                >
+                  <n-icon size="15" class="rel-asset-icon">
+                    <FileZipOutlined v-if="isArchive(f.fileName)" />
+                    <FileOutlined v-else />
+                  </n-icon>
+                  <span class="rel-asset-name">{{ f.fileName }}</span>
+                  <n-tag v-if="f.shared" size="tiny" :bordered="false" type="success">已分享</n-tag>
+                  <span class="rel-asset-count text-xs text-gray-400">{{ f.downloadCount }} 次下载</span>
+                  <span class="rel-asset-size">{{ fmtSize(f.fileSize) }}</span>
+                </div>
+              </div>
+              <div v-else class="text-xs text-gray-400" style="padding: 4px 0 2px">未上传文件</div>
+            </div>
+          </div>
+        </div>
       </n-spin>
 
       <div class="mt-4 flex justify-end" v-if="total > pageSize">
@@ -126,9 +137,83 @@
           <n-select v-model:value="form.channel" :options="channelOptions" />
         </n-form-item>
         <n-form-item label="发布说明">
-          <n-input v-model:value="form.notes" type="textarea" placeholder="changelog / 安装说明（点击列表行可展开）" :rows="6" />
+          <n-input v-model:value="form.notes" type="textarea" placeholder="changelog / 安装说明（支持 Markdown，列表页渲染展示）" :rows="8" />
         </n-form-item>
       </n-form>
+    </n-modal>
+
+    <!-- 文件管理/分享弹窗 -->
+    <n-modal
+      v-model:show="showShare"
+      preset="card"
+      :title="`文件 · ${shareRelease?.version ?? ''}`"
+      style="width: 680px"
+      data-test-id="releases.files-modal"
+    >
+      <n-table :bordered="false" :single-line="false" size="small">
+        <thead>
+          <tr>
+            <th>文件</th>
+            <th>大小</th>
+            <th>下载次数</th>
+            <th>分享</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="f in shareFiles" :key="f.id" :data-test-id="`releases.fm-row-${f.id}`">
+            <td style="word-break: break-all">{{ f.fileName }}</td>
+            <td>{{ fmtSize(f.fileSize) }}</td>
+            <td>{{ f.downloadCount }}</td>
+            <td>
+              <n-tag v-if="f.shared" size="small" type="success" :bordered="false">
+                已分享{{ f.shareExpiresAt ? `（至 ${f.shareExpiresAt}）` : '（永久）' }}
+              </n-tag>
+              <span v-else class="text-gray-400 text-xs">未分享</span>
+            </td>
+            <td>
+              <n-space size="small">
+                <n-button text type="info" size="small" @click="downloadFile(f)">下载</n-button>
+                <n-button text type="primary" size="small" @click="doShare(f, 0)" :data-test-id="`releases.share-btn-${f.id}`">
+                  {{ f.shared ? '直链' : '生成直链' }}
+                </n-button>
+                <n-button text type="warning" size="small" @click="doShare(f, 7)" :title="f.shared ? '重新生成（7 天有效）' : '生成 7 天有效直链'">
+                  7天链
+                </n-button>
+                <n-button v-if="f.shared" text type="error" size="small" @click="doRevoke(f)">吊销</n-button>
+                <n-button text type="error" size="small" @click="doDeleteFile(f)">删除</n-button>
+              </n-space>
+            </td>
+          </tr>
+          <tr v-if="shareFiles.length === 0">
+            <td colspan="5" class="text-gray-400" style="text-align: center; padding: 16px">该发布还没有文件</td>
+          </tr>
+        </tbody>
+      </n-table>
+      <div class="mt-3">
+        <n-upload :show-file-list="false" :custom-request="(o: any) => uploadFile(shareRelease?.id ?? 0, o)" multiple>
+          <n-button size="small" dashed block>上传文件（单文件上限 2GB）</n-button>
+        </n-upload>
+      </div>
+    </n-modal>
+
+    <!-- 直链展示弹窗 -->
+    <n-modal
+      v-model:show="showLink"
+      preset="dialog"
+      title="分享直链"
+      positive-text="复制链接"
+      negative-text="关闭"
+      @positive-click="copyLink"
+      style="width: 640px"
+      data-test-id="releases.link-modal"
+    >
+      <div class="py-2">
+        <n-input :value="shareUrl" readonly data-test-id="releases.link-input" />
+        <div class="text-xs text-gray-400 mt-2">
+          {{ linkExpires ? `有效期至 ${linkExpires}` : '永久有效（在文件管理里可吊销）' }}；拿到链接的人无需登录平台即可下载。
+        </div>
+      </div>
     </n-modal>
   </div>
 </template>
@@ -138,16 +223,23 @@
   import { ref, reactive, computed, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
-  import { PlusOutlined } from '@vicons/antd';
-  import { getReleases, createRelease, updateRelease, deleteRelease } from '@/api/project/release';
-  import type { ReleaseItem } from '@/api/project/release';
+  import { PlusOutlined, FileOutlined, FileZipOutlined } from '@vicons/antd';
+  import { MdPreview } from 'md-editor-v3';
+  import 'md-editor-v3/lib/style.css';
+  import DOMPurify from 'dompurify';
   import {
-    getAttachments,
-    uploadAttachment,
-    downloadAttachment,
-    deleteAttachment,
-  } from '@/api/attachment/index';
-  import type { AttachmentItem } from '@/api/attachment/index';
+    getReleases,
+    createRelease,
+    updateRelease,
+    deleteRelease,
+    getReleaseFiles,
+    uploadReleaseFile,
+    deleteReleaseFile,
+    shareReleaseFile,
+    revokeReleaseFileShare,
+  } from '@/api/project/release';
+  import type { ReleaseItem, ReleaseFileItem } from '@/api/project/release';
+  import { copyToClipboard } from '@/utils/clipboard';
 
   const message = useMessage();
   const dialog = useDialog();
@@ -178,8 +270,37 @@
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
   }
-  function shortName(name: string): string {
-    return name.length > 18 ? name.slice(0, 16) + '…' : name;
+  function isArchive(name: string): boolean {
+    return /\.(zip|gz|tar|rar|7z|bz2|xz|tgz)$/i.test(name);
+  }
+  // 相对时间（GitHub 同款语感）：3 分钟前 / 5 小时前 / 2 天前，超 30 天回绝对时间
+  function relTime(dt: string): string {
+    if (!dt) return '';
+    const t = new Date(dt.replace(' ', 'T')).getTime();
+    if (Number.isNaN(t)) return dt;
+    const diff = Date.now() - t;
+    if (diff < 60_000) return '刚刚';
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+    if (diff < 30 * 86_400_000) return `${Math.floor(diff / 86_400_000)} 天前`;
+    return dt;
+  }
+  // Latest 徽标：列表（id 倒序）中最新的 stable 版
+  function isLatest(r: ReleaseItem): boolean {
+    if (r.channel !== 'stable') return false;
+    return list.value.find((x) => x.channel === 'stable')?.id === r.id;
+  }
+  // 说明是否超长需要折叠（GitHub：长 changelog 默认截断）
+  function notesLong(r: ReleaseItem): boolean {
+    return (r.notes || '').length > 200;
+  }
+  // markdown 消毒：与 QA 页/任务评论同口径
+  function safeHtml(md: string): string {
+    return DOMPurify.sanitize(md);
+  }
+  function absUrl(path: string): string {
+    if (/^https?:\/\//.test(path)) return path;
+    return window.location.origin + path;
   }
 
   // ---------- 列表 ----------
@@ -219,42 +340,109 @@
     expandedNotes.value = new Set(expandedNotes.value);
   }
 
-  // ---------- 文件（复用附件通道 entityType=release） ----------
-  const filesMap = ref(new Map<number, AttachmentItem[]>());
-  function filesOf(rid: number): AttachmentItem[] {
+  // ---------- 文件 ----------
+  const filesMap = ref(new Map<number, ReleaseFileItem[]>());
+  function filesOf(rid: number): ReleaseFileItem[] {
     return filesMap.value.get(rid) || [];
   }
   async function loadFiles() {
     if (list.value.length === 0) return;
     const results = await Promise.all(
       list.value.map((r) =>
-        getAttachments('release', r.id)
+        getReleaseFiles(r.id)
           .then((res) => ({ rid: r.id, files: res?.list || [] }))
           .catch(() => ({ rid: r.id, files: [] }))
       )
     );
-    const m = new Map<number, AttachmentItem[]>();
+    const m = new Map<number, ReleaseFileItem[]>();
     for (const it of results) {
-      if (it.files.length) m.set(it.rid, it.files);
+      m.set(it.rid, it.files);
     }
     filesMap.value = m;
   }
   async function uploadFile(rid: number, o: { file: { file: File } }) {
+    if (!rid) return;
     try {
-      await uploadAttachment({ entityType: 'release', entityId: rid, file: o.file.file });
+      await uploadReleaseFile(rid, o.file.file);
       message.success('上传成功');
       loadData();
-    } catch (e) {
-      message.error('上传失败');
+      if (showShare.value && shareRelease.value) openFiles(shareRelease.value);
+    } catch (e: any) {
+      message.error(e?.message || '上传失败');
     }
   }
-  async function download(attId: number) {
+  // 下载走公开直链（免登录头问题）：无令牌则先生成
+  async function downloadFile(f: ReleaseFileItem) {
     try {
-      const res = await downloadAttachment(attId);
-      if (res?.url) window.open(res.url, '_blank');
-    } catch (e) {
-      message.error('获取下载链接失败');
+      const res = await shareReleaseFile(f.id, 0);
+      if (res?.url) window.open(absUrl(res.url), '_blank');
+    } catch (e: any) {
+      message.error(e?.message || '获取下载链接失败');
     }
+  }
+
+  // ---------- 文件管理/分享弹窗 ----------
+  const showShare = ref(false);
+  const shareRelease = ref<ReleaseItem | null>(null);
+  const shareFiles = ref<ReleaseFileItem[]>([]);
+  function openFiles(r: ReleaseItem) {
+    shareRelease.value = r;
+    getReleaseFiles(r.id)
+      .then((res) => (shareFiles.value = res?.list || []))
+      .catch(() => (shareFiles.value = []));
+    showShare.value = true;
+  }
+  async function doShare(f: ReleaseFileItem, days: number) {
+    try {
+      const res = await shareReleaseFile(f.id, days);
+      shareUrl.value = absUrl(res.url);
+      linkExpires.value = res.expiresAt || '';
+      showLink.value = true;
+      const nl = await getReleaseFiles(f.releaseId).catch(() => null);
+      if (nl) shareFiles.value = nl.list || [];
+      loadFiles();
+    } catch (e: any) {
+      message.error(e?.message || '生成直链失败');
+    }
+  }
+  async function doRevoke(f: ReleaseFileItem) {
+    try {
+      await revokeReleaseFileShare(f.id);
+      message.success('已吊销，旧链接即刻失效');
+      const nl = await getReleaseFiles(f.releaseId).catch(() => null);
+      if (nl) shareFiles.value = nl.list || [];
+      loadFiles();
+    } catch (e: any) {
+      message.error(e?.message || '吊销失败');
+    }
+  }
+  function doDeleteFile(f: ReleaseFileItem) {
+    dialog.warning({
+      title: '删除文件',
+      content: `确定删除 ${f.fileName}？已分享的直链将同时失效，不可恢复。`,
+      positiveText: '删除',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await deleteReleaseFile(f.id);
+          message.success('已删除');
+          const nl = await getReleaseFiles(f.releaseId).catch(() => null);
+          if (nl) shareFiles.value = nl.list || [];
+          loadData();
+        } catch (e: any) {
+          message.error(e?.message || '删除失败');
+        }
+      },
+    });
+  }
+
+  // ---------- 直链弹窗 ----------
+  const showLink = ref(false);
+  const shareUrl = ref('');
+  const linkExpires = ref('');
+  async function copyLink() {
+    const ok = await copyToClipboard(shareUrl.value);
+    ok ? message.success('已复制') : message.error('复制失败，请手动选择');
   }
 
   // ---------- 新建/编辑 ----------
@@ -315,7 +503,7 @@
   function handleDelete(r: ReleaseItem) {
     dialog.warning({
       title: '删除发布',
-      content: `确定删除发布 ${r.version}（含 ${r.fileCount} 个文件记录）？该操作不可恢复。`,
+      content: `确定删除发布 ${r.version}（含 ${r.fileCount} 个文件及其直链）？该操作不可恢复。`,
       positiveText: '删除',
       negativeText: '取消',
       onPositiveClick: async () => {
@@ -323,8 +511,8 @@
           await deleteRelease(r.id);
           message.success('已删除');
           loadData();
-        } catch (e) {
-          message.error('删除失败');
+        } catch (e: any) {
+          message.error(e?.message || '删除失败');
         }
       },
     });
@@ -336,20 +524,119 @@
 </script>
 
 <style scoped>
-  .notes-cell {
-    cursor: pointer;
-    background: rgba(128, 128, 128, 0.04);
+  .rel-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
-  .notes-text {
-    margin: 0;
+  .rel-card {
+    border: 1px solid var(--line, #e9e9e7);
+    border-radius: 8px;
+    padding: 14px 18px;
+    background: var(--panel-bg, #fff);
+  }
+  .rel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .rel-head-main {
+    min-width: 0;
+    flex: 1;
+  }
+  .rel-version {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-1, #24292f);
+  }
+  .rel-title-row {
+    margin-top: 2px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .rel-title {
+    font-size: 13px;
+    color: var(--text-2, #57606a);
+  }
+  .rel-meta {
     font-size: 12px;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    word-break: break-all;
-    font-family: inherit;
+    color: var(--text-3, #8b949e);
   }
-  .notes-text.clamp {
-    max-height: 22px;
+  .rel-notes-wrap {
+    margin-top: 8px;
+  }
+  .rel-notes {
+    position: relative;
+  }
+  .rel-notes.clamp {
+    max-height: 180px;
     overflow: hidden;
+    /* 底部渐隐提示可展开（GitHub 同款视觉） */
+    mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+  }
+  .rel-notes-toggle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--primary-color, #16a34a);
+    cursor: pointer;
+    user-select: none;
+  }
+  .rel-notes-toggle:hover {
+    text-decoration: underline;
+  }
+  .rel-assets {
+    margin-top: 10px;
+    border-top: 1px dashed var(--line, #e9e9e7);
+    padding-top: 8px;
+  }
+  .rel-assets-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .rel-asset-rows {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+  }
+  .rel-asset-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .rel-asset-row:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.035));
+  }
+  .rel-asset-icon {
+    color: var(--text-3, #8b949e);
+    flex-shrink: 0;
+  }
+  .rel-asset-name {
+    font-size: 13px;
+    color: var(--primary-color, #16a34a);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rel-asset-row:hover .rel-asset-name {
+    text-decoration: underline;
+  }
+  .rel-asset-size {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-3, #8b949e);
+  }
+  .rel-asset-count {
+    flex-shrink: 0;
+    min-width: 56px;
+    text-align: right;
   }
 </style>

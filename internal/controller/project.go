@@ -610,3 +610,30 @@ func (c *projectController) ReleaseDelete(ctx context.Context, req *api.ReleaseD
 	err = service.Project().DeleteRelease(ctx, req.Id)
 	return
 }
+
+func (c *projectController) ReleaseFileUpload(ctx context.Context, req *api.ReleaseFileUploadReq) (res *api.ReleaseFileUploadRes, err error) {
+	res = new(api.ReleaseFileUploadRes)
+	id, err := service.Project().UploadReleaseFile(ctx, req)
+	res.Id = id
+	return
+}
+
+func (c *projectController) ReleaseFileList(ctx context.Context, req *api.ReleaseFileListReq) (res *api.ReleaseFileListRes, err error) {
+	return service.Project().ListReleaseFiles(ctx, req.Id)
+}
+
+func (c *projectController) ReleaseFileDelete(ctx context.Context, req *api.ReleaseFileDeleteReq) (res *api.ReleaseFileDeleteRes, err error) {
+	res = new(api.ReleaseFileDeleteRes)
+	err = service.Project().DeleteReleaseFile(ctx, req.Id)
+	return
+}
+
+func (c *projectController) ReleaseFileShare(ctx context.Context, req *api.ReleaseFileShareReq) (res *api.ReleaseFileShareRes, err error) {
+	return service.Project().ShareReleaseFile(ctx, req)
+}
+
+func (c *projectController) ReleaseFileShareRevoke(ctx context.Context, req *api.ReleaseFileShareRevokeReq) (res *api.ReleaseFileShareRevokeRes, err error) {
+	res = new(api.ReleaseFileShareRevokeRes)
+	err = service.Project().RevokeReleaseFileShare(ctx, req.Id)
+	return
+}

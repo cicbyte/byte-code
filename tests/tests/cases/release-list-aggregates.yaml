@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "发布列表与文件列表聚合回填"
+preconditions: "发布含多文件"
+steps: "GET 发布列表；GET 文件列表"
+expectedResult: "fileCount/总大小/署名正确，文件名在列"
+category: "API 自动化"
+module: "发布"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_releases.py::test_list_files_and_aggregates"

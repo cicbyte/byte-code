@@ -6,7 +6,7 @@ server:
   openapiPath: "/api.json"
   swaggerPath: "/swagger"
   # 请求体上限须大于附件大小上限（20MB）
-  clientMaxBodySize: "30m"
+  clientMaxBodySize: "2048m"  # 发布文件上限 2GB（#552）；旧值 30m 会让大包上传被网关层截断
 
 # https://goframe.org/docs/core/glog-config
 logger:

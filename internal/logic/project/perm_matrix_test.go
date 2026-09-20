@@ -1622,29 +1622,53 @@ func TestProjectRelease(t *testing.T) {
 	db.Model("project_members").Ctx(ctx).Where("project_id", 502).Delete()
 	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
 
-	// ③ 附件挂 release：可上传（附件归属一跳解析）并聚合回填
-	if _, err := db.Model("attachments").Ctx(ctx).Data(g.Map{
-		"s3_key": "rel/test.zip", "original_name": "app-1.0.0.zip", "file_size": 1024,
-		"mime_type": "application/zip", "file_ext": ".zip",
-		"entity_type": "release", "entity_id": rid, "uploader_id": 101,
-	}).Insert(); err != nil {
+	// ③ 发布文件（#552 独立体系）：聚合回填 + 分享令牌幂等/吊销 + 删除门禁与级联
+	fid, err := db.Model("release_files").Ctx(ctx).Data(g.Map{
+		"release_id": rid, "file_name": "app.zip", "file_size": 2048,
+		"mime_type": "application/zip", "storage_key": "release/501/v1.0.0/app.zip",
+		"uploader_id": 101,
+	}).InsertAndGetId()
+	if err != nil {
 		t.Fatal(err)
-	}
-	if !attachment.AttachmentEntityAccessible(ctx, 101, "release", rid, "") {
-		t.Errorf("release 附件归属应放行（成员）")
-	}
-	if attachment.AttachmentEntityAccessible(ctx, 106, "release", rid, "") {
-		t.Errorf("非成员 release 附件归属应拒")
 	}
 	total, list, err := service.Project().ListReleases(ctx, &api.ReleaseListReq{ProjectId: 501})
 	if err != nil || total != 1 {
 		t.Fatalf("列表应 1 条: total=%d err=%v", total, err)
 	}
-	if list[0].FileCount != 1 || list[0].TotalSizeBytes != 1024 || list[0].CreatedByName == "" {
+	if list[0].FileCount != 1 || list[0].TotalSizeBytes != 2048 || list[0].CreatedByName == "" {
 		t.Errorf("聚合/署名回填失真: %+v", list[0])
 	}
 
-	// ④ 更新：member 拒 / maintainer 通；删除：member 拒 / maintainer 级联清附件
+	// 分享：member 拒；maintainer 幂等（两次同令牌）；days 重新生成；吊销后失效
+	if _, err := service.Project().ShareReleaseFile(ctxAs(103), &api.ReleaseFileShareReq{Id: int(fid)}); err == nil || !strings.Contains(err.Error(), "管理员") {
+		t.Errorf("member 分享应拒（含文案）: %v", err)
+	}
+	sh1, err := service.Project().ShareReleaseFile(ctxAs(102), &api.ReleaseFileShareReq{Id: int(fid)})
+	if err != nil || sh1.Url == "" {
+		t.Fatalf("maintainer 分享应通: %v", err)
+	}
+	sh2, _ := service.Project().ShareReleaseFile(ctxAs(102), &api.ReleaseFileShareReq{Id: int(fid)})
+	if sh2.Url != sh1.Url {
+		t.Errorf("分享应幂等复用令牌: %s vs %s", sh1.Url, sh2.Url)
+	}
+	sh3, _ := service.Project().ShareReleaseFile(ctxAs(102), &api.ReleaseFileShareReq{Id: int(fid), Days: 7})
+	if sh3.Url == sh1.Url {
+		t.Errorf("days>0 应重新生成令牌")
+	}
+	if sh3.ExpiresAt == "" {
+		t.Errorf("days=7 应带回过期时间")
+	}
+	if err := service.Project().RevokeReleaseFileShare(ctxAs(102), int(fid)); err != nil {
+		t.Fatalf("吊销应通: %v", err)
+	}
+	if v, _ := db.Model("release_files").Ctx(ctx).WherePri(fid).Fields("share_token").Value(); v != nil && !v.IsNil() && v.String() != "" {
+		t.Errorf("吊销后令牌应清空")
+	}
+
+	// ④ 文件/发布删除：member 拒；maintainer 级联清文件行
+	if err := service.Project().DeleteReleaseFile(ctxAs(103), int(fid)); err == nil {
+		t.Errorf("member 删文件应拒")
+	}
 	if err := service.Project().UpdateRelease(ctxAs(103), &api.ReleaseUpdateReq{Id: rid, Notes: "x"}); err == nil {
 		t.Errorf("member 更新应拒")
 	}
@@ -1652,12 +1676,12 @@ func TestProjectRelease(t *testing.T) {
 		t.Errorf("maintainer 更新应通: %v", err)
 	}
 	if err := service.Project().DeleteRelease(ctxAs(103), rid); err == nil {
-		t.Errorf("member 删除应拒")
+		t.Errorf("member 删除发布应拒")
 	}
 	if err := service.Project().DeleteRelease(ctxAs(102), rid); err != nil {
-		t.Fatalf("maintainer 删除应通: %v", err)
+		t.Fatalf("maintainer 删除发布应通: %v", err)
 	}
-	if cnt, _ := db.Model("attachments").Ctx(ctx).Where("entity_type", "release").Where("entity_id", rid).Count(); cnt != 0 {
-		t.Errorf("发布附件应级联删除，残留 %d", cnt)
+	if cnt, _ := db.Model("release_files").Ctx(ctx).Where("release_id", rid).Count(); cnt != 0 {
+		t.Errorf("发布文件应级联删除，残留 %d", cnt)
 	}
 }

@@ -2,10 +2,10 @@ id: 0
 projectId: 0
 requirementId: 0
 taskId: 0
-title: "发布更新/删除门禁与级联"
+title: "发布与文件的管理：门禁/更新/删除级联"
 preconditions: "member 与 owner"
-steps: "member 改/删（拒）→ owner 改渠道 → 删除"
-expectedResult: "member 拒；更新生效；删除后列表无"
+steps: "member 改删（拒）；改渠道；删单文件；删发布"
+expectedResult: "member 拒；更新生效；文件删除；发布删除后列表无"
 category: "API 自动化"
 module: "发布"
 priority: "P2"

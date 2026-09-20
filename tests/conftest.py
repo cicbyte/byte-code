@@ -205,8 +205,14 @@ def frontend(backend):
         pytest.fail("vite dev 未就绪（见 tests/.vite-itest.log）")
 
     yield base
-    proc.terminate()
+    # Windows 下 shell=True 只能 terminate 到 cmd 壳，node(vite) 成孤儿进程
+    # 跨会话累积（本机曾积 79 个）：用 taskkill /T 连树收割。
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+    else:
+        proc.terminate()
     try:
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         proc.kill()
+    log.close()

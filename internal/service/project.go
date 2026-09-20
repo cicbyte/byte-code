@@ -4,6 +4,7 @@ import (
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
+	"github.com/gogf/gf/v2/net/ghttp"
 )
 
 type IProject interface {
@@ -14,11 +15,17 @@ type IProject interface {
 	GetProject(ctx context.Context, id int) (res *api.ProjectDetailRes, err error)
 	ListProjects(ctx context.Context, req *api.ProjectListReq) (res *api.ProjectListRes, err error)
 
-	// 项目发布（Releases，#551）
+	// 项目发布（Releases，#551/#552）
 	CreateRelease(ctx context.Context, req *api.ReleaseCreateReq) (id int, err error)
 	ListReleases(ctx context.Context, req *api.ReleaseListReq) (total int, list []api.ReleaseItem, err error)
 	UpdateRelease(ctx context.Context, req *api.ReleaseUpdateReq) (err error)
 	DeleteRelease(ctx context.Context, id int) (err error)
+	UploadReleaseFile(ctx context.Context, req *api.ReleaseFileUploadReq) (id int, err error)
+	ListReleaseFiles(ctx context.Context, releaseId int) (res *api.ReleaseFileListRes, err error)
+	DeleteReleaseFile(ctx context.Context, id int) (err error)
+	ShareReleaseFile(ctx context.Context, req *api.ReleaseFileShareReq) (res *api.ReleaseFileShareRes, err error)
+	RevokeReleaseFileShare(ctx context.Context, id int) (err error)
+	ServeReleaseFilePublic(ctx context.Context, r *ghttp.Request, token string)
 
 	// 项目成员
 	AddMember(ctx context.Context, req *api.MemberAddReq) (err error)
