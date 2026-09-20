@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "附件上传：非法实体类型被拒"
+preconditions: "已登录"
+steps: "POST upload entityType=bogus-type"
+expectedResult: "业务拒绝"
+category: "API 自动化"
+module: "附件"
+priority: "P3"
+source: human
+status: active
+externalKey: "api/test_attachments.py::test_invalid_entity_type_rejected"

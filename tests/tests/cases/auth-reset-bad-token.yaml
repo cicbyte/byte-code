@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "密码重置负路径：坏令牌与短密码被拒"
+preconditions: "已登录管理员"
+steps: "POST /api/auth/reset-password 传坏令牌 / 7 位新密码"
+expectedResult: "分别报令牌无效 / 长度校验拒绝"
+category: "API 自动化"
+module: "认证"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_auth_extra.py::test_reset_rejects_bad_token_and_short_password"

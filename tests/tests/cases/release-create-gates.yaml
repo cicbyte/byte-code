@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "发布创建门禁与版本唯一"
+preconditions: "专属项目已建 v1.0.0 发布"
+steps: "member 创建（应拒管理员档）；同版本重复；跨项目同版本"
+expectedResult: "member 拒/重复拒含「已存在」/跨项目放行"
+category: "API 自动化"
+module: "发布"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_releases.py::test_create_gates_and_version_unique"

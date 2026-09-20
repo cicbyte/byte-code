@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "用户搜索：命中人类、不含 agent"
+preconditions: "存在 itest-m* 账号"
+steps: "GET /users/search?q=itest-m"
+expectedResult: "命中两账号且无 agent"
+category: "API 自动化"
+module: "成员"
+priority: "P3"
+source: human
+status: active
+externalKey: "api/test_members_lifecycle.py::test_user_search_finds_human_only"

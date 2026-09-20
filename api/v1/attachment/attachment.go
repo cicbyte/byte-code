@@ -8,7 +8,7 @@ import (
 
 type AttachmentUploadReq struct {
 	g.Meta     `path:"/attachments/upload" method:"post" mime:"multipart/form-data" tags:"附件管理" summary:"上传附件"`
-	EntityType string `p:"entityType" v:"required|in:task,requirement,doc,test_case,test_run_case,project#实体类型不能为空"`
+	EntityType string `p:"entityType" v:"required|in:task,requirement,doc,test_case,test_run_case,project,release#实体类型不能为空"`
 	// 整数 id 实体（task/requirement/test_case/project）用 EntityId；
 	// doc 类型用 EntityKey（"{projectId}:{path}"），此时 EntityId 恒 0
 	EntityId int    `p:"entityId" d:"0"`
@@ -62,7 +62,7 @@ type AttachmentDeleteRes struct {
 
 type AttachmentListReq struct {
 	g.Meta     `path:"/attachments" method:"get" tags:"附件管理" summary:"查询实体附件列表"`
-	EntityType string `json:"entityType" v:"required|in:task,requirement,doc,test_case,test_run_case,project#实体类型不能为空"`
+	EntityType string `json:"entityType" v:"required|in:task,requirement,doc,test_case,test_run_case,project,release#实体类型不能为空"`
 	EntityId   int    `json:"entityId" d:"0"`
 	// doc 类型按路径键过滤（"{projectId}:{path}"）
 	EntityKey string `json:"entityKey" v:"max-length:256#实体键过长"`

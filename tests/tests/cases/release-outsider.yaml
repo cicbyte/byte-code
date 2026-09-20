@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "门外汉不可见发布与附件"
+preconditions: "非成员账号"
+steps: "GET 发布列表；GET 附件下载"
+expectedResult: "均业务拒绝"
+category: "API 自动化"
+module: "发布"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_releases.py::test_outsider_cannot_touch_release"

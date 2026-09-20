@@ -238,6 +238,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/test/runs/detail.vue'),
           },
           {
+            // 项目发布（#551）：本地打包上传、团队内下载安装包
+            path: 'releases',
+            name: `${routeName}_releases`,
+            meta: {
+              title: '项目发布',
+              group: '管理',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/releases/index.vue'),
+          },
+          {
             // 关联项目 + 项目分组（从成员管理拆出）
             path: 'settings',
             name: `${routeName}_settings`,

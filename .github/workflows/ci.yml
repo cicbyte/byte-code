@@ -59,6 +59,14 @@ jobs:
             echo "data-test-id leaked into production build:"; grep -rl 'data-test-id' dist/
             exit 1
           fi
+      # 锚点铺设曾把自闭合标签写成 ` / :data-test-id=`（剥离插件在 build 期会删掉
+      # 该属性故 dist 门禁测不出，dev 模板编译直接 Illegal '/' 整页空白）——静态扫描兜底
+      - name: Guard malformed data-test-id anchors
+        run: |
+          if grep -rnE ' / ?\:?data-test-id=' web/src --include='*.vue'; then
+            echo "found malformed self-closing tag before data-test-id (see above)"
+            exit 1
+          fi
 
   integration:
     name: Integration tests (API)

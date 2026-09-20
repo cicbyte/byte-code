@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "用户搜索拒绝 agent 调用"
+preconditions: "agent 会话"
+steps: "agent GET /users/search"
+expectedResult: "业务拒绝（目录不给 agent）"
+category: "API 自动化"
+module: "成员"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_members_lifecycle.py::test_user_search_rejects_agent"

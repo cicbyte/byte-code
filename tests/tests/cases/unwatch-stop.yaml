@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "取关后订阅停止"
+preconditions: "agent 已关注"
+steps: "unwatch → 详情"
+expectedResult: "watching=false 且计数归零"
+category: "API 自动化"
+module: "任务"
+priority: "P3"
+source: human
+status: active
+externalKey: "api/test_watchers_stats.py::test_unwatch_stops_subscription"

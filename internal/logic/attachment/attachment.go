@@ -435,6 +435,7 @@ func AttachmentEntityAccessible(ctx context.Context, userId int, entityType stri
 		"requirement": "requirements",
 		"test_case":   "test_cases",
 		"project":     "projects",
+		"release":     "project_releases",
 	}
 	table, ok := entityTable[entityType]
 	if !ok {

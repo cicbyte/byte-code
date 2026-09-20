@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "文档写入→读回→树→搜索 全链"
+preconditions: "项目内"
+steps: "PUT file → GET file → tree → search 关键字"
+expectedResult: "四步闭环均命中"
+category: "API 自动化"
+module: "文档"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_docs_vault.py::test_human_write_read_roundtrip"

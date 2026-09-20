@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "我的效率统计：结构完整 + 完成过审链路后 completed30d 生效"
+preconditions: "admin 认领→完成→过审一单"
+steps: "GET /my-tasks/stats"
+expectedResult: "七字段齐且 completed30d≥1"
+category: "API 自动化"
+module: "任务"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_watchers_stats.py::test_my_task_stats_shape"

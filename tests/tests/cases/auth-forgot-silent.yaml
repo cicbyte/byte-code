@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "忘记密码防枚举：未知账号与存在账号响应一致"
+preconditions: "任意访客"
+steps: "POST /api/auth/forgot-password 分别用不存在账号与 admin"
+expectedResult: "两者状态码与 code 完全一致且成功形态"
+category: "API 自动化"
+module: "认证"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_auth_extra.py::test_forgot_password_silent_for_unknown_account"

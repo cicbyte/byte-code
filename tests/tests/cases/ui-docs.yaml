@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 文档页壳渲染"
+preconditions: "已登录项目"
+steps: "进入文档页"
+expectedResult: "搜索框锚点渲染（树内容由 API 层覆盖）"
+category: "UI 自动化"
+module: "文档"
+priority: "P3"
+source: human
+status: active
+externalKey: "ui/test_pages_smoke.py::test_docs_page_renders"

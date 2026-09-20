@@ -14,6 +14,12 @@ type IProject interface {
 	GetProject(ctx context.Context, id int) (res *api.ProjectDetailRes, err error)
 	ListProjects(ctx context.Context, req *api.ProjectListReq) (res *api.ProjectListRes, err error)
 
+	// 项目发布（Releases，#551）
+	CreateRelease(ctx context.Context, req *api.ReleaseCreateReq) (id int, err error)
+	ListReleases(ctx context.Context, req *api.ReleaseListReq) (total int, list []api.ReleaseItem, err error)
+	UpdateRelease(ctx context.Context, req *api.ReleaseUpdateReq) (err error)
+	DeleteRelease(ctx context.Context, id int) (err error)
+
 	// 项目成员
 	AddMember(ctx context.Context, req *api.MemberAddReq) (err error)
 	RemoveMember(ctx context.Context, projectId, userId int) (err error)

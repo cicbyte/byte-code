@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "计划挂接跨项目用例整批拒绝"
+preconditions: "两项目各有用例"
+steps: "向 A 计划挂 A+B 用例"
+expectedResult: "业务拒绝"
+category: "API 自动化"
+module: "测试"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_groups_plans.py::test_plan_cross_project_case_rejected"

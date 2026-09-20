@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "附件归属门禁：非项目成员读附件被拒"
+preconditions: "项目内已有附件 + 门外汉账号"
+steps: "门外汉 GET download"
+expectedResult: "业务拒绝"
+category: "API 自动化"
+module: "附件"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_attachments.py::test_outsider_cannot_read_project_attachment"

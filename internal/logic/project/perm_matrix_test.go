@@ -1589,3 +1589,75 @@ func TestGroupAgentDiscoverability(t *testing.T) {
 	db.Model("project_groups").Ctx(ctx).Where("id IN (?,?)", gid1, gid2).Delete()
 	db.Model("project_group_members").Ctx(ctx).Where("group_id", gid1).Delete()
 }
+
+// ---------- 项目发布（#551） ----------
+
+func TestProjectRelease(t *testing.T) {
+	ctx := context.Background()
+	db := g.DB()
+
+	mk := func(uid int, version string) *api.ReleaseCreateReq {
+		return &api.ReleaseCreateReq{ProjectId: 501, Version: version, Channel: "stable"}
+	}
+
+	// ① 普通成员（103）创建 → maintainer 门禁拒绝
+	if _, err := service.Project().CreateRelease(ctxAs(103), mk(103, "v0.0.1")); err == nil || !strings.Contains(err.Error(), "管理员") {
+		t.Errorf("member 创建发布应拒（含文案）: %v", err)
+	}
+	// ② maintainer（102）创建 → 放行；同版本重复 → 明确拒绝
+	rid, err := service.Project().CreateRelease(ctxAs(102), mk(102, "v1.0.0"))
+	if err != nil {
+		t.Fatalf("maintainer 创建发布应放行: %v", err)
+	}
+	if _, err := service.Project().CreateRelease(ctxAs(101), mk(101, "v1.0.0")); err == nil || !strings.Contains(err.Error(), "已存在") {
+		t.Errorf("同版本重复应拒（含文案）: %v", err)
+	}
+	// 跨项目版本不冲突（临时建 502）
+	db.Model("projects").Ctx(ctx).Data(g.Map{"id": 502, "name": "rel-xproj", "code": "RELX", "status": 1, "creator_id": 101}).Insert()
+	db.Model("project_members").Ctx(ctx).Data(g.Map{"project_id": 502, "user_id": 101, "role": "owner"}).Insert()
+	if _, err := service.Project().CreateRelease(ctxAs(101), &api.ReleaseCreateReq{ProjectId: 502, Version: "v1.0.0", Channel: "beta"}); err != nil {
+		t.Fatalf("跨项目同版本应放行: %v", err)
+	}
+	db.Model("project_releases").Ctx(ctx).Where("project_id", 502).Delete()
+	db.Model("project_members").Ctx(ctx).Where("project_id", 502).Delete()
+	db.Model("projects").Ctx(ctx).Where("id", 502).Delete()
+
+	// ③ 附件挂 release：可上传（附件归属一跳解析）并聚合回填
+	if _, err := db.Model("attachments").Ctx(ctx).Data(g.Map{
+		"s3_key": "rel/test.zip", "original_name": "app-1.0.0.zip", "file_size": 1024,
+		"mime_type": "application/zip", "file_ext": ".zip",
+		"entity_type": "release", "entity_id": rid, "uploader_id": 101,
+	}).Insert(); err != nil {
+		t.Fatal(err)
+	}
+	if !attachment.AttachmentEntityAccessible(ctx, 101, "release", rid, "") {
+		t.Errorf("release 附件归属应放行（成员）")
+	}
+	if attachment.AttachmentEntityAccessible(ctx, 106, "release", rid, "") {
+		t.Errorf("非成员 release 附件归属应拒")
+	}
+	total, list, err := service.Project().ListReleases(ctx, &api.ReleaseListReq{ProjectId: 501})
+	if err != nil || total != 1 {
+		t.Fatalf("列表应 1 条: total=%d err=%v", total, err)
+	}
+	if list[0].FileCount != 1 || list[0].TotalSizeBytes != 1024 || list[0].CreatedByName == "" {
+		t.Errorf("聚合/署名回填失真: %+v", list[0])
+	}
+
+	// ④ 更新：member 拒 / maintainer 通；删除：member 拒 / maintainer 级联清附件
+	if err := service.Project().UpdateRelease(ctxAs(103), &api.ReleaseUpdateReq{Id: rid, Notes: "x"}); err == nil {
+		t.Errorf("member 更新应拒")
+	}
+	if err := service.Project().UpdateRelease(ctxAs(102), &api.ReleaseUpdateReq{Id: rid, Notes: "变更说明"}); err != nil {
+		t.Errorf("maintainer 更新应通: %v", err)
+	}
+	if err := service.Project().DeleteRelease(ctxAs(103), rid); err == nil {
+		t.Errorf("member 删除应拒")
+	}
+	if err := service.Project().DeleteRelease(ctxAs(102), rid); err != nil {
+		t.Fatalf("maintainer 删除应通: %v", err)
+	}
+	if cnt, _ := db.Model("attachments").Ctx(ctx).Where("entity_type", "release").Where("entity_id", rid).Count(); cnt != 0 {
+		t.Errorf("发布附件应级联删除，残留 %d", cnt)
+	}
+}

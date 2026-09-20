@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 发布页：列表/文件 chip/新建弹窗闭环"
+preconditions: "API 已造带文件的发布"
+steps: "进入发布页 → 点新建 → 填版本提交"
+expectedResult: "行与文件 chip 渲染；新版本出现在列表"
+category: "UI 自动化"
+module: "发布"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_releases_page.py::test_releases_page_renders_and_create"

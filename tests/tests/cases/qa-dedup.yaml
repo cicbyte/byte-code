@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "QA 同问题去重 upsert"
+preconditions: "项目内"
+steps: "同问题两次 upsert"
+expectedResult: "第二次 updated=true 且 id 不变"
+category: "API 自动化"
+module: "QA库"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_feedback_qa_memory.py::test_qa_dedup_upsert"

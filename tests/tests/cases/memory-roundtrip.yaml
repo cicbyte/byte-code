@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "项目记忆 upsert/读/列表 + 只读 agent 读拒（无 memory_read）"
+preconditions: "项目内"
+steps: "PUT memories → GET → 列表 → ro_agent 读/写"
+expectedResult: "前三通；ro_agent 读写皆拒"
+category: "API 自动化"
+module: "文档"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_docs_vault.py::test_project_memory_roundtrip"

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "成员自助退出：可退且退出后失去访问"
+preconditions: "普通成员在项目内"
+steps: "POST leave → GET 项目"
+expectedResult: "退出成功且访问被拒"
+category: "API 自动化"
+module: "成员"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_members_lifecycle.py::test_member_leave_then_lose_access"

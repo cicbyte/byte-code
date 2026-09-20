@@ -150,7 +150,13 @@
         </n-alert>
         <n-checkbox-group v-model:value="capsSelected">
           <n-space :size="[24, 6]">
-            <n-checkbox v-for="c in AGENT_CAPS" :key="c.key" :value="c.key" :label="c.label" / :data-test-id="`project-members.item-${c.key}`">
+            <n-checkbox
+              v-for="c in AGENT_CAPS"
+              :key="c.key"
+              :value="c.key"
+              :label="c.label"
+              :data-test-id="`project-members.item-${c.key}`"
+            />
           </n-space>
         </n-checkbox-group>
         <n-text depth="3" style="font-size: 12px">

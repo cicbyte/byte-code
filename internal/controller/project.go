@@ -5,6 +5,7 @@ import (
 	"context"
 
 	api "github.com/cicbyte/byte-code/api/v1/project"
+	"github.com/cicbyte/byte-code/internal/consts"
 	"github.com/cicbyte/byte-code/internal/service"
 )
 
@@ -571,5 +572,41 @@ func (c *projectController) UpdateComment(ctx context.Context, req *api.CommentU
 func (c *projectController) DeleteComment(ctx context.Context, req *api.CommentDeleteReq) (res *api.CommentDeleteRes, err error) {
 	err = service.Project().DeleteComment(ctx, req.Id)
 	res = new(api.CommentDeleteRes)
+	return
+}
+
+// ==================== 项目发布（Releases，#551） ====================
+
+func (c *projectController) ReleaseCreate(ctx context.Context, req *api.ReleaseCreateReq) (res *api.ReleaseCreateRes, err error) {
+	res = new(api.ReleaseCreateRes)
+	id, err := service.Project().CreateRelease(ctx, req)
+	res.Id = id
+	return
+}
+
+func (c *projectController) ReleaseList(ctx context.Context, req *api.ReleaseListReq) (res *api.ReleaseListRes, err error) {
+	res = new(api.ReleaseListRes)
+	if req.PageSize == 0 {
+		req.PageSize = consts.PageSize
+	}
+	if req.PageNum == 0 {
+		req.PageNum = 1
+	}
+	total, list, err := service.Project().ListReleases(ctx, req)
+	res.Total = total
+	res.CurrentPage = req.PageNum
+	res.List = list
+	return
+}
+
+func (c *projectController) ReleaseUpdate(ctx context.Context, req *api.ReleaseUpdateReq) (res *api.ReleaseUpdateRes, err error) {
+	res = new(api.ReleaseUpdateRes)
+	err = service.Project().UpdateRelease(ctx, req)
+	return
+}
+
+func (c *projectController) ReleaseDelete(ctx context.Context, req *api.ReleaseDeleteReq) (res *api.ReleaseDeleteRes, err error) {
+	res = new(api.ReleaseDeleteRes)
+	err = service.Project().DeleteRelease(ctx, req.Id)
 	return
 }

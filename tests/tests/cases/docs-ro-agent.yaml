@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "只读 agent 文档：读通写拒"
+preconditions: "docs_read 能力 agent"
+steps: "GET file → PUT file"
+expectedResult: "读通写拒"
+category: "API 自动化"
+module: "文档"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_docs_vault.py::test_readonly_agent_docs_write_rejected"

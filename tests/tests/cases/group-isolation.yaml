@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "分组归属：各自只见自己的，超管全量"
+preconditions: "两个创建者各建分组"
+steps: "各自 GET /groups"
+expectedResult: "互不可见，超管全量"
+category: "API 自动化"
+module: "项目"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_groups_plans.py::test_group_isolation_between_creators"

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "密码重置正路径：种令牌→改密→新密可登、旧密失效、令牌单次与过期"
+preconditions: "白盒向 password_resets 落 sha256 令牌摘要"
+steps: "用令牌重置 → 新密码登录 → 旧密码登录 → 令牌复用 → 过期令牌"
+expectedResult: "重置成功；新密可登旧密拒；令牌单次；过期拒"
+category: "API 自动化"
+module: "认证"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_auth_extra.py::test_reset_happy_path_single_use_and_expiry"

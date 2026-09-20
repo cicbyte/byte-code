@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "评论向关注者扇出通知"
+preconditions: "agent 已关注任务"
+steps: "管理员评论 → agent 通知列表"
+expectedResult: "出现该任务相关通知"
+category: "API 自动化"
+module: "任务"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_watchers_stats.py::test_watch_fans_out_on_comment"

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "项目列表 scope 筛选：owner/mine 语义与非管理员收窄"
+preconditions: "admin 与 member 各有项目归属"
+steps: "GET /projects?scope=owner|mine|all"
+expectedResult: "语义正确；member 的 all 收窄为己有"
+category: "API 自动化"
+module: "项目"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_groups_plans.py::test_project_scope_filters"

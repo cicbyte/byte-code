@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "执行用例附件：两跳归属（用例行→run→项目）"
+preconditions: "已上报执行记录"
+steps: "向 test_run_case 上传并列表"
+expectedResult: "可上传可回显"
+category: "API 自动化"
+module: "测试"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_attachments.py::test_run_case_attachment_two_hop"

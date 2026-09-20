@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "全局记忆提案：未决防重→管理员采纳→全员可读→占用后再提拒→重复审核拒"
+preconditions: "成员身份"
+steps: "propose → 重复 propose → 审核 approved → 读取 → 再 propose → 再审核"
+expectedResult: "防重/可读/占用拒/重复审核拒"
+category: "API 自动化"
+module: "全局记忆"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_feedback_qa_memory.py::test_global_memory_proposal_lifecycle"

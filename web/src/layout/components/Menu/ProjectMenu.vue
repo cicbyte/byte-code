@@ -39,6 +39,7 @@
     SafetyOutlined,
     ControlOutlined,
     DashboardOutlined,
+    RocketOutlined,
   } from '@vicons/antd';
   import { useEntityContext } from '@/store/modules/entityContext';
 
@@ -69,6 +70,7 @@
     'test-plans': ExperimentOutlined,
     'test-runs': FieldTimeOutlined,
     members: TeamOutlined,
+    releases: RocketOutlined,
     database: DatabaseOutlined,
   };
 

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "测试计划：建→挂用例（批内去重）→执行→汇总→完成后禁改"
+preconditions: "项目内有测试用例"
+steps: "建计划挂两用例重复挂同 id → 执行一过一败 → 完成 → 再执行"
+expectedResult: "total=2 无重复行；汇总 1过1败；完成禁改"
+category: "API 自动化"
+module: "测试"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_groups_plans.py::test_plan_lifecycle_and_results"

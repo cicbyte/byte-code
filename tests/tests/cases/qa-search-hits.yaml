@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "QA 关键词检索与命中计数"
+preconditions: "已有 QA"
+steps: "关键词检索 → 两次 hit → 再检索"
+expectedResult: "命中且 hits=2"
+category: "API 自动化"
+module: "QA库"
+priority: "P3"
+source: human
+status: active
+externalKey: "api/test_feedback_qa_memory.py::test_qa_keyword_search_and_hits"

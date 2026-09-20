@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "附件删除后列表不再出现"
+preconditions: "已有附件"
+steps: "DELETE → 列表"
+expectedResult: "附件消失"
+category: "API 自动化"
+module: "附件"
+priority: "P3"
+source: human
+status: active
+externalKey: "api/test_attachments.py::test_owner_delete_attachment"

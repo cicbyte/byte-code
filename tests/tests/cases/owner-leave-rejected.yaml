@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "owner 自助退出被拒"
+preconditions: "owner 在项目内"
+steps: "POST leave"
+expectedResult: "业务拒绝（引导转交）"
+category: "API 自动化"
+module: "成员"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_members_lifecycle.py::test_owner_leave_rejected"

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "移交邀请制：发起→防重→非目标拒答→接受换 owner→已决拒答"
+preconditions: "专属项目与目标用户"
+steps: "发起 → 重复发起 → 陌生人响应 → 目标接受 → 再响应"
+expectedResult: "防重/拒陌生人；接受后角色对调；已决拒答"
+category: "API 自动化"
+module: "成员"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_members_lifecycle.py::test_owner_transfer_invite_flow"

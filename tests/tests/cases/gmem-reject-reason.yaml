@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "全局记忆提案拒绝必须给理由；给理由后通过"
+preconditions: "已有提案"
+steps: "无理由 rejected → 带理由 rejected"
+expectedResult: "前者拒后者通"
+category: "API 自动化"
+module: "全局记忆"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_feedback_qa_memory.py::test_global_memory_reject_requires_reason"

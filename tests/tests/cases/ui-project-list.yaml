@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 项目列表：卡片与新建入口渲染"
+preconditions: "已登录且存在项目"
+steps: "进入 /project/list"
+expectedResult: "创建按钮在且世界项目名可见"
+category: "UI 自动化"
+module: "项目"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_pages_smoke.py::test_project_list_renders_cards_and_create"

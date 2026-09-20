@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "发布更新/删除门禁与级联"
+preconditions: "member 与 owner"
+steps: "member 改/删（拒）→ owner 改渠道 → 删除"
+expectedResult: "member 拒；更新生效；删除后列表无"
+category: "API 自动化"
+module: "发布"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_releases.py::test_update_delete_and_cascade"

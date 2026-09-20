@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "agent 可见含已绑定项目的分组且描述脱敏"
+preconditions: "分组挂上 agent 绑定的项目"
+steps: "agent GET /groups → 移出项目 → 再 GET"
+expectedResult: "挂上可见且 description 空；移出不可见"
+category: "API 自动化"
+module: "项目"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_groups_plans.py::test_agent_sees_bound_project_groups"

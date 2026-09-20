@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "三档角色：maintainer 可管成员但动不了 owner；member 无管理权"
+preconditions: "专属项目含 maintainer/member"
+steps: "maintainer 加人/移人/移 owner；member 移 maintainer"
+expectedResult: "前两通后两拒"
+category: "API 自动化"
+module: "成员"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_members_lifecycle.py::test_maintainer_can_manage_members_but_not_owner"
