@@ -2,7 +2,30 @@
   <div>
     <n-card :bordered="false" title="待审核" class="proCard">
       <template #header-extra>
-        <n-tag v-if="pending.length" type="warning" size="small">{{ pending.length }} 条待审</n-tag>
+        <n-space :size="8" align="center">
+          <n-tag v-if="pending.length" type="warning" size="small">{{ pending.length }} 条待审</n-tag>
+          <span v-if="checkedIds.length" class="text-xs text-gray-400">已选 {{ checkedIds.length }} 条</span>
+          <n-button
+            size="small"
+            type="success"
+            :disabled="checkedIds.length === 0"
+            :loading="batching"
+            @click="batchApprove"
+            data-test-id="project-reviews.batch-approve-btn"
+          >
+            批量通过{{ checkedIds.length ? ` (${checkedIds.length})` : '' }}
+          </n-button>
+          <n-button
+            size="small"
+            type="warning"
+            ghost
+            :disabled="checkedIds.length === 0"
+            @click="openBatchReject"
+            data-test-id="project-reviews.batch-reject-btn"
+          >
+            批量驳回
+          </n-button>
+        </n-space>
       </template>
 
       <n-spin :show="loading">
@@ -15,8 +38,17 @@
         <n-table v-else :bordered="false" :single-line="false" size="small">
           <thead>
             <tr>
+              <th class="col-check">
+                <input
+                  type="checkbox"
+                  :checked="allChecked"
+                  :indeterminate.prop="someChecked"
+                  data-test-id="project-reviews.check-all"
+                  @change="toggleAll"
+                />
+              </th>
               <th class="col-idx">#</th>
-            <th style="width: 34%">标题</th>
+              <th style="width: 34%">标题</th>
               <th>提交人</th>
               <th>优先级</th>
               <th>完成时间</th>
@@ -24,8 +56,17 @@
             </tr>
           </thead>
           <tbody>
-            <template v-for="(t, __ix) in pending" :key="t.id" :data-test-id="`reviews.item-${t.id}`">
-              <tr>
+            <template v-for="(t, __ix) in pending" :key="t.id">
+              <tr :data-test-id="`reviews.item-${t.id}`">
+                <td class="col-check">
+                  <input
+                    type="checkbox"
+                    :value="t.id"
+                    :checked="checkedIds.includes(t.id)"
+                    :data-test-id="`project-reviews.check-${t.id}`"
+                    @change="toggleCheck(t.id)"
+                  />
+                </td>
                 <td class="col-idx">{{ __ix + 1 }}</td>
                 <td>
                   <n-button text type="info" @click="toggle(t.id)">
@@ -53,7 +94,7 @@
                 </td>
               </tr>
               <tr v-if="expanded === t.id">
-                <td colspan="5" class="review-detail">
+                <td colspan="6" class="review-detail">
                   <div v-if="t.description" class="mb-2">
                     <div class="detail-label">任务描述</div>
                     <div class="text-sm">{{ t.description }}</div>
@@ -90,6 +131,20 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- 批量驳回：统一理由逐条落评论（与审核中心同口径） -->
+    <n-modal v-model:show="showBatchReject" preset="dialog" title="批量驳回" :show-icon="false" style="width: 460px">
+      <n-space vertical :size="8" class="py-2">
+        <span class="text-sm">已选 {{ checkedIds.length }} 条将全部回到进行中，统一理由逐条落为任务评论并通知执行者</span>
+        <n-input v-model:value="batchRejectComment" type="textarea" placeholder="驳回理由（必填）" :rows="3" />
+      </n-space>
+      <template #action>
+        <n-space>
+          <n-button size="small" @click="showBatchReject = false">取消</n-button>
+          <n-button size="small" type="error" :disabled="!batchRejectComment.trim()" :loading="batching" @click="confirmBatchReject">确认驳回</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -102,6 +157,7 @@
   import 'md-editor-v3/lib/preview.css';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { getTasks, reviewTask } from '@/api/project/index';
+  import { batchReview } from '@/api/platform/index';
   import type { TaskItem } from '@/api/project/index';
   import { priorityTagType } from '@/enums/task';
 
@@ -177,10 +233,87 @@
     }
   }
 
+  // ---- 多选批量（复用审核中心 batchReview 端点） ----
+  const checkedIds = ref<number[]>([]);
+  const batching = ref(false);
+  const showBatchReject = ref(false);
+  const batchRejectComment = ref('');
+
+  const allChecked = computed(() => pending.value.length > 0 && checkedIds.value.length === pending.value.length);
+  const someChecked = computed(() => checkedIds.value.length > 0 && !allChecked.value);
+
+  function toggleCheck(id: number) {
+    checkedIds.value = checkedIds.value.includes(id)
+      ? checkedIds.value.filter((x) => x !== id)
+      : [...checkedIds.value, id];
+  }
+  function toggleAll() {
+    checkedIds.value = allChecked.value ? [] : pending.value.map((t) => t.id);
+  }
+
+  function reportFailed(failed: Array<{ id: number; error: string }>) {
+    if (failed?.length) {
+      message.warning(`${failed.length} 条失败：${failed.map((f) => `#${f.id} ${f.error}`).join('；')}`);
+    }
+  }
+
+  async function batchApprove() {
+    if (!checkedIds.value.length) return;
+    batching.value = true;
+    try {
+      const res = await batchReview({ ids: [...checkedIds.value], status: 'approved' });
+      if (res?.succeeded) message.success(`已通过 ${res.succeeded} 条`);
+      reportFailed(res?.failed || []);
+      checkedIds.value.forEach(drop);
+      checkedIds.value = [];
+      load();
+    } catch {
+      message.error('批量通过失败');
+    } finally {
+      batching.value = false;
+    }
+  }
+
+  function openBatchReject() {
+    batchRejectComment.value = '';
+    showBatchReject.value = true;
+  }
+
+  async function confirmBatchReject() {
+    if (!checkedIds.value.length || !batchRejectComment.value.trim()) return;
+    batching.value = true;
+    try {
+      const res = await batchReview({
+        ids: [...checkedIds.value],
+        status: 'rejected',
+        comment: batchRejectComment.value.trim(),
+      });
+      if (res?.succeeded) message.success(`已驳回 ${res.succeeded} 条（回到进行中）`);
+      reportFailed(res?.failed || []);
+      showBatchReject.value = false;
+      checkedIds.value.forEach(drop);
+      checkedIds.value = [];
+      load();
+    } catch {
+      message.error('批量驳回失败');
+    } finally {
+      batching.value = false;
+    }
+  }
+
   onMounted(load);
 </script>
 
 <style lang="less" scoped>
+  .col-check {
+    width: 34px;
+    text-align: center;
+
+    input[type='checkbox'] {
+      cursor: pointer;
+      accent-color: var(--primary-color, #16a34a);
+    }
+  }
   .review-detail {
     background: var(--hover-bg, #fafafa);
     padding: 12px 16px;

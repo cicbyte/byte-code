@@ -62,7 +62,8 @@
           <n-table v-else :bordered="false" :single-line="false" size="small">
             <thead>
               <tr>
-                <th style="width: 34%">用例</th>
+                <th class="num-col">#</th>
+                <th style="width: 32%">用例</th>
                 <th>映射平台用例</th>
                 <th>状态</th>
                 <th>耗时</th>
@@ -71,8 +72,9 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="c in filteredCases" :key="c.id">
+              <template v-for="(c, idx) in filteredCases" :key="c.id">
                 <tr :data-test-id="`runs.detail.case-${c.id}`">
+                  <td class="num-col">{{ idx + 1 }}</td>
                   <td>
                     <div class="text-xs" style="word-break: break-all">{{ c.title || c.externalKey }}</div>
                     <div v-if="c.externalKey && c.title" class="text-gray-400 text-xs" style="word-break: break-all">
@@ -351,6 +353,14 @@
 </script>
 
 <style scoped>
+  /* 用例序号列：窄列灰字，不抢内容视觉 */
+  .num-col {
+    width: 36px;
+    color: var(--text-3, #8b949e);
+    font-size: 12px;
+    text-align: center;
+    white-space: nowrap;
+  }
   .fail-msg {
     margin: 0;
     padding: 8px 12px;

@@ -1,19 +1,17 @@
 <template>
-  <n-grid cols="1" responsive="screen" class="-mt-4">
-    <n-grid-item>
-      <n-list>
-        <n-list-item>
-          <template #suffix>
-            <n-button type="primary" text @click="showPasswordModal = true">修改</n-button>
+  <div class="safety-setting">
+    <n-list>
+      <n-list-item>
+        <template #suffix>
+          <n-button type="primary" text @click="showPasswordModal = true" data-test-id="setting-account.pwd-edit-btn">修改</n-button>
+        </template>
+        <n-thing title="账户密码">
+          <template #description>
+            <span class="text-gray-400">定期更换密码，保障账户安全</span>
           </template>
-          <n-thing title="账户密码">
-            <template #description>
-              <span class="text-gray-400">定期更换密码，保障账户安全</span>
-            </template>
-          </n-thing>
-        </n-list-item>
-      </n-list>
-    </n-grid-item>
+        </n-thing>
+      </n-list-item>
+    </n-list>
 
     <n-modal
       v-model:show="showPasswordModal"
@@ -23,20 +21,21 @@
       negative-text="取消"
       :loading="submitting"
       @positive-click="handleSubmitPassword"
+      data-test-id="setting-account.pwd-modal"
     >
       <n-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-placement="left" label-width="80">
         <n-form-item label="旧密码" path="oldPassword">
-          <n-input v-model:value="pwdForm.oldPassword" type="password" placeholder="请输入旧密码" show-password-on="click" />
+          <n-input v-model:value="pwdForm.oldPassword" type="password" placeholder="请输入旧密码" show-password-on="click" data-test-id="setting-account.pwd-old-input" />
         </n-form-item>
         <n-form-item label="新密码" path="newPassword">
-          <n-input v-model:value="pwdForm.newPassword" type="password" placeholder="请输入新密码（6-20位）" show-password-on="click" />
+          <n-input v-model:value="pwdForm.newPassword" type="password" placeholder="请输入新密码（8-20位，含字母和数字）" show-password-on="click" data-test-id="setting-account.pwd-new-input" />
         </n-form-item>
         <n-form-item label="确认密码" path="confirmPassword">
           <n-input v-model:value="pwdForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password-on="click" />
         </n-form-item>
       </n-form>
     </n-modal>
-  </n-grid>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -101,3 +100,9 @@
     }
   }
 </script>
+
+<style lang="less" scoped>
+  .safety-setting {
+    margin-top: -16px;
+  }
+</style>
