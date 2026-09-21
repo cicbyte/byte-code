@@ -18,8 +18,7 @@
         <EmptyState v-if="!loading && list.length === 0" type="task" title="没有专题"
           description="先在知识库写 PRD，再创建专题关联它，拆解阶段后交给 Agent 持续推进" />
         <div v-for="t in list" :key="t.id" class="topic-card" :data-test-id="`project-topics.item-${t.id}`">
-          <div class="tp-head" @click="toggle(t.id)">
-            <span class="tp-caret">{{ expanded === t.id ? '▾' : '▸' }}</span>
+          <div class="tp-head" @click="openTopicDrawer(t.id)">
             <n-tag size="small" :type="t.status === 'active' ? 'info' : t.status === 'completed' ? 'success' : 'default'">
               {{ statusLabel(t.status) }}
             </n-tag>
@@ -31,64 +30,6 @@
           </div>
           <n-progress v-if="t.phaseTotal" :percentage="Math.round((t.phaseDone / t.phaseTotal) * 100)" :height="5" :show-indicator="false" class="tp-bar" />
           <div v-if="t.lastHandoff" class="tp-handoff">上次交接：{{ t.lastHandoff.slice(0, 80) }}{{ t.lastHandoff.length > 80 ? '…' : '' }}</div>
-
-          <div v-if="expanded === t.id" class="tp-detail">
-            <div v-if="t.goal" class="tp-sec"><div class="tp-label">目标</div><div class="tp-md">{{ t.goal }}</div></div>
-            <div v-if="t.acceptance" class="tp-sec"><div class="tp-label">验收标准</div><div class="tp-md">{{ t.acceptance }}</div></div>
-            <div v-if="t.docPath" class="tp-sec"><div class="tp-label">PRD 文档</div>
-              <n-button text type="info" size="small" @click="openDoc(t)">{{ t.docPath }}</n-button>
-            </div>
-            <div class="tp-sec">
-              <div class="tp-label">阶段清单</div>
-              <div v-if="t.phases.length === 0" class="tp-empty">未拆解（Agent 读 PRD 后批量导入，或在下方手动添加）</div>
-
-              <!-- 表头 -->
-              <div v-if="t.phases.length" class="ph-table ph-head-row">
-                <span class="ph-c-idx">#</span>
-                <span class="ph-c-status">状态</span>
-                <span class="ph-c-title">标题</span>
-                <span class="ph-c-assignee">负责人</span>
-                <span class="ph-c-ops"></span>
-              </div>
-
-              <template v-for="(p, pi) in t.phases" :key="p.id">
-                <div class="ph-table ph-row" :class="{ done: p.status === 'done' }">
-                  <span class="ph-c-idx">{{ pi + 1 }}</span>
-                  <span class="ph-c-status">
-                    <n-tag size="tiny" :bordered="false" :type="phaseTag(p.status)" class="ph-status-tag" @click="t.status === 'active' && cyclePhase(t, p)">
-                      {{ phaseStatusText(p.status) }}
-                    </n-tag>
-                  </span>
-                  <span class="ph-c-title" @click="openPhaseDrawer(t, p)">
-                    <span class="ph-caret">›</span>
-                    <span class="ph-title">{{ p.title }}</span>
-                    <n-tag v-if="p.taskId" size="tiny" :bordered="false" type="info" class="ph-task-tag" @click.stop="openTask(p.taskId)">
-                      历史任务 #{{ p.taskId }}
-                    </n-tag>
-                  </span>
-                  <span class="ph-c-assignee">{{ p.assigneeName || '—' }}</span>
-                  <span class="ph-c-ops">
-                    <n-button v-if="t.status === 'active' && !p.taskId" text size="tiny" type="error" @click="removePhase(t, p)">删</n-button>
-                  </span>
-                </div>
-              </template>
-
-              <div v-if="t.status === 'active'" class="phase-add">
-                <n-input
-                  v-model:value="phaseInput[t.id]"
-                  size="tiny"
-                  placeholder="添加阶段，回车确认"
-                  @keydown.enter.exact.prevent="addPhase(t)"
-                >
-                  <template #prefix><n-icon size="12"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></n-icon></template>
-                </n-input>
-              </div>
-            </div>
-            <div class="tp-acts">
-              <n-button v-if="t.status === 'active'" size="tiny" type="warning" ghost @click="finish(t, 'abandoned')">放弃</n-button>
-              <n-button v-if="t.status === 'active'" size="tiny" type="success" @click="finish(t, 'completed')">验收通过</n-button>
-            </div>
-          </div>
         </div>
         <div v-if="total > pagination.size" class="mt-4 flex justify-end">
           <n-pagination
@@ -102,6 +43,76 @@
     </n-card>
 
     <TaskDetailModal ref="taskDetailRef" @updated="load" />
+
+    <!-- 专题详情抽屉：目标/验收/PRD + 阶段清单管理，终态操作常驻 footer -->
+    <n-drawer
+      v-model:show="showTopicDrawer"
+      :width="editDrawerWidth()"
+      placement="right"
+      :auto-focus="false"
+      data-test-id="project-topics.detail-drawer"
+    >
+      <n-drawer-content :title="topicDetail?.title || '专题详情'" closable>
+        <div v-if="topicDetail" class="tp-drawer">
+          <div v-if="topicDetail.goal" class="tp-sec"><div class="tp-label">目标</div><div class="tp-md">{{ topicDetail.goal }}</div></div>
+          <div v-if="topicDetail.acceptance" class="tp-sec"><div class="tp-label">验收标准</div><div class="tp-md">{{ topicDetail.acceptance }}</div></div>
+          <div v-if="topicDetail.docPath" class="tp-sec"><div class="tp-label">PRD 文档</div>
+            <n-button text type="info" size="small" @click="openDoc(topicDetail)">{{ topicDetail.docPath }}</n-button>
+          </div>
+          <div class="tp-sec">
+            <div class="tp-label">阶段清单</div>
+            <div v-if="topicDetail.phases.length === 0" class="tp-empty">未拆解（Agent 读 PRD 后批量导入，或在下方手动添加）</div>
+
+            <!-- 表头 -->
+            <div v-if="topicDetail.phases.length" class="ph-table ph-head-row">
+              <span class="ph-c-idx">#</span>
+              <span class="ph-c-status">状态</span>
+              <span class="ph-c-title">标题</span>
+              <span class="ph-c-assignee">负责人</span>
+              <span class="ph-c-ops"></span>
+            </div>
+
+            <template v-for="(p, pi) in topicDetail.phases" :key="p.id">
+              <div class="ph-table ph-row" :class="{ done: p.status === 'done' }">
+                <span class="ph-c-idx">{{ pi + 1 }}</span>
+                <span class="ph-c-status">
+                  <n-tag size="tiny" :bordered="false" :type="phaseTag(p.status)" class="ph-status-tag" @click="topicDetail.status === 'active' && cyclePhase(topicDetail, p)">
+                    {{ phaseStatusText(p.status) }}
+                  </n-tag>
+                </span>
+                <span class="ph-c-title" @click="openPhaseDrawer(topicDetail, p)">
+                  <span class="ph-caret">›</span>
+                  <span class="ph-title">{{ p.title }}</span>
+                  <n-tag v-if="p.taskId" size="tiny" :bordered="false" type="info" class="ph-task-tag" @click.stop="openTask(p.taskId)">
+                    历史任务 #{{ p.taskId }}
+                  </n-tag>
+                </span>
+                <span class="ph-c-assignee">{{ p.assigneeName || '—' }}</span>
+                <span class="ph-c-ops">
+                  <n-button v-if="topicDetail.status === 'active' && !p.taskId" text size="tiny" type="error" @click="removePhase(topicDetail, p)">删</n-button>
+                </span>
+              </div>
+            </template>
+
+            <div v-if="topicDetail.status === 'active'" class="phase-add">
+              <n-input
+                v-model:value="phaseInput[topicDetail.id]"
+                size="tiny"
+                placeholder="添加阶段，回车确认"
+                @keydown.enter.exact.prevent="addPhase(topicDetail)"
+              >
+                <template #prefix><n-icon size="12"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></n-icon></template></n-input>
+            </div>
+          </div>
+        </div>
+        <template #footer>
+          <n-space :size="8" justify="end" v-if="topicDetail?.status === 'active'">
+            <n-button size="small" type="warning" ghost @click="finish(topicDetail, 'abandoned')">放弃</n-button>
+            <n-button size="small" type="success" @click="finish(topicDetail, 'completed')">验收通过</n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <!-- 阶段编辑抽屉：表格行点击进入，右侧滑出 -->
     <n-drawer v-model:show="showPhaseDrawer" :width="560" :mask="false" placement="right">
@@ -190,7 +201,7 @@
   import 'md-editor-v3/lib/style.css';
   import DOMPurify from 'dompurify';
   import { statusLabel, statusTagType } from '@/enums/task';
-  import { mdToolbars } from '@/utils/mdEditor';
+  import { mdToolbars, editDrawerWidth } from '@/utils/mdEditor';
   import {
     getTopics,
     appendTopicPhase,
@@ -219,13 +230,20 @@
     pagination.page = 1;
     load();
   }
-  const expanded = ref<number | null>(null);
+  // ---- 专题详情抽屉：topicDetail 由列表按 id 派生，load() 后自动保鲜 ----
+  const showTopicDrawer = ref(false);
+  const openTopicId = ref<number | null>(null);
+  const topicDetail = computed(() =>
+    openTopicId.value == null ? null : list.value.find((t) => t.id === openTopicId.value) || null
+  );
+
+  function openTopicDrawer(id: number) {
+    openTopicId.value = id;
+    showTopicDrawer.value = true;
+  }
 
   function statusLabel(s: string): string {
     return { active: '进行中', completed: '已完成', abandoned: '已放弃' }[s] || s;
-  }
-  function toggle(id: number) {
-    expanded.value = expanded.value === id ? null : id;
   }
   const taskDetailRef = ref();
   function openTask(taskId: number) {
@@ -397,6 +415,10 @@
         try {
           await finishTopic(projectId.value, t.id, result);
           message.success('已终态');
+          if (openTopicId.value === t.id) {
+            openTopicId.value = null;
+            showTopicDrawer.value = false;
+          }
           load();
         } catch (e: any) { message.error(e?.message || '操作失败'); }
       },
@@ -414,12 +436,10 @@
     margin-bottom: 12px;
   }
   .tp-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-  .tp-caret { color: var(--text-color-3, #999); width: 14px; }
   .tp-title { font-weight: 700; color: var(--text-color-1, #1f2329); flex: 1; }
   .tp-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-color-3, #9aa0a6); }
   .tp-bar { margin-top: 10px; }
   .tp-handoff { font-size: 12px; color: var(--text-color-2, #5c6470); background: #f7f8fa; border-radius: 8px; padding: 7px 10px; margin-top: 8px; }
-  .tp-detail { border-top: 1px dashed var(--border-color, #eef0f3); margin-top: 12px; padding-top: 12px; }
   .tp-sec { margin-bottom: 12px; }
   .tp-label { font-size: 12px; font-weight: 700; color: var(--text-color-2, #5c6470); margin-bottom: 6px; }
   .tp-md { font-size: 13px; color: var(--text-color-2, #5c6470); white-space: pre-wrap; line-height: 1.7; }

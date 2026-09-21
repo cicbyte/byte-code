@@ -16,27 +16,41 @@
         <EmptyState v-if="!loading && list.length === 0" type="search" title="没有匹配的 QA"
           description="解决问题后把「坑 + 解法」沉淀进来，人和 Agent 都能复用" />
         <n-space v-else vertical :size="14">
-          <div v-for="qa in list" :key="qa.id" class="qa-card" @click="toggle(qa.id)" :data-test-id="`project-qas.item-${qa.id}`">
+          <div v-for="qa in list" :key="qa.id" class="qa-card" @click="openDetail(qa)" :data-test-id="`project-qas.item-${qa.id}`">
             <div class="qa-q">
               <span class="qa-hit">{{ qa.hits }}</span>
               <span class="qa-q-text">{{ qa.question }}</span>
               <n-tag v-for="tg in splitTags(qa.tags)" :key="tg" size="tiny" :bordered="false" class="ml-2" :data-test-id="`project-qas.item-${tg}`">{{ tg }}</n-tag>
               <span class="qa-meta">{{ qa.updater }} · {{ (qa.updatedAt || '').slice(0, 10) }}</span>
             </div>
-            <div v-if="expanded === qa.id" class="qa-a">
-              <MdPreview :id="'md-qa-' + qa.id" :model-value="qa.answer" :sanitize="safeHtml" />
-              <n-space :size="8" justify="end" class="mt-2">
-                <n-button size="tiny" @click.stop="openEditor(qa)">编辑</n-button>
-                <n-popconfirm @positive-click="archive(qa)">
-                  <template #trigger><n-button size="tiny" type="error" ghost>归档</n-button></template>
-                  归档后不再出现在检索与开工包中。
-                </n-popconfirm>
-              </n-space>
-            </div>
           </div>
         </n-space>
       </n-spin>
     </n-card>
+
+    <!-- 详情抽屉：完整答案 + 编辑/归档常驻 footer -->
+    <n-drawer v-model:show="showDetail" :width="720" placement="right" :auto-focus="false">
+      <n-drawer-content :title="detail?.question || 'QA 详情'" closable>
+        <div v-if="detail" class="qa-detail">
+          <n-space size="small" align="center" class="qa-d-meta">
+            <span class="qa-hit">{{ detail.hits }}</span>
+            <n-tag v-for="tg in splitTags(detail.tags)" :key="tg" size="tiny" :bordered="false">{{ tg }}</n-tag>
+            <span class="qa-meta" style="margin-left: 0">{{ detail.updater }} · {{ (detail.updatedAt || '').slice(0, 10) }}</span>
+          </n-space>
+          <div class="qa-d-label">答案</div>
+          <MdPreview :id="'md-qa-' + detail.id" :model-value="detail.answer" :sanitize="safeHtml" />
+        </div>
+        <template #footer>
+          <n-space :size="8" v-if="detail">
+            <n-popconfirm @positive-click="archive(detail)">
+              <template #trigger><n-button size="small" type="error" ghost>归档</n-button></template>
+              归档后不再出现在检索与开工包中。
+            </n-popconfirm>
+            <n-button size="small" type="primary" ghost @click="openEditor(detail)">编辑</n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <!-- 沉淀/编辑：问题 + 答案（markdown）+ 标签 -->
     <n-modal v-model:show="showEditor" preset="dialog" :title="editForm.id ? '编辑 QA' : '沉淀 QA'" :show-icon="false" style="width: 640px">
@@ -86,16 +100,21 @@
   const loading = ref(false);
   const list = ref<QaItem[]>([]);
   const keyword = ref('');
-  const expanded = ref<number | null>(null);
 
   function safeHtml(md: string): string {
     return DOMPurify.sanitize(md);
   }
-  function toggle(id: number) {
-    expanded.value = expanded.value === id ? null : id;
-  }
   function splitTags(tags: string): string[] {
     return (tags || '').split(',').map((x) => x.trim()).filter(Boolean);
+  }
+
+  // ---- 详情抽屉 ----
+  const showDetail = ref(false);
+  const detail = ref<QaItem | null>(null);
+
+  function openDetail(qa: QaItem) {
+    detail.value = qa;
+    showDetail.value = true;
   }
 
   async function load() {
@@ -140,6 +159,10 @@
     try {
       await archiveQa(projectId.value, qa.id);
       message.success('已归档');
+      if (detail.value?.id === qa.id) {
+        detail.value = null;
+        showDetail.value = false;
+      }
       load();
     } catch (e: any) { message.error(e?.message || '归档失败'); }
   }
@@ -166,6 +189,12 @@
   }
   .qa-q-text { font-weight: 600; color: var(--text-color-1, #1f2329); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .qa-meta { margin-left: auto; flex: none; font-size: 11px; color: var(--text-color-3, #9aa1ab); }
-  .qa-a { margin-top: 10px; border-top: 1px dashed var(--border-color, #eef0f3); padding-top: 10px; cursor: default; }
+  .qa-d-meta { flex-wrap: wrap; }
+  .qa-d-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-color-2, #5c6470);
+    margin: 12px 0 6px;
+  }
   .pd-label { font-size: 12px; font-weight: 700; color: var(--text-color-2, #5c6470); }
 </style>

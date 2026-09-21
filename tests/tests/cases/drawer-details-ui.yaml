@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 详情抽屉化交互（审核中心/QA/专题/执行记录）"
+preconditions: "各页有可点数据（API 造数：待审任务/QA/专题+阶段/执行记录）"
+steps: "审核中心行点击开抽屉→footer 通过→出队；QA 卡片点击开抽屉看答案；专题卡片点击开抽屉看目标+阶段；执行记录失败用例查看按钮开抽屉看失败信息"
+expectedResult: "四页抽屉均渲染完整上下文；抽屉内操作生效（审核通过出队）"
+category: "UI 自动化"
+module: "交互规范"
+priority: "P1"
+source: human
+status: active
+externalKey: "ui/test_drawer_details.py::test_global_review_drawer_approve"

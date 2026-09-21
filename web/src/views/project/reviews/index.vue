@@ -69,8 +69,8 @@
                 </td>
                 <td class="col-idx">{{ __ix + 1 }}</td>
                 <td>
-                  <n-button text type="info" @click="toggle(t.id)">
-                    {{ expanded === t.id ? '▾' : '▸' }} {{ t.title }}
+                  <n-button text type="info" @click="openDetail(t)" :data-test-id="`reviews.title-btn-${t.id}`">
+                    {{ t.title }}
                   </n-button>
                 </td>
                 <td>
@@ -93,28 +93,51 @@
                   </n-space>
                 </td>
               </tr>
-              <tr v-if="expanded === t.id">
-                <td colspan="6" class="review-detail">
-                  <div v-if="t.description" class="mb-2">
-                    <div class="detail-label">任务描述</div>
-                    <div class="text-sm">{{ t.description }}</div>
-                  </div>
-                  <div>
-                    <div class="detail-label">Agent 产出</div>
-                    <MdPreview
-                      v-if="t.artifacts"
-                      :id="`md-review-${t.id}`"
-                      :model-value="safeHtml(t.artifacts)"
-                    />
-                    <div v-else class="text-xs text-gray-400">（无产出内容）</div>
-                  </div>
-                </td>
-              </tr>
             </template>
           </tbody>
         </n-table>
       </n-spin>
     </n-card>
+
+    <!-- 详情抽屉：描述 + Agent 产出，审核动作常驻 footer -->
+    <n-drawer v-model:show="showDetail" :width="720" placement="right" :auto-focus="false">
+      <n-drawer-content :title="detail?.title || '任务详情'" closable>
+        <div v-if="detail" class="rv-detail">
+          <n-space size="small" align="center" class="rv-meta">
+            <n-tag :type="priorityTagType(detail.priority)" size="small">P{{ detail.priority }}</n-tag>
+            <span class="rv-meta-text">
+              提交人 {{ detail.assigneeName || '-' }}
+              <n-tag v-if="detail.source === 'agent'" size="tiny" :bordered="false" type="info">Agent</n-tag>
+              · 完成于 {{ (detail.updatedAt || '').slice(0, 16) }}
+            </span>
+          </n-space>
+          <div class="rv-sec">
+            <div class="rv-label">任务描述</div>
+            <div class="rv-text">{{ detail.description || '（无描述）' }}</div>
+          </div>
+          <div class="rv-sec">
+            <div class="rv-label">Agent 产出</div>
+            <MdPreview
+              v-if="detail.artifacts"
+              :id="`md-review-${detail.id}`"
+              :model-value="safeHtml(detail.artifacts)"
+            />
+            <div v-else class="rv-empty">（无产出内容）</div>
+          </div>
+        </div>
+        <template #footer>
+          <n-space :size="8" v-if="detail">
+            <n-button size="small" type="error" ghost @click="openReject(detail)">驳回</n-button>
+            <n-popconfirm @positive-click="approve(detail)">
+              <template #trigger>
+                <n-button size="small" type="success">通过</n-button>
+              </template>
+              通过后任务转入已完成（done）。
+            </n-popconfirm>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <!-- 驳回理由：作为评论通知提交人 -->
     <n-modal v-model:show="showReject" preset="dialog" title="驳回理由" :show-icon="false">
@@ -173,13 +196,17 @@
     list.value.filter((t) => t.requiresHumanReview === 1 && t.humanReviewStatus === 'pending')
   );
 
-  const expanded = ref<number | null>(null);
   const showReject = ref(false);
   const rejectComment = ref('');
   const rejecting = ref<TaskItem | null>(null);
 
-  function toggle(id: number) {
-    expanded.value = expanded.value === id ? null : id;
+  // ---- 详情抽屉 ----
+  const showDetail = ref(false);
+  const detail = ref<TaskItem | null>(null);
+
+  function openDetail(t: TaskItem) {
+    detail.value = t;
+    showDetail.value = true;
   }
 
   // artifacts 来自 agent 产出，渲染前消毒（与任务详情抽屉同口径）
@@ -201,7 +228,11 @@
 
   function drop(id: number) {
     list.value = list.value.filter((t) => t.id !== id);
-    if (expanded.value === id) expanded.value = null;
+    // 打开中的详情被审掉（含批量）时同步收起抽屉
+    if (detail.value?.id === id) {
+      detail.value = null;
+      showDetail.value = false;
+    }
   }
 
   async function approve(t: TaskItem) {
@@ -314,13 +345,32 @@
       accent-color: var(--primary-color, #16a34a);
     }
   }
-  .review-detail {
-    background: var(--hover-bg, #fafafa);
-    padding: 12px 16px;
+
+  .rv-meta-text {
+    font-size: 12px;
+    color: var(--text-color-3, #999);
   }
-  .detail-label {
+
+  .rv-sec {
+    margin-top: 14px;
+  }
+
+  .rv-label {
     font-size: 12px;
     color: var(--text-color-3, #999);
     margin-bottom: 4px;
+  }
+
+  .rv-text {
+    font-size: 13px;
+    color: var(--text-color-2, #57606a);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.7;
+  }
+
+  .rv-empty {
+    font-size: 12px;
+    color: var(--text-color-3, #999);
   }
 </style>

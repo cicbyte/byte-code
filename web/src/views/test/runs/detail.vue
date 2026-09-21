@@ -96,8 +96,15 @@
                   <td>{{ fmtDuration(c.durationMs) }}</td>
                   <td>
                     <n-space size="small" align="center" :wrap="false">
-                      <n-button v-if="c.message || c.code" text type="info" size="small" @click="toggleExpand(c.id)">
-                        {{ expanded.has(c.id) ? '收起' : '查看' }}
+                      <n-button
+                        v-if="c.message || c.code"
+                        text
+                        type="info"
+                        size="small"
+                        @click="openCaseDetail(c)"
+                        :data-test-id="`runs.detail-view-${c.id}`"
+                      >
+                        查看
                       </n-button>
                       <router-link
                         v-if="c.bugTaskId"
@@ -137,15 +144,6 @@
                     </n-space>
                   </td>
                 </tr>
-                <tr v-if="expanded.has(c.id)">
-                  <td colspan="6">
-                    <pre class="fail-msg">{{ c.message }}</pre>
-                    <template v-if="c.code">
-                      <div class="text-xs text-gray-400 mb-1">源码快照</div>
-                      <pre class="code-snap">{{ c.code }}</pre>
-                    </template>
-                  </td>
-                </tr>
               </template>
             </tbody>
           </n-table>
@@ -158,6 +156,57 @@
         />
       </n-spin>
     </n-card>
+
+    <!-- 用例详情抽屉：失败信息 + 源码快照，转缺陷常驻 footer -->
+    <n-drawer v-model:show="showCaseDetail" :width="760" placement="right" :auto-focus="false">
+      <n-drawer-content :title="caseDetail?.title || caseDetail?.externalKey || '用例详情'" closable>
+        <div v-if="caseDetail" class="case-detail">
+          <n-space size="small" align="center" class="case-d-meta">
+            <n-tag :type="RUN_CASE_STATUS.tagType(caseDetail.status)" size="small">
+              {{ RUN_CASE_STATUS.label(caseDetail.status) }}
+            </n-tag>
+            <n-tag v-if="caseDetail.flaky" type="warning" size="small" :bordered="false">flaky</n-tag>
+            <span class="text-xs text-gray-400">{{ fmtDuration(caseDetail.durationMs) }}</span>
+            <span v-if="caseDetail.externalKey" class="text-xs text-gray-400">{{ caseDetail.externalKey }}</span>
+          </n-space>
+          <template v-if="caseDetail.message">
+            <div class="case-d-label">失败信息</div>
+            <pre class="fail-msg">{{ caseDetail.message }}</pre>
+          </template>
+          <template v-if="caseDetail.code">
+            <div class="case-d-label">源码快照</div>
+            <pre class="code-snap">{{ caseDetail.code }}</pre>
+          </template>
+          <template v-if="caseAttachments(caseDetail.id).length">
+            <div class="case-d-label">附件</div>
+            <n-space size="small">
+              <n-tag
+                v-for="a in caseAttachments(caseDetail.id)"
+                :key="a.id"
+                size="small"
+                :bordered="false"
+                class="cursor-pointer"
+                :title="a.originalName"
+                @click="openAttachment(a.id)"
+              >
+                {{ attachLabel(a.originalName) }}
+              </n-tag>
+            </n-space>
+          </template>
+        </div>
+        <template #footer>
+          <n-button
+            v-if="caseDetail && !caseDetail.bugTaskId && (caseDetail.status === 'fail' || caseDetail.status === 'error')"
+            size="small"
+            type="error"
+            ghost
+            @click="openBugDialog(caseDetail)"
+          >
+            转缺陷
+          </n-button>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <!-- 转缺陷弹窗：建 bug 任务并挂接（未指派任务会广播给绑定 agent 认领） -->
     <n-modal
@@ -222,8 +271,16 @@
   // ---------- 详情（URL 可深链：/project/:pid/test-runs/:runId） ----------
   const detailLoading = ref(false);
   const runDetail = ref<TestRunDetail | null>(null);
-  const expanded = ref(new Set<number>());
   const caseFilter = ref('all');
+
+  // ---- 用例详情抽屉 ----
+  const showCaseDetail = ref(false);
+  const caseDetail = ref<TestRunDetail['cases'][number] | null>(null);
+
+  function openCaseDetail(c: TestRunDetail['cases'][number]) {
+    caseDetail.value = c;
+    showCaseDetail.value = true;
+  }
 
   const caseFilterOptions = [
     { label: '全部用例', value: 'all' },
@@ -243,16 +300,6 @@
     if (caseFilter.value === 'pass') return runDetail.value.cases.filter((c) => c.status === 'pass');
     return runDetail.value.cases;
   });
-
-  function toggleExpand(id: number) {
-    if (expanded.value.has(id)) {
-      expanded.value.delete(id);
-    } else {
-      expanded.value.add(id);
-    }
-    // 触发响应式更新（Set 原地变更）
-    expanded.value = new Set(expanded.value);
-  }
 
   function backToList() {
     router.push(`/project/${projectId.value}/test-runs`);
@@ -295,7 +342,6 @@
   async function loadDetail() {
     detailLoading.value = true;
     runDetail.value = null;
-    expanded.value = new Set();
     try {
       const det = await getTestRunDetail(runId.value);
       runDetail.value = det;
@@ -353,6 +399,16 @@
 </script>
 
 <style scoped>
+  .case-d-meta {
+    flex-wrap: wrap;
+  }
+
+  .case-d-label {
+    font-size: 12px;
+    color: var(--text-color-3, #999);
+    margin: 12px 0 4px;
+  }
+
   /* 用例序号列：窄列灰字，不抢内容视觉 */
   .num-col {
     width: 36px;

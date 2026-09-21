@@ -24,10 +24,33 @@
         :data="list"
         :loading="loading"
         :row-key="(row: PendingReviewItem) => row.id"
+        :row-props="rowProps"
         :max-height="tableMaxHeight"
         size="small"
       />
     </n-card>
+
+    <!-- 详情抽屉：完整上下文（描述+元信息），审核动作常驻 footer -->
+    <n-drawer v-model:show="showDetail" :width="720" placement="right" :auto-focus="false">
+      <n-drawer-content :title="detail?.title || '任务详情'" closable>
+        <div v-if="detail" class="rv-detail">
+          <n-space size="small" align="center" class="rv-meta">
+            <n-tag size="small" :bordered="false">{{ detail.projectName || `#${detail.projectId}` }}</n-tag>
+            <n-tag size="small" :type="typeTagType(detail.type)">{{ typeLabel(detail.type) }}</n-tag>
+            <n-tag size="small" :type="priorityTagType(detail.priority)">P{{ detail.priority }}</n-tag>
+            <span class="rv-meta-text">提交人 {{ detail.assigneeName || '-' }} · {{ (detail.updatedAt || '').slice(0, 16) }}</span>
+          </n-space>
+          <div class="rv-desc">{{ detail.description || '（无描述）' }}</div>
+        </div>
+        <template #footer>
+          <n-space :size="8">
+            <n-button size="small" @click="gotoTask(detail!)" v-if="detail">打开任务详情</n-button>
+            <n-button size="small" type="warning" ghost @click="openReject(detail!)" v-if="detail">驳回</n-button>
+            <n-button size="small" type="success" :loading="detailApproving" @click="approveDetail" v-if="detail">通过</n-button>
+          </n-space>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
 
     <!-- 单条驳回：理由必填 -->
     <n-modal v-model:show="showReject" preset="dialog" title="驳回任务" :show-icon="false" style="width: 460px">
@@ -99,6 +122,11 @@
     list.value = list.value.filter((t) => !ids.includes(t.id));
     total.value = Math.max(0, total.value - ids.length);
     checkedKeys.value = checkedKeys.value.filter((id) => !ids.includes(id));
+    // 打开中的详情被审掉（含批量）时同步收起抽屉
+    if (detail.value && ids.includes(detail.value.id)) {
+      detail.value = null;
+      showDetail.value = false;
+    }
   }
 
   function reportFailed(failed: Array<{ id: number; title: string; error: string }>) {
@@ -192,16 +220,38 @@
     }
   }
 
+  // ---- 详情抽屉 ----
+  const showDetail = ref(false);
+  const detail = ref<PendingReviewItem | null>(null);
+  const detailApproving = ref(false);
+
+  function openDetail(row: PendingReviewItem) {
+    detail.value = row;
+    showDetail.value = true;
+  }
+
+  async function approveDetail() {
+    if (!detail.value) return;
+    detailApproving.value = true;
+    try {
+      await approve(detail.value);
+      showDetail.value = false;
+    } finally {
+      detailApproving.value = false;
+    }
+  }
+
+  // 行点击开抽屉（锚点经 row-props 落 tr）
+  function rowProps(row: PendingReviewItem) {
+    return {
+      style: 'cursor: pointer;',
+      'data-test-id': `reviews.item-${row.id}`,
+      onClick: () => openDetail(row),
+    };
+  }
+
   const columns = computed<DataTableColumns<PendingReviewItem>>(() => [
     { type: 'selection' },
-    {
-      type: 'expand',
-      renderExpand: (row) =>
-        h('div', { class: 'review-expand' }, [
-          h('div', { class: 'review-expand-label' }, '任务描述'),
-          h('div', { class: 'review-expand-desc' }, row.description || '（无描述）'),
-        ]),
-    },
     {
       title: '任务',
       key: 'title',
@@ -209,7 +259,15 @@
         h(NSpace, { size: 6, align: 'center' }, () => [
           h(
             NButton,
-            { text: true, type: 'info', onClick: () => gotoTask(row) },
+            {
+              text: true,
+              type: 'info',
+              // 标题直跳任务页；阻止冒泡避免同时触发行点击开抽屉
+              onClick: (e: Event) => {
+                e.stopPropagation();
+                gotoTask(row);
+              },
+            },
             () => row.title,
           ),
         ]),
@@ -256,22 +314,17 @@
 </script>
 
 <style lang="less" scoped>
-  :deep(.review-expand) {
-    padding: 4px 8px;
+  .rv-meta-text {
+    font-size: 12px;
+    color: var(--text-color-3, #8b949e);
+  }
 
-    .review-expand-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-color-2, #5c6470);
-      margin-bottom: 4px;
-    }
-
-    .review-expand-desc {
-      font-size: 13px;
-      color: var(--text-color-2, #5c6470);
-      white-space: pre-wrap;
-      line-height: 1.7;
-      max-width: 720px;
-    }
+  .rv-desc {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-color-2, #57606a);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.75;
   }
 </style>
