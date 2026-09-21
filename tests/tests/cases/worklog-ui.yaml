@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 工作日志页：手写发布、日期分组、任务草稿闭环"
+preconditions: "API 已造日志与已完成任务"
+steps: "打开工作日志 → 校验日期分组 → 手写发布 → 编辑 → 从任务生成草稿 → 发布草稿"
+expectedResult: "分组头渲染；发布/编辑生效；草稿含任务标题并可发布"
+category: "UI 自动化"
+module: "工作日志"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_worklogs_page.py::test_worklog_draft_from_tasks"

@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "工作日志草稿：期内任务+发布汇总、范围校验"
+preconditions: "项目内有当日完成任务（带 artifacts）与当日发布"
+steps: "GET draft（from=to=今天）→ 校验任务标题/产物/版本进文本且不落库 → from>to、非法格式、超 92 天负路径"
+expectedResult: "taskCount/releaseCount 正确、内容含标题与产物、列表不增；负路径明确拒绝"
+category: "API 自动化"
+module: "工作日志"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_worklogs.py::test_draft_aggregates_tasks_and_releases"

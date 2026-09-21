@@ -240,6 +240,49 @@ func (c *projectController) ConvertDiscussion(ctx context.Context, req *api.Disc
 	return &api.DiscussionConvertRes{TaskId: taskId, DiscussId: req.Id}, nil
 }
 
+// ==================== 工作日志 ====================
+
+func (c *projectController) CreateWorklog(ctx context.Context, req *api.WorklogCreateReq) (*api.WorklogCreateRes, error) {
+	id, err := service.Project().CreateWorklog(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return &api.WorklogCreateRes{Id: id}, nil
+}
+
+func (c *projectController) ListWorklogs(ctx context.Context, req *api.WorklogListReq) (res *api.WorklogListRes, err error) {
+	if req.PageNum == 0 {
+		req.PageNum = 1
+	}
+	total, list, err := service.Project().ListWorklogs(ctx, req)
+	if err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	res = new(api.WorklogListRes)
+	res.Total = total
+	res.CurrentPage = req.PageNum
+	res.List = list
+	return
+}
+
+func (c *projectController) UpdateWorklog(ctx context.Context, req *api.WorklogUpdateReq) (*api.WorklogUpdateRes, error) {
+	if err := service.Project().UpdateWorklog(ctx, req); err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return new(api.WorklogUpdateRes), nil
+}
+
+func (c *projectController) DeleteWorklog(ctx context.Context, req *api.WorklogDeleteReq) (*api.WorklogDeleteRes, error) {
+	if err := service.Project().DeleteWorklog(ctx, req.Id); err != nil {
+		return nil, gerror.New(err.Error())
+	}
+	return new(api.WorklogDeleteRes), nil
+}
+
+func (c *projectController) WorklogDraft(ctx context.Context, req *api.WorklogDraftReq) (*api.WorklogDraftRes, error) {
+	return service.Project().WorklogDraft(ctx, req)
+}
+
 func (c *projectController) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (res *api.TaskReleaseRes, err error) {
 	err = service.Project().ReleaseTask(ctx, req)
 	res = new(api.TaskReleaseRes)

@@ -58,6 +58,17 @@ const routes: Array<RouteRecordRaw> = [
             component: () => import('@/views/project/overview/index.vue'),
           },
           {
+            // 工作日志：项目演化叙事（「做了什么、结果如何」），日期分组
+            // 时间轴；成员与 agent 撰写，可从已完成任务/发布生成草稿
+            path: 'worklogs',
+            name: `${routeName}_worklogs`,
+            meta: {
+              title: '工作日志',
+              hideInMenu: true,
+            },
+            component: () => import('@/views/project/worklogs/index.vue'),
+          },
+          {
             path: 'board',
             name: `${routeName}_board`,
             meta: {

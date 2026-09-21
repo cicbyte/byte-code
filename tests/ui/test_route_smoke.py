@@ -120,6 +120,15 @@ def test_project_overview(logged_in, frontend, smoke_pid):
     assert _wait_text(page, logged_in, "项目概览")
 
 
+def test_project_worklogs(logged_in, frontend, smoke_pid):
+    page = UiBase(logged_in, frontend)
+    page.goto(f"/project/{smoke_pid}/worklogs")
+    assert _wait_text(page, logged_in, "工作日志")
+    # 主交互：写日志弹窗可开可关（不发布，空态即有效断言）
+    page.click("project-worklog.add-btn")
+    assert page.wait_ele("project-worklog.editor-modal", timeout=10)
+
+
 def test_project_topics(logged_in, frontend, smoke_pid):
     page = UiBase(logged_in, frontend)
     page.goto(f"/project/{smoke_pid}/topics")

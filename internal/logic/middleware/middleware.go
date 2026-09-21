@@ -180,6 +180,7 @@ var projectEntityRules = []struct {
 	{regexp.MustCompile(`^/api/v1/test-cases/(\d+)`), "test_cases"},
 		{regexp.MustCompile(`^/api/v1/releases/(\d+)`), "project_releases"},
 		{regexp.MustCompile(`^/api/v1/discussions/(\d+)`), "discussions"},
+		{regexp.MustCompile(`^/api/v1/worklogs/(\d+)`), "worklogs"},
 	{regexp.MustCompile(`^/api/v1/test-plans/(\d+)`), "test_plans"},
 	{regexp.MustCompile(`^/api/v1/test-runs/(\d+)`), "test_runs"},
 	{regexp.MustCompile(`^/api/v1/db-tables/(\d+)`), "db_tables"},

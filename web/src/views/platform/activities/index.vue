@@ -89,10 +89,11 @@
       case 'feedback': router.push(`/project/${pid}/feedbacks`); break;
       case 'project': router.push(`/project/${item.targetId}/overview`); break;
       case 'test_plan_case': router.push(`/project/${pid}/test-plans`); break;
+      case 'worklog': router.push(`/project/${pid}/worklogs`); break;
     }
   }
   function jumpable(item: any): boolean {
-    return !!item.targetId && ['task', 'topic', 'feedback', 'project', 'test_plan_case'].includes(item.targetType);
+    return !!item.targetId && ['task', 'topic', 'feedback', 'project', 'test_plan_case', 'worklog'].includes(item.targetType);
   }
 
   function timelineType(action: string): 'default' | 'info' | 'success' | 'warning' | 'error' {

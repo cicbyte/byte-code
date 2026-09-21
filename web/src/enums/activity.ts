@@ -10,6 +10,9 @@ export const ACTION_LABELS: Record<string, string> = {
   'test_case.created': '创建了测试用例', 'test_case.deleted': '删除了测试用例',
   'test_case.executed': '执行了测试用例',
   'attachment.uploaded': '上传了附件', 'attachment.deleted': '删除了附件',
+  'discussion.created': '发起了讨论', 'discussion.replied': '回复了讨论',
+  'discussion.converted': '将讨论转为任务',
+  'worklog.created': '记录了工作日志',
 };
 
 export function actionText(a: string): string {
@@ -20,4 +23,5 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   project: '项目', requirement: '需求', task: '任务', sprint: '迭代',
   test_plan: '测试计划', test_case: '测试用例', attachment: '附件',
   doc: '文档', comment: '评论', ai_user: 'Agent', user: '用户',
+  discussion: '讨论', worklog: '工作日志',
 };

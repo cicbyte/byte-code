@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "工作日志门禁：能力位、作者/maintainer 编辑删除"
+preconditions: "全能 agent、收窄 agent（无 worklog 能力）、member、owner 各一"
+steps: "member 创建 → 全能 agent 写（署名 ai）→ 收窄 agent 写拒 → 非作者编辑/删除拒 → owner 删除"
+expectedResult: "能力位文案拒绝；越权拒；作者/owner 编辑删除成功"
+category: "API 自动化"
+module: "工作日志"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_worklogs.py::test_edit_delete_gate"

@@ -41,6 +41,7 @@
     DashboardOutlined,
     RocketOutlined,
     MessageOutlined,
+    HistoryOutlined,
   } from '@vicons/antd';
   import { useEntityContext } from '@/store/modules/entityContext';
 
@@ -58,6 +59,7 @@
   // 二级项图标按路径段映射——纯视觉，缺省兜底；标题与顺序不在此定义
   const iconBySegment: Record<string, any> = {
     overview: HomeOutlined,
+    worklogs: HistoryOutlined,
     board: AppstoreOutlined,
     tasks: UnorderedListOutlined,
     requirements: ProfileOutlined,
