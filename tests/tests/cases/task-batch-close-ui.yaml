@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 任务列表批量关闭闭环"
+preconditions: "API 已造 2 个 done 任务"
+steps: "任务列表勾选 2 个已完成行 → 批量条计数 → 确认弹窗关闭 → 断言 toast 与状态转 closed（勾选框随 done 消失）"
+expectedResult: "批量条显示计数 2；关闭成功 toast；行状态变已关闭；done 行勾选框消失"
+category: "UI 自动化"
+module: "任务管理"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_tasks_batch_close.py::test_tasks_batch_close"

@@ -39,10 +39,35 @@
         <n-button type="primary" @click="openCreate">新建任务</n-button>
       </n-space>
 
+      <!-- 批量关闭操作条：勾选已完成任务后出现 -->
+      <div v-if="checkedIds.length" class="batch-bar">
+        <span class="text-xs text-gray-400">已选 {{ checkedIds.length }} 个已完成任务</span>
+        <n-button
+          size="small"
+          type="warning"
+          :loading="batchClosing"
+          @click="handleBatchClose"
+          data-test-id="tasks.batch-close-btn"
+        >
+          批量关闭 ({{ checkedIds.length }})
+        </n-button>
+        <n-button size="small" quaternary @click="checkedIds = []">清除</n-button>
+      </div>
+
       <n-spin :show="loading">
       <n-table :bordered="false" :single-line="false" size="small">
         <thead>
           <tr>
+            <th class="col-check">
+              <input
+                v-if="closableTasks.length"
+                type="checkbox"
+                :checked="allClosableChecked"
+                :indeterminate.prop="someChecked"
+                data-test-id="tasks.check-all"
+                @change="toggleAll"
+              />
+            </th>
             <th class="col-idx">#</th>
             <th>标题</th>
             <th>类型</th>
@@ -58,6 +83,16 @@
         </thead>
         <tbody>
           <tr v-for="(task, __ix) in taskList" :key="task.id" :data-test-id="`tasks.row-${task.id}`">
+            <td class="col-check">
+              <input
+                v-if="task.status === 'done'"
+                type="checkbox"
+                :value="task.id"
+                :checked="checkedIds.includes(task.id)"
+                :data-test-id="`tasks.check-${task.id}`"
+                @change="toggleCheck(task.id)"
+              />
+            </td>
             <td class="col-idx">{{ __ix + 1 }}</td>
             <td>
               <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
@@ -186,11 +221,11 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+  import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { getTags } from '@/api/platform/index';
-  import { getTasks, createTask, updateTask, deleteTask, getMembers } from '@/api/project/index';
+  import { getTasks, createTask, updateTask, deleteTask, getMembers, batchCloseTasks } from '@/api/project/index';
   import { usePagedList } from '@/composables/usePagedList';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
@@ -401,6 +436,59 @@
     });
   }
 
+  // ==================== 批量关闭（done→closed 清账） ====================
+  // 勾选仅对已完成行开放：批量语义是清账，不是批量取消进行中的工作
+  const checkedIds = ref<number[]>([]);
+  const batchClosing = ref(false);
+  const closableTasks = computed(() => (taskList.value as any[]).filter((t) => t.status === 'done'));
+  const allClosableChecked = computed(
+    () => closableTasks.value.length > 0 && closableTasks.value.every((t) => checkedIds.value.includes(t.id))
+  );
+  const someChecked = computed(() => checkedIds.value.length > 0 && !allClosableChecked.value);
+
+  function toggleCheck(id: number) {
+    checkedIds.value = checkedIds.value.includes(id)
+      ? checkedIds.value.filter((x) => x !== id)
+      : [...checkedIds.value, id];
+  }
+  function toggleAll() {
+    checkedIds.value = allClosableChecked.value ? [] : closableTasks.value.map((t) => t.id);
+  }
+
+  // 翻页/筛选/重载后清掉已不在当前页或已非 done 的勾选
+  watch(taskList, (rows) => {
+    const ids = new Set((rows as any[]).filter((t) => t.status === 'done').map((t) => t.id));
+    checkedIds.value = checkedIds.value.filter((id) => ids.has(id));
+  });
+
+  function handleBatchClose() {
+    if (!checkedIds.value.length) return;
+    dialog.warning({
+      title: '批量关闭任务',
+      content: `已选 ${checkedIds.value.length} 个已完成任务将转入终态（closed），不再出现在活跃列表。`,
+      positiveText: '关闭',
+      negativeText: '取消',
+      onPositiveClick: async () => {
+        batchClosing.value = true;
+        try {
+          const res = await batchCloseTasks(projectId.value, [...checkedIds.value]);
+          if (res?.succeeded) message.success(`已关闭 ${res.succeeded} 个任务`);
+          if (res?.failed?.length) {
+            message.warning(
+              `${res.failed.length} 个未关闭：${res.failed.map((f) => `#${f.id} ${f.error}`).join('；')}`
+            );
+          }
+          checkedIds.value = [];
+          loadTasks();
+        } catch (e: any) {
+          message.error(e?.message || '批量关闭失败');
+        } finally {
+          batchClosing.value = false;
+        }
+      },
+    });
+  }
+
   function handleDelete(task: TaskItem) {
     dialog.warning({
       title: '确认删除',
@@ -438,6 +526,29 @@
 
   .cursor-pointer {
     cursor: pointer;
+  }
+
+  .col-check {
+    width: 34px;
+    text-align: center;
+
+    input[type='checkbox'] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--primary-color, #18a058);
+      cursor: pointer;
+    }
+  }
+
+  .batch-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(240, 160, 32, 0.35);
+    background: rgba(240, 160, 32, 0.07);
+    border-radius: 6px;
   }
 
   .task-form-grid {

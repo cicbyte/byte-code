@@ -644,6 +644,20 @@ export function deleteTask(id: number) {
   return Alova.Delete(`/v1/tasks/${id}`);
 }
 
+export interface TaskBatchFailItem {
+  id: number;
+  title: string;
+  error: string;
+}
+
+/** 批量关闭已完成任务（done→closed 清账；非 done 逐条报失败） */
+export function batchCloseTasks(pid: number, ids: number[]) {
+  return Alova.Post<{ succeeded: number; failed: TaskBatchFailItem[] }>(
+    `/v1/projects/${pid}/tasks/batch-close`,
+    { ids }
+  );
+}
+
 /** 审核任务 */
 export function reviewTask(id: number, data: { status: 'approved' | 'rejected'; comment?: string }) {
   return Alova.Post(`/v1/tasks/${id}/review`, data);

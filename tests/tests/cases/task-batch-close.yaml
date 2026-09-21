@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "任务批量关闭：done→closed 清账与失败明细"
+preconditions: "项目内已有 done 任务、open 任务与跨项目任务"
+steps: "批量关闭 done×2 → 混合批次（done/open/不存在）→ agent 调用 → 重复关闭已 closed → 跨项目 id"
+expectedResult: "done 全部转 closed；混合批次 succeeded=1 且逐条报因（仅已完成/任务不存在）；agent 拒（仅限人类）；已关闭报「已关闭」；跨项目报「不属于该项目」"
+category: "API 自动化"
+module: "任务管理"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_task_batch_close.py::test_batch_close_mixed_and_missing"

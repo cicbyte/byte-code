@@ -287,6 +287,10 @@ func (c *projectController) WorklogDraft(ctx context.Context, req *api.WorklogDr
 	return service.Project().WorklogDraft(ctx, req)
 }
 
+func (c *projectController) BatchCloseTasks(ctx context.Context, req *api.TaskBatchCloseReq) (*api.TaskBatchCloseRes, error) {
+	return service.Project().BatchCloseTasks(ctx, req)
+}
+
 func (c *projectController) ReleaseTask(ctx context.Context, req *api.TaskReleaseReq) (res *api.TaskReleaseRes, err error) {
 	err = service.Project().ReleaseTask(ctx, req)
 	res = new(api.TaskReleaseRes)

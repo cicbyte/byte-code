@@ -278,6 +278,55 @@ func (s *sProject) ReopenTask(ctx context.Context, req *api.TaskReopenReq) (err 
 	return nil
 }
 
+// BatchCloseTasks 批量关闭已完成任务（done→closed 清账）：仅限人类
+// （单条状态流转同口径）；逐条条件更新（WHERE status='done'）防并发，
+// 非 done/跨项目/已关闭逐条报失败，不阻断整批
+func (s *sProject) BatchCloseTasks(ctx context.Context, req *api.TaskBatchCloseReq) (res *api.TaskBatchCloseRes, err error) {
+	isAgent, aerr := actorIsAgent(ctx)
+	if aerr != nil {
+		return nil, aerr
+	}
+	if isAgent {
+		return nil, fmt.Errorf("批量关闭仅限人类用户（与任务状态流转同口径）")
+	}
+	res = &api.TaskBatchCloseRes{Failed: []api.TaskBatchFailItem{}}
+	for _, id := range req.Ids {
+		task, terr := s.GetTask(ctx, id)
+		if terr != nil || task == nil {
+			res.Failed = append(res.Failed, api.TaskBatchFailItem{Id: id, Title: "", Error: "任务不存在"})
+			continue
+		}
+		if task.ProjectId != req.ProjectId {
+			res.Failed = append(res.Failed, api.TaskBatchFailItem{Id: id, Title: task.Title, Error: "不属于该项目"})
+			continue
+		}
+		if task.Status == consts.TaskStatusClosed {
+			res.Failed = append(res.Failed, api.TaskBatchFailItem{Id: id, Title: task.Title, Error: "已关闭"})
+			continue
+		}
+		if task.Status != consts.TaskStatusDone {
+			res.Failed = append(res.Failed, api.TaskBatchFailItem{Id: id, Title: task.Title, Error: "仅已完成任务可关闭"})
+			continue
+		}
+		result, uerr := g.DB().Model("tasks").Ctx(ctx).
+			Where("id", id).
+			Where("status", consts.TaskStatusDone).
+			Data(g.Map{"status": consts.TaskStatusClosed}).Update()
+		if uerr != nil {
+			res.Failed = append(res.Failed, api.TaskBatchFailItem{Id: id, Title: task.Title, Error: "更新失败"})
+			continue
+		}
+		if rows, _ := result.RowsAffected(); rows == 0 {
+			// 读取与更新之间被他人流转/关闭——重新分类报因
+			res.Failed = append(res.Failed, api.TaskBatchFailItem{Id: id, Title: task.Title, Error: "状态已变更，请刷新"})
+			continue
+		}
+		res.Succeeded++
+		s.recordActivity(ctx, perm.UserId(ctx), "task.closed", "task", id, task.Title, req.ProjectId, "批量关闭")
+	}
+	return res, nil
+}
+
 func (s *sProject) ReviewTask(ctx context.Context, req *api.TaskReviewReq) (err error) {
 	// 人审门禁：agent 不能自审通过自己提交的任务（CanAccessProject 对绑定
 	// agent 放行，此处是审核语义的最后防线）；身份查询失败同样拒绝

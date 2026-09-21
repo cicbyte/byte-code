@@ -44,6 +44,7 @@ type IProject interface {
 	UpdateWorklog(ctx context.Context, req *api.WorklogUpdateReq) (err error)
 	DeleteWorklog(ctx context.Context, id int) (err error)
 	WorklogDraft(ctx context.Context, req *api.WorklogDraftReq) (res *api.WorklogDraftRes, err error)
+	BatchCloseTasks(ctx context.Context, req *api.TaskBatchCloseReq) (res *api.TaskBatchCloseRes, err error)
 
 	// 项目成员
 	AddMember(ctx context.Context, req *api.MemberAddReq) (err error)

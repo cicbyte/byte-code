@@ -429,6 +429,27 @@ type TaskReopenRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// TaskBatchCloseReq 批量关闭已完成任务（done→closed 清账）：仅限人类
+// （与单条状态流转同口径，agent 走 claim/complete 专用端点）；逐条条件
+// 更新，非 done / 跨项目 / 已关闭的逐条报失败不阻断整批
+type TaskBatchCloseReq struct {
+	g.Meta    `path:"/projects/{projectId}/tasks/batch-close" method:"post" tags:"任务管理" summary:"批量关闭已完成任务"`
+	ProjectId int   `json:"-" in:"path" v:"required#项目ID不能为空"`
+	Ids       []int `json:"ids" v:"required#任务ID不能为空"`
+}
+
+type TaskBatchFailItem struct {
+	Id    int    `json:"id"`
+	Title string `json:"title"`
+	Error string `json:"error"`
+}
+
+type TaskBatchCloseRes struct {
+	g.Meta    `mime:"application/json"`
+	Succeeded int                  `json:"succeeded" dc:"成功关闭条数"`
+	Failed    []TaskBatchFailItem `json:"failed" dc:"失败明细（非已完成/已关闭/不属于该项目）"`
+}
+
 type TaskCompleteRes struct {
 	g.Meta `mime:"application/json"`
 }
