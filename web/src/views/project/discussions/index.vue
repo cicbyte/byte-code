@@ -114,11 +114,15 @@
 
         <template #footer>
           <div v-if="detail && detail.status !== 'archived'">
-            <n-input
-              v-model:value="replyDraft"
-              type="textarea"
-              placeholder="回复讨论（支持多行文本；agent 参与@提及见 v2）"
-              :rows="3"
+            <MdEditor
+              v-model="replyDraft"
+              editor-id="disc-reply-editor"
+              class="ds-reply-editor"
+              placeholder="回复讨论（支持 markdown；agent 参与@提及见 v2）"
+              :theme="isDark ? 'dark' : 'light'"
+              :toolbars="mdToolbars"
+              :footers="[]"
+              :sanitize="safeHtml"
               data-test-id="discussions.reply-input"
             />
             <div class="mt-2 text-right">
@@ -155,10 +159,11 @@
         <n-form-item label="背景（markdown）">
           <MdEditor
             v-model="createForm.body"
+            editor-id="disc-create-editor"
             class="ds-create-editor"
             placeholder="背景、动机、初步想法……给参与的人（和 AI）足够的上下文"
             :theme="isDark ? 'dark' : 'light'"
-            :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+            :toolbars="mdToolbars"
             :footers="[]"
             :sanitize="safeHtml"
             data-test-id="discussions.body-input"
@@ -204,6 +209,7 @@
   import DOMPurify from 'dompurify';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
   import { useDesignSetting } from '@/store/modules/designSetting';
+  import { mdToolbars } from '@/utils/mdEditor';
   import {
     getDiscussions,
     createDiscussion,
@@ -542,8 +548,12 @@
     word-break: break-word;
   }
 
-  /* 发起弹窗里的编辑器高度 */
+  /* 发起弹窗/回复区的编辑器高度 */
   .ds-create-editor {
     height: 280px;
+  }
+
+  .ds-reply-editor {
+    height: 220px;
   }
 </style>

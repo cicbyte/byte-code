@@ -34,8 +34,13 @@ def test_discussions_create_reply_convert(logged_in, frontend, ui_disc):
     assert page.wait_ele("discussions.detail-title", timeout=15)
     assert "UI 验收讨论" in page.text_of("discussions.detail-title")
 
-    # 回复闭环
-    page.input("discussions.reply-input", "UI 回复：赞成")
+    # 回复闭环（MdEditor/CodeMirror：下钻 contenteditable 输入）
+    reply_box = page.ele("discussions.reply-input").ele("css:.cm-content")
+    reply_box.click()
+    try:
+        reply_box.input("UI 回复：赞成")
+    except Exception:
+        logged_in.actions.move_to(reply_box).type("UI 回复：赞成")
     page.click("discussions.reply-btn")
     assert logged_in.wait.ele_displayed("text:UI 回复：赞成", timeout=10)
 

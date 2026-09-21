@@ -4,7 +4,7 @@ requirementId: 0
 taskId: 0
 title: "UI 讨论页：表格+抽屉、回复、转任务闭环"
 preconditions: "API 已造讨论线程"
-steps: "表格行点击开详情抽屉 → 回复（底部常驻框）→ 转任务 → 关抽屉后新建讨论（正文 md-editor）"
+steps: "表格行点击开详情抽屉 → MdEditor 回复（底部常驻）→ 转任务 → 关抽屉后新建讨论（正文 md-editor）"
 expectedResult: "抽屉大容器渲染正文与回复流；回复出现；已转任务链接；新建成功"
 category: "UI 自动化"
 module: "讨论区"
