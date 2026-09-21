@@ -46,7 +46,15 @@ def test_discussions_create_reply_convert(logged_in, frontend, ui_disc):
     assert logged_in.wait.ele_displayed("text:已转任务", timeout=10)
     assert page.wait_ele("discussions.task-link", timeout=10)
 
-    # 新建讨论弹窗闭环（标题必填）
+    # 抽屉遮罩会盖住卡片的发起按钮：先关抽屉，并把鼠标从右上角挪开
+    # （关抽屉后指针恰悬停全局头部「项目配置」按钮，其 tooltip 会残留盖住发起按钮）
+    logged_in.ele("css:.n-drawer .n-base-close").click()
+    import time as _t
+
+    logged_in.actions.move_to(logged_in.ele("css:.proCard"))
+    _t.sleep(0.8)
+
+    # 新建讨论弹窗闭环（标题必填；正文 md-editor 渲染）
     page.click("discussions.create-btn")
     page.input("discussions.title-input", "冒烟新建的讨论")
     logged_in.ele("text:发布").click()

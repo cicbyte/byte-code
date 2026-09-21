@@ -1,8 +1,12 @@
 <template>
   <div>
     <n-card :bordered="false" class="proCard">
-      <n-space size="small" align="center" justify="space-between" class="mb-3">
-        <n-space size="small" align="center">
+      <template #header>
+        讨论区
+        <span class="text-xs text-gray-400 ml-2 font-normal">想法先聊再建：讨论成熟后可一键转任务，背景不丢失</span>
+      </template>
+      <template #header-extra>
+        <n-space :size="8">
           <n-select
             v-model:value="statusFilter"
             :options="statusOptions"
@@ -10,153 +14,131 @@
             style="width: 110px"
             @update:value="reload"
           />
-          <span class="text-xs text-gray-400">想法先聊再建：讨论成熟后可一键转任务，背景不丢失</span>
+          <n-button type="primary" size="small" @click="openCreate" data-test-id="discussions.create-btn">
+            <template #icon>
+              <n-icon><PlusOutlined /></n-icon>
+            </template>
+            发起讨论
+          </n-button>
         </n-space>
-        <n-button type="primary" size="small" @click="openCreate" data-test-id="discussions.create-btn">
-          <template #icon>
-            <n-icon><PlusOutlined /></n-icon>
-          </template>
-          发起讨论
-        </n-button>
-      </n-space>
+      </template>
 
-      <n-grid :x-gap="14" :cols="24" responsive="screen" item-responsive>
-        <!-- 左：线程列表 -->
-        <n-grid-item span="24 m:10 l:8">
-          <n-spin :show="loading">
-            <EmptyState
-              type="data"
-              title="暂无讨论"
-              description="有了想法先发起讨论，团队成员与 AI 都可以参与"
-              v-if="!loading && list.length === 0"
-            />
-            <div class="ds-list">
-              <div
-                v-for="d in list"
-                :key="d.id"
-                class="ds-row"
-                :class="{ active: d.id === activeId }"
-                :data-test-id="`discussions.row-${d.id}`"
-                @click="openDetail(d.id)"
-              >
-                <span class="ds-status-dot" :class="`st-${d.status}`"></span>
-                <div class="ds-row-main">
-                  <div class="ds-row-title">{{ d.title }}</div>
-                  <div class="text-xs text-gray-400">
-                    {{ d.authorName || '-' }} · {{ relTime(d.updatedAt) }}
-                  </div>
-                </div>
-                <n-tag v-if="d.status === 'converted'" size="tiny" type="success" :bordered="false">
-                  已转 #{{ d.convertedTaskId }}
-                </n-tag>
-                <span v-else-if="d.status === 'archived'" class="text-xs text-gray-400">已归档</span>
-                <span class="ds-reply-count">
-                  <n-icon size="13"><MessageOutlined /></n-icon>
-                  {{ d.replyCount }}
-                </span>
-              </div>
-            </div>
-            <div class="mt-3 flex justify-end" v-if="total > pageSize">
-              <n-pagination v-model:page="page" :page-size="pageSize" :item-count="total" @update:page="loadData" />
-            </div>
-          </n-spin>
-        </n-grid-item>
-
-        <!-- 右：详情 -->
-        <n-grid-item span="24 m:14 l:16">
+      <n-data-table
+        :columns="columns"
+        :data="list"
+        :loading="loading"
+        :row-props="rowProps"
+        :max-height="tableMaxHeight"
+        size="small"
+      >
+        <template #empty>
           <EmptyState
             type="data"
-            title="未选择讨论"
-            description="从左侧选择一个讨论查看与参与"
-            v-if="!detail"
+            title="暂无讨论"
+            description="有了想法先发起讨论，团队成员与 AI 都可以参与"
           />
-          <n-spin v-else :show="detailLoading">
-            <div class="ds-detail">
-              <n-space size="small" align="center" justify="space-between">
-                <n-space size="small" align="center">
-                  <h3 class="ds-title" data-test-id="discussions.detail-title">{{ detail.title }}</h3>
-                  <n-tag v-if="detail.status === 'converted'" size="small" type="success" :bordered="false">
-                    已转任务
-                    <router-link
-                      class="ml-1"
-                      :to="`/project/${detail.projectId}/tasks`"
-                      data-test-id="discussions.task-link"
-                    >
-                      #{{ detail.convertedTaskId }}
-                    </router-link>
-                  </n-tag>
-                  <n-tag v-else-if="detail.status === 'archived'" size="small" :bordered="false">已归档</n-tag>
-                </n-space>
-                <n-space size="small" :wrap="false">
-                  <n-button
-                    v-if="detail.status !== 'converted'"
-                    text
-                    type="warning"
-                    size="small"
-                    @click="openConvert"
-                    data-test-id="discussions.convert-btn"
-                  >
-                    转为任务
-                  </n-button>
-                  <n-button text size="small" @click="toggleArchive" data-test-id="discussions.archive-btn">
-                    {{ detail.status === 'archived' ? '恢复' : '归档' }}
-                  </n-button>
-                  <n-button text type="error" size="small" @click="handleDelete" data-test-id="discussions.del-btn">
-                    删除
-                  </n-button>
-                </n-space>
-              </n-space>
-              <div class="text-xs text-gray-400 mt-1">
-                {{ detail.authorName || '-' }}
-                <n-tag v-if="detail.authorType === 'ai'" size="tiny" type="info" :bordered="false">AI</n-tag>
-                · {{ detail.createdAt }}
-              </div>
+        </template>
+      </n-data-table>
 
-              <div class="ds-body mt-3">
-                <MdPreview :model-value="detail.body || '（无正文）'" :sanitize="safeHtml" />
-              </div>
-
-              <n-divider style="margin: 12px 0 8px" />
-              <div class="text-sm font-medium mb-2">回复（{{ detail.replies.length }}）</div>
-              <div class="ds-replies">
-                <div v-for="r in detail.replies" :key="r.id" class="ds-reply" :data-test-id="`discussions.reply-${r.id}`">
-                  <div class="text-xs text-gray-400 mb-1">
-                    {{ r.userName || '-' }}
-                    <n-tag v-if="r.userType === 'ai'" size="tiny" type="info" :bordered="false">AI</n-tag>
-                    · {{ r.createdAt }}
-                  </div>
-                  <div class="ds-reply-content">{{ r.content }}</div>
-                </div>
-                <div v-if="detail.replies.length === 0" class="text-xs text-gray-400">还没有回复，说说你的想法</div>
-              </div>
-
-              <div class="mt-3" v-if="detail.status !== 'archived'">
-                <n-input
-                  v-model:value="replyDraft"
-                  type="textarea"
-                  placeholder="回复讨论（支持多行文本；agent 参与@提及见 v2）"
-                  :rows="3"
-                  data-test-id="discussions.reply-input"
-                />
-                <div class="mt-2 text-right">
-                  <n-button
-                    type="primary"
-                    size="small"
-                    :loading="replying"
-                    @click="submitReply"
-                    data-test-id="discussions.reply-btn"
-                  >
-                    回复
-                  </n-button>
-                </div>
-              </div>
-            </div>
-          </n-spin>
-        </n-grid-item>
-      </n-grid>
+      <div class="mt-4 flex justify-end" v-if="total > pageSize">
+        <n-pagination v-model:page="page" :page-size="pageSize" :item-count="total" @update:page="loadData" />
+      </div>
     </n-card>
 
-    <!-- 发起讨论 -->
+    <!-- 详情抽屉：大容器承载正文 + 回复流，回复框常驻底部 -->
+    <n-drawer v-model:show="showDetail" :width="760" placement="right" :auto-focus="false">
+      <n-drawer-content closable>
+        <template #header>
+          <div class="ds-drawer-head" v-if="detail">
+            <div class="ds-head-line">
+              <h3 class="ds-title" data-test-id="discussions.detail-title">{{ detail.title }}</h3>
+              <n-tag v-if="detail.status === 'converted'" size="small" type="success" :bordered="false">
+                已转任务
+                <router-link
+                  class="ml-1"
+                  :to="`/project/${detail.projectId}/tasks`"
+                  data-test-id="discussions.task-link"
+                >
+                  #{{ detail.convertedTaskId }}
+                </router-link>
+              </n-tag>
+              <n-tag v-else-if="detail.status === 'archived'" size="small" :bordered="false">已归档</n-tag>
+            </div>
+            <div class="ds-head-meta">
+              <span>{{ detail.authorName || '-' }}</span>
+              <n-tag v-if="detail.authorType === 'ai'" size="tiny" type="info" :bordered="false">AI</n-tag>
+              <span>· 发起于 {{ detail.createdAt }}</span>
+              <n-space size="small" :wrap="false" class="ds-head-actions">
+                <n-button
+                  v-if="detail.status !== 'converted'"
+                  text
+                  type="warning"
+                  size="small"
+                  @click="openConvert"
+                  data-test-id="discussions.convert-btn"
+                >
+                  转为任务
+                </n-button>
+                <n-button text size="small" @click="toggleArchive" data-test-id="discussions.archive-btn">
+                  {{ detail.status === 'archived' ? '恢复' : '归档' }}
+                </n-button>
+                <n-button text type="error" size="small" @click="handleDelete" data-test-id="discussions.del-btn">
+                  删除
+                </n-button>
+              </n-space>
+            </div>
+          </div>
+        </template>
+
+        <n-spin :show="detailLoading">
+          <div class="ds-detail" v-if="detail">
+            <div class="ds-body">
+              <MdPreview :model-value="detail.body || '（无正文）'" :sanitize="safeHtml" :theme="isDark ? 'dark' : 'light'" />
+            </div>
+
+            <n-divider style="margin: 14px 0 8px" />
+            <div class="text-sm font-medium mb-2">回复（{{ detail.replies.length }}）</div>
+            <div class="ds-replies">
+              <div v-for="r in detail.replies" :key="r.id" class="ds-reply" :data-test-id="`discussions.reply-${r.id}`">
+                <div class="text-xs text-gray-400 mb-1">
+                  {{ r.userName || '-' }}
+                  <n-tag v-if="r.userType === 'ai'" size="tiny" type="info" :bordered="false">AI</n-tag>
+                  · {{ r.createdAt }}
+                </div>
+                <div class="ds-reply-content">{{ r.content }}</div>
+              </div>
+              <div v-if="detail.replies.length === 0" class="text-xs text-gray-400">还没有回复，说说你的想法</div>
+            </div>
+          </div>
+        </n-spin>
+
+        <template #footer>
+          <div v-if="detail && detail.status !== 'archived'">
+            <n-input
+              v-model:value="replyDraft"
+              type="textarea"
+              placeholder="回复讨论（支持多行文本；agent 参与@提及见 v2）"
+              :rows="3"
+              data-test-id="discussions.reply-input"
+            />
+            <div class="mt-2 text-right">
+              <n-button
+                type="primary"
+                size="small"
+                :loading="replying"
+                @click="submitReply"
+                data-test-id="discussions.reply-btn"
+              >
+                回复
+              </n-button>
+            </div>
+          </div>
+          <div v-else-if="detail" class="text-xs text-gray-400">已归档的讨论不再接受回复</div>
+        </template>
+      </n-drawer-content>
+    </n-drawer>
+
+    <!-- 发起讨论：正文 md-editor-v3 -->
     <n-modal
       v-model:show="showCreate"
       preset="dialog"
@@ -164,18 +146,21 @@
       positive-text="发布"
       negative-text="取消"
       @positive-click="submitCreate"
-      style="width: 640px"
+      style="width: 760px"
     >
       <n-form label-placement="top" class="py-2">
         <n-form-item label="标题" required>
           <n-input v-model:value="createForm.title" placeholder="一句话说清这个想法/议题" data-test-id="discussions.title-input" />
         </n-form-item>
         <n-form-item label="背景（markdown）">
-          <n-input
-            v-model:value="createForm.body"
-            type="textarea"
-            :rows="8"
+          <MdEditor
+            v-model="createForm.body"
+            class="ds-create-editor"
             placeholder="背景、动机、初步想法……给参与的人（和 AI）足够的上下文"
+            :theme="isDark ? 'dark' : 'light'"
+            :toolbarsExclude="['github', 'save', 'htmlPreview', 'catalog']"
+            :footers="[]"
+            :sanitize="safeHtml"
             data-test-id="discussions.body-input"
           />
         </n-form-item>
@@ -208,14 +193,17 @@
 </template>
 
 <script lang="ts" setup>
-  import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { ref, onMounted } from 'vue';
+  import { ref, computed, h, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
+  import { NTag, NSpace, NIcon } from 'naive-ui';
+  import type { DataTableColumns } from 'naive-ui';
   import { PlusOutlined, MessageOutlined } from '@vicons/antd';
-  import { MdPreview } from 'md-editor-v3';
+  import { MdPreview, MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
   import DOMPurify from 'dompurify';
+  import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import { useDesignSetting } from '@/store/modules/designSetting';
   import {
     getDiscussions,
     createDiscussion,
@@ -230,6 +218,8 @@
   const message = useMessage();
   const dialog = useDialog();
   const route = useRoute();
+  const { getDarkTheme } = useDesignSetting();
+  const isDark = computed(() => getDarkTheme.value === true);
   const projectId = Number(route.params.projectId);
 
   const statusOptions = [
@@ -261,14 +251,14 @@
     return DOMPurify.sanitize(md);
   }
 
-  // ---------- 列表 ----------
+  // ---------- 列表（表格） ----------
   const loading = ref(false);
   const list = ref<DiscussionItem[]>([]);
   const total = ref(0);
   const page = ref(1);
   const pageSize = 20;
   const statusFilter = ref('');
-  const activeId = ref<number | null>(null);
+  const tableMaxHeight = computed(() => Math.max(320, window.innerHeight - 300));
 
   async function loadData() {
     loading.value = true;
@@ -289,14 +279,69 @@
     loadData();
   }
 
-  // ---------- 详情 ----------
+  function statusTag(s: string, taskId: number) {
+    if (s === 'converted') {
+      return h(NTag, { size: 'small', type: 'success', bordered: false }, () => `已转 #${taskId}`);
+    }
+    if (s === 'archived') {
+      return h(NTag, { size: 'small', bordered: false }, () => '已归档');
+    }
+    return h(NTag, { size: 'small', type: 'info', bordered: false }, () => '开放');
+  }
+
+  const columns: DataTableColumns<DiscussionItem> = [
+    {
+      title: '标题',
+      key: 'title',
+      render: (row) =>
+        h('span', { class: 'ds-cell-title' }, [
+          h('span', { class: `ds-status-dot st-${row.status}` }),
+          row.title,
+        ]),
+    },
+    { title: '状态', key: 'status', width: 110, render: (row) => statusTag(row.status, row.convertedTaskId) },
+    {
+      title: '回复',
+      key: 'replyCount',
+      width: 70,
+      render: (row) =>
+        h('span', { class: 'ds-reply-count' }, [
+          h(NIcon, { size: 13 }, () => h(MessageOutlined)),
+          `${row.replyCount}`,
+        ]),
+    },
+    {
+      title: '发起人',
+      key: 'authorName',
+      width: 140,
+      render: (row) =>
+        h(NSpace, { size: 4, align: 'center', wrap: false }, () => [
+          row.authorName || '-',
+          row.authorType === 'ai' ? h(NTag, { size: 'tiny', type: 'info', bordered: false }, () => 'AI') : null,
+        ]),
+    },
+    { title: '发起时间', key: 'createdAt', width: 150, render: (row) => (row.createdAt || '').slice(0, 16) },
+    { title: '最近活动', key: 'updatedAt', width: 110, render: (row) => relTime(row.updatedAt) },
+  ];
+
+  // 行点击开抽屉；锚点挂 tr（row-props 直落 <tr>）
+  function rowProps(row: DiscussionItem) {
+    return {
+      style: 'cursor: pointer;',
+      'data-test-id': `discussions.row-${row.id}`,
+      onClick: () => openDetail(row.id),
+    };
+  }
+
+  // ---------- 详情（抽屉） ----------
+  const showDetail = ref(false);
   const detail = ref<DiscussionDetail | null>(null);
   const detailLoading = ref(false);
   const replyDraft = ref('');
   const replying = ref(false);
 
   async function openDetail(id: number) {
-    activeId.value = id;
+    showDetail.value = true;
     detailLoading.value = true;
     try {
       detail.value = await getDiscussionDetail(id);
@@ -369,8 +414,8 @@
         try {
           await deleteDiscussion(d.id);
           message.success('已删除');
+          showDetail.value = false;
           detail.value = null;
-          activeId.value = null;
           loadData();
         } catch (e: any) {
           message.error(e?.message || '删除失败');
@@ -406,31 +451,14 @@
 </script>
 
 <style scoped>
-  /* 左列线程列表 */
-  .ds-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-height: 200px;
-  }
-  .ds-row {
-    display: flex;
+  /* 表格单元格 */
+  .ds-cell-title {
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
-    border: 1px solid var(--line, #e9e9e7);
-    border-radius: 8px;
-    cursor: pointer;
-    background: var(--panel-bg, #fff);
-    transition:
-      border-color 0.15s,
-      background 0.15s;
-  }
-  .ds-row:hover {
-    background: var(--hover-bg, rgba(0, 0, 0, 0.035));
-  }
-  .ds-row.active {
-    border-color: var(--primary-color, #16a34a);
+    font-weight: 500;
+    color: var(--text-1, #24292f);
+    min-width: 0;
   }
   .ds-status-dot {
     width: 8px;
@@ -445,34 +473,50 @@
   .ds-status-dot.st-archived {
     background: var(--text-3, #8b949e);
   }
-  .ds-row-main {
-    flex: 1;
+  .ds-reply-count {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-3, #8b949e);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 抽屉头部 */
+  .ds-drawer-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding-right: 32px;
+  }
+  .ds-head-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
   }
-  .ds-row-title {
-    font-size: 13px;
+  .ds-title {
+    margin: 0;
+    font-size: 17px;
     color: var(--text-1, #24292f);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .ds-reply-count {
-    flex-shrink: 0;
-    display: inline-flex;
+  .ds-head-meta {
+    display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 6px;
     font-size: 12px;
     color: var(--text-3, #8b949e);
   }
+  .ds-head-actions {
+    margin-left: auto;
+  }
 
-  /* 右侧详情 */
+  /* 抽屉正文与回复 */
   .ds-detail {
     min-height: 200px;
-  }
-  .ds-title {
-    margin: 0;
-    font-size: 16px;
-    color: var(--text-1, #24292f);
   }
   .ds-body {
     border: 1px solid var(--line, #e9e9e7);
@@ -496,5 +540,10 @@
     color: var(--text-1, #24292f);
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  /* 发起弹窗里的编辑器高度 */
+  .ds-create-editor {
+    height: 280px;
   }
 </style>
