@@ -32,6 +32,62 @@ def test_docs_page_renders(logged_in, frontend, ui_world, data):
     assert page.wait_ele("project-docs.search-input", timeout=30)
 
 
+def test_docs_batch_move(logged_in, frontend, ui_world, backend, admin, data):
+    """批量归类移动：勾选两个文档 → 默认目录预选所在父目录 → 填新子目录移入。"""
+    import time
+    page = UiBase(logged_in, frontend)
+    pid = ui_world.pid
+    docs_dir = backend.workdir / "resource" / "projects" / str(pid) / "docs" / "dev-docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("ops-a.md", "ops-b.md"):
+        (docs_dir / name).write_bytes(f"# {name}\n内容\n".encode("utf-8"))
+    admin.get(f"/api/v1/projects/{pid}/docs/tree?space=work")
+
+    page.goto(data["ui"]["routes"]["docs"].format(pid=pid))
+    assert page.wait_ele("project-docs.search-input", timeout=30)
+
+    def check_row(path):
+        """勾选树节点：node-{路径} 锚点定位行，行内下钻 checkbox，
+        坐标点击（DP 元素引用在点击多步间会因 DOM 替换失效）。"""
+        row = page.ele(f"project-docs.node-{path}")
+        cb = row.ele("css:.n-tree-node-checkbox", timeout=5)
+        assert cb is not None, f"未找到 {path} 的勾选框"
+        # actions.move(x,y) 是相对偏移语义（第二次会飞），move_to 现取坐标最稳
+        logged_in.actions.move_to(cb)
+        logged_in.actions.click()
+
+    # 目录默认折叠：点树行锚点展开 dev-docs（node-{路径} 由 treeNodeProps 挂载）
+    page.ele("project-docs.node-dev-docs").click()
+    assert logged_in.wait.ele_displayed("text:ops-a.md", timeout=10)
+    check_row("dev-docs/ops-a.md")
+    time.sleep(0.5)
+    check_row("dev-docs/ops-b.md")
+    assert page.wait_ele("project-docs.batch-bar", timeout=8)
+    page.click("project-docs.batch-move-btn")
+    assert page.wait_ele("project-docs.batch-subdir-input", timeout=8)
+    # 默认目标目录 = 选中项公共父目录（dev-docs）
+    sel_text = page.ele("project-docs.batch-target-select").text or ""
+    assert "dev-docs" in sel_text, f"目标目录未预选 dev-docs: {sel_text}"
+    page.input("project-docs.batch-subdir-input", "ops")
+    # 弹窗内精确匹配「移动」（text: 模糊会先命中批量条的「移动到…」）
+    dlg = logged_in.ele("css:.n-dialog")
+    btns = [b for b in dlg.eles("css:button") if (b.text or "").strip() == "移动"]
+    assert btns, "批量移动弹窗缺少「移动」按钮"
+    btns[0].click()
+    assert logged_in.wait.ele_displayed("text:已移动 2 项", timeout=10)
+    # API 级验证落点：dev-docs/ops/ 下两文件
+    tree = admin.get(f"/api/v1/projects/{pid}/docs/tree?space=work")["tree"]
+
+    def paths_of(nodes, acc):
+        for n in nodes:
+            acc.append(n["path"])
+            paths_of(n.get("children") or [], acc)
+        return acc
+
+    all_paths = paths_of(tree, [])
+    assert "dev-docs/ops/ops-a.md" in all_paths and "dev-docs/ops/ops-b.md" in all_paths, all_paths
+
+
 def test_docs_crlf_no_false_dirty(logged_in, frontend, ui_world, backend, admin, data):
     """CRLF 文档打开后未编辑直接切换，不弹「未保存」（编辑器把 CRLF
     规范化为 LF，换行差异不计为脏）。

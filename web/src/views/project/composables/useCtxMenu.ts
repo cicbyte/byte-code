@@ -39,6 +39,9 @@ export function useCtxMenu(deps: CtxMenuDeps) {
 
   function treeNodeProps({ option }: { option: any }) {
     return {
+      // 树节点测试锚点（key=完整路径）：naive 内部 checkbox 等深层 DOM 的定位
+      // 入口，避免测试猜组件内部结构；动态锚点同静态一样被构建剥离
+      'data-test-id': `project-docs.node-${option.key}`,
       onContextmenu: (e: MouseEvent) => onNodeContextMenu(e, option),
     };
   }

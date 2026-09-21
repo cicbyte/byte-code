@@ -44,16 +44,28 @@
               description="上传或新建文档后展示在这里"
               compact
             />
-            <n-tree
-              v-else
-              block-line
-              :data="treeData"
-              :selected-keys="selectedKeys"
-              :expanded-keys="expandedKeys"
-              :node-props="treeNodeProps"
-              @update:selected-keys="onSelectNode"
-              @update:expanded-keys="onExpandNode"
-            />
+            <template v-else>
+              <!-- 勾选后出现的批量归类操作条 -->
+              <div v-if="checkedKeys.length" class="batch-bar" data-test-id="project-docs.batch-bar">
+                <span class="text-xs">已选 {{ checkedKeys.length }} 项</span>
+                <n-button size="tiny" type="primary" @click="openBatchMove" data-test-id="project-docs.batch-move-btn">
+                  移动到…
+                </n-button>
+                <n-button size="tiny" quaternary @click="checkedKeys = []">清空</n-button>
+              </div>
+              <n-tree
+                block-line
+                checkable
+                :cascade="false"
+                :data="treeData"
+                v-model:checked-keys="checkedKeys"
+                :selected-keys="selectedKeys"
+                :expanded-keys="expandedKeys"
+                :node-props="treeNodeProps"
+                @update:selected-keys="onSelectNode"
+                @update:expanded-keys="onExpandNode"
+              />
+            </template>
           </n-spin>
         </n-card>
       </n-gi>
@@ -217,6 +229,41 @@
       </n-form>
     </n-modal>
 
+    <!-- 批量归类移动：勾选多项后移入目标目录（保持原名） -->
+    <n-modal
+      v-model:show="showBatchMove"
+      preset="dialog"
+      title="批量移动到目录"
+      positive-text="移动"
+      negative-text="取消"
+      @positive-click="handleBatchMoveSubmit"
+      style="width: 520px"
+    >
+      <n-form label-placement="top" class="py-3">
+        <n-form-item :label="`将 ${batchTargets.length} 项移动到目录`">
+          <n-tree-select
+            v-model:value="batchDest"
+            :options="dirOptions"
+            key-field="key"
+            label-field="label"
+            default-expand-all
+            placeholder="选择目标目录"
+            data-test-id="project-docs.batch-target-select"
+          />
+        </n-form-item>
+        <n-form-item label="新建子目录（可选，不存在会自动创建）">
+          <n-input
+            v-model:value="batchSubdir"
+            placeholder="例：ops（留空则直接放入所选目录）"
+            data-test-id="project-docs.batch-subdir-input"
+          />
+        </n-form-item>
+        <div class="text-xs text-gray-400">
+          保持原文件名移入；目标已存在同名项的将跳过并在结果中提示。勾选了目录时其内容随之移动。
+        </div>
+      </n-form>
+    </n-modal>
+
     <!-- 版本历史弹窗 -->
     <DocsHistoryModal
       v-model:show="showHistory"
@@ -304,6 +351,83 @@
   // 移动操作的源路径：右键目标可能与当前打开文件不同，提交必须用打开时记录的源，
   // 不能取 currentFile（否则右键 B 时会把当前打开的 A 移走）
   const moveFrom = ref('');
+
+  // ==================== 批量归类移动（勾选多项 → 移入目录） ====================
+  const checkedKeys = ref<string[]>([]);
+  const showBatchMove = ref(false);
+  const batchDest = ref<string | null>(null);
+  const batchSubdir = ref('');
+
+  // 目录树（仅目录节点）作为移动目标选项；根目录 = 移到顶层
+  const dirOptions = computed(() => {
+    const walk = (nodes: any[]): any[] => {
+      const out: any[] = [];
+      for (const n of nodes) {
+        if (n.isDir || dirPaths.has(n.key as string)) {
+          out.push({ key: n.key, label: n.label, children: walk(n.children || []) });
+        }
+      }
+      return out;
+    };
+    return [{ key: '', label: '（顶层）', children: walk(treeData.value) }];
+  });
+
+  // 勾选目标的祖先去重：选了目录就跳过其子孙（目录整体移动已带内容）
+  function dedupeAncestors(keys: string[]): string[] {
+    return keys.filter((k) => !keys.some((o) => o !== k && k.startsWith(o + '/')));
+  }
+  const batchTargets = computed(() => dedupeAncestors(checkedKeys.value));
+
+  // 选中项的公共父目录：归类场景默认留在原地所在目录（勾选 → 只填新子目录名）
+  function commonParentDir(keys: string[]): string {
+    if (!keys.length) return '';
+    const dirs = keys.map((k) => k.split('/').slice(0, -1).join('/'));
+    const parts = dirs[0].split('/').filter(Boolean);
+    const prefix: string[] = [];
+    for (const p of parts) {
+      const cand = [...prefix, p].join('/');
+      if (dirs.every((d) => d === cand || d.startsWith(cand + '/'))) prefix.push(p);
+      else break;
+    }
+    return prefix.join('/');
+  }
+
+  function openBatchMove() {
+    if (!checkedKeys.value.length) return;
+    batchDest.value = commonParentDir(batchTargets.value) || null;
+    batchSubdir.value = '';
+    showBatchMove.value = true;
+  }
+
+  async function handleBatchMoveSubmit() {
+    const subdir = batchSubdir.value.trim().replace(/^\/+|\/+$/g, '');
+    if (subdir && (subdir.includes('..') || subdir.startsWith('/'))) {
+      message.error('子目录名不合法');
+      return false;
+    }
+    const dest = [batchDest.value || '', subdir].filter(Boolean).join('/');
+    if (!assertSpaceAllowed(dest)) return false;
+    let ok = 0;
+    const failed: string[] = [];
+    for (const from of batchTargets.value) {
+      const name = from.split('/').pop() as string;
+      const to = dest ? `${dest}/${name}` : name;
+      try {
+        await moveDocsPath(projectId.value, from, to);
+        ok++;
+      } catch {
+        failed.push(name);
+      }
+    }
+    showBatchMove.value = false;
+    checkedKeys.value = [];
+    if (failed.length) {
+      message.warning(`移动完成：成功 ${ok} 项，跳过 ${failed.length} 项（目标已存在）：${failed.join('、')}`);
+    } else {
+      message.success(`已移动 ${ok} 项`);
+    }
+    loadTree();
+  }
 
   const uploadInputRef = ref<HTMLInputElement | null>(null);
 
@@ -855,6 +979,19 @@
     padding: 3px 8px;
     border-radius: 6px;
     background: var(--hover-bg);
+    font-size: 12px;
+    color: var(--text-2, #57606a);
+  }
+
+  // 勾选后的批量归类操作条
+  .batch-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--primary-color-hover, rgba(22, 163, 74, 0.12));
     font-size: 12px;
     color: var(--text-2, #57606a);
   }
