@@ -408,6 +408,25 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 			})
 		}
 	}
+	// 最近工作日志（仅 3 条 + 摘录截断）：项目近况演化背景，给 agent
+	// 快速代入；完整历史不在开工包膨胀——走 worklog 命令族/页面消费
+	res.Worklogs = []api.WorklogBrief{}
+	wlRows, wlErr := g.DB().Model("worklogs w").Ctx(ctx).
+		Fields("w.id, w.author_id, w.source, w.content, w.created_at, "+
+			"COALESCE(NULLIF(u.real_name, ''), u.username) AS author, "+
+			"COALESCE(u.type, 'human') AS author_type").
+		LeftJoin("sys_users u", "u.id = w.author_id").
+		Where("w.project_id", projectId).
+		Order("w.id DESC").Limit(3).All()
+	if wlErr == nil {
+		for _, r := range wlRows {
+			res.Worklogs = append(res.Worklogs, api.WorklogBrief{
+				Id: r["id"].Int(), Author: r["author"].String(), AuthorType: r["author_type"].String(),
+				Source: r["source"].String(), Excerpt: briefExcerpt(r["content"].String(), 120),
+				CreatedAt: r["created_at"].String(),
+			})
+		}
+	}
 	// 分配给本 agent 的进行中专题（长任务工作流入口）
 	res.ActiveTopics = []api.TopicBrief{}
 	tpRows, terr := g.DB().Model("topics t").Ctx(ctx).
@@ -445,6 +464,21 @@ func buildContextPack(ctx context.Context, agentId, projectId int) (*api.Session
 		}
 	}
 	return res, nil
+}
+
+// briefExcerpt 开工包摘录：压平多行取首段并按 rune 截断（worklog 正文
+// 常是长 markdown，包里只给一行近况）
+func briefExcerpt(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+		s = s[:i]
+	}
+	s = strings.TrimSpace(strings.TrimLeft(s, "#-*> `"))
+	r := []rune(s)
+	if len(r) > max {
+		return string(r[:max]) + "…"
+	}
+	return s
 }
 
 func rowToTaskBrief(r gdb.Record) api.TaskBrief {

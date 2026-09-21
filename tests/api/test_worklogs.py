@@ -124,3 +124,23 @@ def test_draft_range_validation(project_env):
         ),
         contains="92 天",
     )
+
+
+def test_session_pack_injects_recent_three(project_env):
+    """开工包只注入最近 3 条摘录（倒序 + 截断），完整历史不进包。"""
+    pid = project_env.pid
+    # 补到 4+ 条：最新一条带 markdown 首行（验摘录取首段）
+    for i in range(3):
+        project_env.member.post(
+            f"/api/v1/projects/{pid}/worklogs", {"content": f"开工包注入序号 {i}"}
+        )
+    project_env.member.post(
+        f"/api/v1/projects/{pid}/worklogs",
+        {"content": "### 压平后的首行摘录\n\n- 第二行不进包"},
+    )
+    pack = project_env.agent.post("/api/v1/agent/sessions", {"projectId": pid})
+    wls = pack["worklogs"]
+    assert len(wls) == 3, f"应只带最近 3 条，实际 {len(wls)}"
+    assert wls[0]["excerpt"].startswith("压平后的首行摘录")
+    assert "第二行" not in wls[0]["excerpt"]
+    assert wls[0]["authorType"] == "human" and wls[0]["author"]

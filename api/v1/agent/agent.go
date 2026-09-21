@@ -89,6 +89,7 @@ type SessionCreateRes struct {
 	ActiveTopics     []TopicBrief     `json:"activeTopics" dc:"分配给本 agent 的进行中专题（bcode topic work 推进）"`
 	TopQas           []QaBrief        `json:"topQas" dc:"高频 QA（按命中数前 5；遇到问题先查 QA 库再问人）"`
 	Discussions      []DiscussionBrief `json:"discussions" dc:"最近活跃讨论（提供想法背景；参与需 discuss 能力位）"`
+	Worklogs         []WorklogBrief    `json:"worklogs" dc:"最近 3 条工作日志摘录（项目演化背景）；完整历史走 worklog 命令族/页面"`
 }
 
 type ProjectBrief struct {
@@ -221,4 +222,15 @@ type DiscussionBrief struct {
 	Status     string `json:"status" dc:"open/converted/archived"`
 	ReplyCount int    `json:"replyCount"`
 	UpdatedAt  string `json:"updatedAt"`
+}
+
+// WorklogBrief 开工包内的工作日志摘录：只带最近 3 条 + 内容截断，
+// 给 agent 项目近况背景；完整历史由 worklog 命令族/页面消费
+type WorklogBrief struct {
+	Id        int    `json:"id"`
+	Author    string `json:"author,omitempty"`
+	AuthorType string `json:"authorType" dc:"human/ai"`
+	Source    string `json:"source" dc:"manual 手写 | tasks 草稿生成"`
+	Excerpt   string `json:"excerpt" dc:"内容首行摘录（截断）"`
+	CreatedAt string `json:"createdAt"`
 }
