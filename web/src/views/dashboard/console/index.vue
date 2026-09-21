@@ -16,27 +16,41 @@
       </n-grid-item>
 
       <n-grid-item>
-        <n-card title="总任务数" size="small" :bordered="false">
+        <n-card
+          title="总任务数"
+          size="small"
+          :bordered="false"
+          class="stat-link"
+          data-test-id="dashboard.totaltasks-card"
+          @click="gotoAllTasks()"
+        >
           <template #header-extra>
             <n-icon size="24" color="#b37feb"><CheckSquareOutlined /></n-icon>
           </template>
           <n-skeleton v-if="loading" :width="60" size="medium" />
           <CountTo v-else :startVal="0" :endVal="stats.totalTasks" class="text-3xl" />
           <template #footer>
-            <span class="text-gray-400">全部任务统计</span>
+            <span class="text-gray-400">全部任务统计 · 点击查看任务总览</span>
           </template>
         </n-card>
       </n-grid-item>
 
       <n-grid-item>
-        <n-card title="进行中" size="small" :bordered="false">
+        <n-card
+          title="进行中"
+          size="small"
+          :bordered="false"
+          class="stat-link"
+          data-test-id="dashboard.inprogress-card"
+          @click="gotoAllTasks('in_progress')"
+        >
           <template #header-extra>
             <n-icon size="24" color="#5cdbd3"><SyncOutlined /></n-icon>
           </template>
           <n-skeleton v-if="loading" :width="60" size="medium" />
           <CountTo v-else :startVal="0" :endVal="stats.inProgressTasks" class="text-3xl" />
           <template #footer>
-            <span class="text-gray-400">当前进行中的任务</span>
+            <span class="text-gray-400">当前进行中的任务 · 点击筛选查看</span>
           </template>
         </n-card>
       </n-grid-item>
@@ -149,6 +163,13 @@
   // 待审统计卡直达审核中心
   function gotoReviews() {
     router.push('/reviews');
+  }
+  // 任务卡钻取：任务总览（可见范围全部），可带状态预筛——与统计卡同口径。
+  // 注意走 /my-tasks/index 完整路径：/my-tasks 的静态 redirect 会丢 query
+  function gotoAllTasks(status?: string) {
+    router.push(
+      status ? `/my-tasks/index?scope=all&status=${status}` : '/my-tasks/index?scope=all'
+    );
   }
 
   // 图表实例提级持有：匿名 resize 监听与 echarts 实例不清理，

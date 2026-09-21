@@ -1,6 +1,6 @@
 <template>
   <div>
-    <n-card :bordered="false" :segmented="{ content: true }" class="mb-4" title="我的效率">
+    <n-card v-if="!scopeAll" :bordered="false" :segmented="{ content: true }" class="mb-4" title="我的效率">
       <div class="stats-layout">
         <div class="stats-nums">
           <div class="stat-row">
@@ -35,8 +35,10 @@
 
     <n-card :bordered="false" :segmented="{ content: true }">
       <template #header>
-        我的任务
-        <span class="header-hint">当前账号被指派的跨项目任务</span>
+        {{ scopeAll ? '任务总览' : '我的任务' }}
+        <span class="header-hint">{{
+          scopeAll ? '可见范围内的全部任务（状态/项目/关键词筛选）' : '当前账号被指派的跨项目任务'
+        }}</span>
       </template>
 
       <!-- 过滤栏 -->
@@ -91,7 +93,7 @@
 
 <script lang="ts" setup>
   import { ref, reactive, computed, h, onMounted, onUnmounted, nextTick } from 'vue';
-  import { useRouter } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { NButton, NTag, NSpace } from 'naive-ui';
   import type { DataTableColumns } from 'naive-ui';
   import { getMyTasks, getMyTaskStats, getProjects } from '@/api/project/index';
@@ -102,11 +104,18 @@
   import { TASK_STATUS, statusLabel, statusTagType, priorityTagType, typeTagType, typeLabel } from '@/enums/task';
 
   const router = useRouter();
+  const route = useRoute();
   const loading = ref(false);
   const list = ref<MyTaskItem[]>([]);
   const total = ref(0);
   const pagination = reactive({ page: 1, size: 20 });
-  const statusFilter = ref('');
+  // 视角：?scope=all 为可见范围全部任务（仪表盘任务卡钻取入口），
+  // 缺省 mine=指派给我；状态预筛 ?status=（须是合法过滤值）
+  const scopeAll = route.query.scope === 'all';
+  const qStatus = String(route.query.status || '');
+  const statusFilter = ref(
+    qStatus === 'all' || TASK_STATUS.some((s) => s.value === qStatus) ? qStatus : ''
+  );
   const projectId = ref<number | null>(null);
   const keyword = ref('');
   const projects = ref<Array<{ id: number; name: string }>>([]);
@@ -252,6 +261,7 @@
         ...(statusFilter.value ? { status: statusFilter.value } : {}),
         ...(projectId.value ? { projectId: projectId.value } : {}),
         ...(keyword.value ? { keyword: keyword.value } : {}),
+        ...(scopeAll ? { scope: 'all' } : {}),
         page: pagination.page,
         size: pagination.size,
       });
@@ -280,7 +290,7 @@
   onMounted(() => {
     load();
     loadProjects();
-    loadStats();
+    if (!scopeAll) loadStats();
   });
 
   onUnmounted(disposeChart);

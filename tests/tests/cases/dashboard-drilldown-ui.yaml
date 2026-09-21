@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 仪表盘进行中卡钻取任务总览"
+preconditions: "agent 名下有进行中任务"
+steps: "仪表盘点「进行中」卡 → 断言 URL scope=all&status=in_progress、标题切任务总览、我的效率卡隐藏、agent 任务可见"
+expectedResult: "钻取落地且状态预筛生效；总览模式不渲染个人效率统计"
+category: "UI 自动化"
+module: "仪表盘"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_dashboard_drilldown.py::test_dashboard_inprogress_drilldown"

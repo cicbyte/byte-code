@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "my-tasks scope=all：仪表盘任务卡钻取口径"
+preconditions: "agent 名下有进行中任务；pid2 有 member 不可见任务"
+steps: "admin mine vs all 对比 → member scope=all 越项目隔离 → 非法 scope 拒"
+expectedResult: "mine 看不到 agent 任务、all 可见；member 仍限所在项目；scope 枚举校验"
+category: "API 自动化"
+module: "任务管理"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_my_tasks_scope.py::test_member_scope_all_limited_to_own_projects"

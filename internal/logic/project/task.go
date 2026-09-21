@@ -506,8 +506,12 @@ func (s *sProject) MyTaskList(ctx context.Context, req *api.MyTaskListReq) (res 
 		m := g.DB().Model("tasks t").Ctx(ctx).
 			LeftJoin("projects p", "p.id = t.project_id").
 			LeftJoin("sys_users au", "t.assignee_id = au.id").
-			LeftJoin("sys_users cu", "t.creator_id = cu.id").
-			Where("t.assignee_id", uid)
+			LeftJoin("sys_users cu", "t.creator_id = cu.id")
+		// scope=all：可见范围全部任务（仪表盘任务卡钻取口径）——不按
+		// 指派人过滤，成员仍限所在项目防跨项目泄露；mine 缺省=指派给我
+		if req.Scope != "all" {
+			m = m.Where("t.assignee_id", uid)
+		}
 		if !perm.IsAdmin(ctx, uid) {
 			m = m.Where("EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = t.project_id AND pm.user_id = ?)", uid)
 		}

@@ -252,8 +252,11 @@ type MyTaskListReq struct {
 	Status    string `json:"status" in:"query" dc:"缺省=活跃四态(open,in_progress,blocked,review)；all=全部；或逗号分隔状态列表"`
 	ProjectId int    `json:"projectId" in:"query" dc:"按项目过滤"`
 	Keyword   string `json:"keyword" in:"query"`
-	Page      int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
-	Size      int    `json:"size" in:"query" d:"50" v:"max:200#每页上限200"`
+	// 视角：mine 缺省=指派给我的；all=可见范围全部任务（与仪表盘统计
+	// 同口径：管理员全量、成员限所在项目）——仪表盘任务卡钻取用
+	Scope string `json:"scope" in:"query" v:"in:,mine,all#视角不合法" dc:"mine=我的（缺省）；all=可见范围全部"`
+	Page  int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
+	Size  int    `json:"size" in:"query" d:"50" v:"max:200#每页上限200"`
 }
 
 type MyTaskItem struct {

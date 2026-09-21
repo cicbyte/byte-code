@@ -137,6 +137,8 @@ export interface MyTaskListParams {
   status?: string;
   projectId?: number;
   keyword?: string;
+  /** mine=我的（缺省）；all=可见范围全部（仪表盘任务卡钻取口径） */
+  scope?: 'mine' | 'all';
   page?: number;
   size?: number;
 }
