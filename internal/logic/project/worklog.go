@@ -151,26 +151,38 @@ func (s *sProject) DeleteWorklog(ctx context.Context, id int) (err error) {
 	return nil
 }
 
+// parseDayRange 解析 YYYY-MM-DD 含端点区间 → [from 00:00:00, to+1d 00:00:00)，
+// 字符串比较口径（completed_at 落库格式一致）；工作日志草稿与任务列表
+// 的时间筛选（复盘口径）共用
+func parseDayRange(from, to string) (string, string, error) {
+	fd, err := time.ParseInLocation("2006-01-02", from, time.Local)
+	if err != nil {
+		return "", "", fmt.Errorf("起始日期格式应为 YYYY-MM-DD")
+	}
+	td, err := time.ParseInLocation("2006-01-02", to, time.Local)
+	if err != nil {
+		return "", "", fmt.Errorf("结束日期格式应为 YYYY-MM-DD")
+	}
+	if td.Before(fd) {
+		return "", "", fmt.Errorf("结束日期不能早于起始日期")
+	}
+	return fd.Format("2006-01-02 15:04:05"), td.Add(24 * time.Hour).Format("2006-01-02 15:04:05"), nil
+}
+
 // WorklogDraft 汇总时间范围内已完成的任务（标题+执行者+产物）与发布
 // （版本+说明）为草稿文本——不落库，返回给前端进编辑器人工润色。
 func (s *sProject) WorklogDraft(ctx context.Context, req *api.WorklogDraftReq) (res *api.WorklogDraftRes, err error) {
-	from, err := time.ParseInLocation("2006-01-02", req.From, time.Local)
+	dayStart, dayEnd, err := parseDayRange(req.From, req.To)
 	if err != nil {
-		return nil, fmt.Errorf("起始日期格式应为 YYYY-MM-DD")
+		return nil, err
 	}
-	to, err := time.ParseInLocation("2006-01-02", req.To, time.Local)
-	if err != nil {
-		return nil, fmt.Errorf("结束日期格式应为 YYYY-MM-DD")
-	}
-	if to.Before(from) {
-		return nil, fmt.Errorf("结束日期不能早于起始日期")
-	}
-	// 范围上限 92 天：草稿是给人润色的近期总结，不是年度报表
-	if to.Sub(from) > 92*24*time.Hour {
+	// 范围上限 92 天（含端点）：草稿是给人润色的近期总结，不是年度报表
+	// （parseDayRange 已校验过格式，这里忽略解析错误是安全的）
+	t1, _ := time.ParseInLocation("2006-01-02", req.From, time.Local)
+	t2, _ := time.ParseInLocation("2006-01-02", req.To, time.Local)
+	if t2.Sub(t1) > 92*24*time.Hour {
 		return nil, fmt.Errorf("时间范围不能超过 92 天")
 	}
-	dayEnd := to.Add(24 * time.Hour).Format("2006-01-02 15:04:05")
-	dayStart := from.Format("2006-01-02 15:04:05")
 
 	res = &api.WorklogDraftRes{Content: ""}
 

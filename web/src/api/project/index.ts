@@ -95,6 +95,8 @@ export interface TaskItem {
   source: string;
   createdAt: string;
   updatedAt: string;
+  /** 完成时刻（complete 时写入，后续编辑不重写）；未完成为空串 */
+  completedAt: string;
 }
 
 export interface TaskListResult {
@@ -184,6 +186,10 @@ export interface TaskListParams {
   assigneeId?: number;
   tagId?: number;
   keyword?: string;
+  /** 完成时间起（YYYY-MM-DD 含；复盘口径，按 completed_at 过滤） */
+  from?: string;
+  /** 完成时间止（YYYY-MM-DD 含） */
+  to?: string;
   page?: number;
   size?: number;
 }

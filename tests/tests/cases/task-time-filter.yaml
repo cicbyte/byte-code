@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "任务列表时间筛选：按完成时间复盘"
+preconditions: "项目内有今日完成任务与未完成任务"
+steps: "from=to=今天 过滤 → 仅返回已完成；昨天空区间 → 空；非法格式拒；单边 from"
+expectedResult: "未完成任务不命中；completedAt 字段暴露且为今天；空区间 total=0；格式错误明确拒绝"
+category: "API 自动化"
+module: "任务管理"
+priority: "P1"
+source: human
+status: active
+externalKey: "api/test_task_time_filter.py::test_filter_today_returns_completed_only"

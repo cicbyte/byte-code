@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 任务列表日期范围筛选闭环"
+preconditions: "API 已造今日完成任务与未完成任务"
+steps: "打开 daterange 面板 → 连点两次今天（起=止）→ 断言未完成任务行消失、今日完成任务保留、行内展示完成时刻"
+expectedResult: "筛选生效仅剩今日完成；更新时间列出现「完成 时刻」次行"
+category: "UI 自动化"
+module: "任务管理"
+priority: "P2"
+source: human
+status: active
+externalKey: "ui/test_tasks_time_filter.py::test_tasks_date_filter"

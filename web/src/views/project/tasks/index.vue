@@ -34,6 +34,16 @@
           style="width: 130px"
           @update:value="handleSearch"
         />
+        <n-date-picker
+          v-model:formatted-value="filter.dateRange"
+          type="daterange"
+          value-format="yyyy-MM-dd"
+          clearable
+          separator="至"
+          style="width: 250px"
+          data-test-id="tasks.date-range"
+          @update:formatted-value="handleSearch"
+        />
         <n-button type="primary" @click="handleSearch">查询</n-button>
         <n-button @click="handleReset">重置</n-button>
         <n-button type="primary" @click="openCreate">新建任务</n-button>
@@ -131,7 +141,10 @@
               >{{ dueLabel(task.dueDate) }}</n-tag>
               <span v-else>-</span>
             </td>
-            <td>{{ task.updatedAt }}</td>
+            <td>
+              <div>{{ task.updatedAt }}</div>
+              <div v-if="task.completedAt" class="text-xs text-gray-400">完成 {{ task.completedAt.slice(5, 16) }}</div>
+            </td>
             <td>
               <n-space size="small">
                 <n-button text type="info" @click="openTaskDetail(task)" :data-test-id="`tasks.detail-btn-${task.id}`">详情</n-button>
@@ -280,7 +293,13 @@
   const creating = ref(false);
   const editingId = ref<number | null>(null);
   const formRef = ref<any>(null);
-  const filter = reactive({ keyword: '', status: null as string | null, type: null as string | null, tagId: null as number | null });
+  const filter = reactive({
+    keyword: '',
+    status: null as string | null,
+    type: null as string | null,
+    tagId: null as number | null,
+    dateRange: null as [string, string] | null,
+  });
 
   // ==================== 状态快捷流转（人类通道；agent 走 claim/complete 专用端点） ====================
   // 与看板拖拽同权限口径（PUT 对人类放行）；入审在后端自动置人审标记
@@ -373,6 +392,8 @@
       type: filter.type ?? undefined,
       tagId: filter.tagId ?? undefined,
       keyword: filter.keyword || undefined,
+      from: filter.dateRange?.[0],
+      to: filter.dateRange?.[1],
     })
   );
 
@@ -385,6 +406,7 @@
     filter.status = null;
     filter.type = null;
     filter.tagId = null;
+    filter.dateRange = null;
     onFilterChange();
   }
 

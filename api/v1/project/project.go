@@ -234,6 +234,8 @@ type TaskListReq struct {
 	AssigneeId int    `json:"assigneeId" in:"query"`
 	Keyword    string `json:"keyword" in:"query"`
 	TagId      int    `json:"tagId" in:"query" dc:"按标签筛选"`
+	From       string `json:"from" in:"query" dc:"完成时间起（YYYY-MM-DD 含；复盘口径，按 completed_at 过滤）"`
+	To         string `json:"to" in:"query" dc:"完成时间止（YYYY-MM-DD 含）"`
 	Page       int    `json:"page" in:"query" d:"1" v:"min:1#页码从1开始"`
 	Size       int    `json:"size" in:"query" d:"50" v:"max:200#每页上限200"`
 }
@@ -330,7 +332,9 @@ type TaskItem struct {
 	Tags        []string `json:"tags"`
 	CreatedAt   string   `json:"createdAt"`
 	UpdatedAt   string   `json:"updatedAt"`
-	SourceLabel  string     `json:"sourceLabel,omitempty"`
+	// 完成时刻（complete 时写入，后续编辑不重写）：复盘/工作日志草稿的时间轴
+	CompletedAt string `json:"completedAt"`
+	SourceLabel string `json:"sourceLabel,omitempty"`
 }
 
 type TaskDetailReq struct {

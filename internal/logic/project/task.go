@@ -384,6 +384,22 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 		tagCond := "EXISTS (SELECT 1 FROM entity_tags et WHERE et.entity_type = 'task' AND et.entity_id = t.id AND et.tag_id = ?)"
 		countM = countM.Where(tagCond, req.TagId)
 	}
+	// 完成时间范围（复盘口径，与工作日志草稿同语义）：未完成任务
+	// completed_at 为空串，天然不命中
+	if req.From != "" {
+		fd, perr := time.ParseInLocation("2006-01-02", req.From, time.Local)
+		if perr != nil {
+			return nil, fmt.Errorf("起始日期格式应为 YYYY-MM-DD")
+		}
+		countM = countM.Where("t.completed_at >= ?", fd.Format("2006-01-02 15:04:05"))
+	}
+	if req.To != "" {
+		td, perr := time.ParseInLocation("2006-01-02", req.To, time.Local)
+		if perr != nil {
+			return nil, fmt.Errorf("结束日期格式应为 YYYY-MM-DD")
+		}
+		countM = countM.Where("t.completed_at < ?", td.Add(24*time.Hour).Format("2006-01-02 15:04:05"))
+	}
 
 	total, err := countM.Count()
 	if err != nil {
@@ -424,6 +440,16 @@ func (s *sProject) ListTasks(ctx context.Context, req *api.TaskListReq) (res *ap
 	if req.TagId > 0 {
 		tagCond := "EXISTS (SELECT 1 FROM entity_tags et WHERE et.entity_type = 'task' AND et.entity_id = t.id AND et.tag_id = ?)"
 		m = m.Where(tagCond, req.TagId)
+	}
+	if req.From != "" {
+		if fd, perr := time.ParseInLocation("2006-01-02", req.From, time.Local); perr == nil {
+			m = m.Where("t.completed_at >= ?", fd.Format("2006-01-02 15:04:05"))
+		}
+	}
+	if req.To != "" {
+		if td, perr := time.ParseInLocation("2006-01-02", req.To, time.Local); perr == nil {
+			m = m.Where("t.completed_at < ?", td.Add(24*time.Hour).Format("2006-01-02 15:04:05"))
+		}
 	}
 
 	var list []api.TaskItem
