@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "UI 全站路由冒烟：每页壳渲染兜底网"
+preconditions: "admin 登录；主项目世界存在"
+steps: "遍历全部菜单路由（全局/设置/平台/权限/项目五区 22 页），逐页断言壳渲染特征"
+expectedResult: "每页均正常渲染（防「构建全绿但页面死了」类缺陷）"
+category: "UI 自动化"
+module: "冒烟"
+priority: "P1"
+source: human
+status: active
+externalKey: "ui/test_route_smoke.py"
