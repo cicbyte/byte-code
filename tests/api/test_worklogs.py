@@ -126,6 +126,23 @@ def test_draft_range_validation(project_env):
     )
 
 
+def test_detail_endpoint(project_env):
+    """轻量单条详情：完整正文 + 署名；不存在明确拒绝。"""
+    pid = project_env.pid
+    wid = project_env.member.post(
+        f"/api/v1/projects/{pid}/worklogs",
+        {"content": "detail 端点验收：缓存层改造完整正文"},
+    )["id"]
+    d = project_env.member.get(f"/api/v1/worklogs/{wid}")
+    assert d["id"] == wid and d["authorName"] and d["createdAt"]
+    assert "缓存层" in d["content"]
+    assert d["source"] in ("manual", "tasks")
+    expect_biz(
+        lambda: project_env.member.get("/api/v1/worklogs/999999"),
+        contains="不存在",
+    )
+
+
 def test_session_pack_injects_recent_three(project_env):
     """开工包只注入最近 3 条摘录（倒序 + 截断），完整历史不进包。"""
     pid = project_env.pid

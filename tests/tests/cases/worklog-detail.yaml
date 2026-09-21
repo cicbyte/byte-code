@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "工作日志详情端点：轻量单条直连（CLI show）"
+preconditions: "项目内存在日志条目"
+steps: "GET /worklogs/{id} → 校验完整正文与署名 → 不存在的 id 明确拒绝"
+expectedResult: "返回全字段（content/author/source/时间）；404 文案「日志不存在」"
+category: "API 自动化"
+module: "工作日志"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_worklogs.py::test_detail_endpoint"

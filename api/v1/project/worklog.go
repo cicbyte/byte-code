@@ -47,6 +47,16 @@ type WorklogItem struct {
 	UpdatedAt  string `json:"updatedAt"`
 }
 
+type WorklogDetailReq struct {
+	g.Meta `path:"/worklogs/{id}" method:"get" tags:"工作日志" summary:"日志详情（CLI show 直连，轻量单条）"`
+	Id     int `json:"-" in:"path" v:"required#日志ID不能为空"`
+}
+
+type WorklogDetailRes struct {
+	g.Meta `mime:"application/json"`
+	WorklogItem
+}
+
 type WorklogUpdateReq struct {
 	g.Meta  `path:"/worklogs/{id}" method:"put" tags:"工作日志" summary:"编辑日志（作者或 maintainer）"`
 	Id      int    `json:"-" in:"path" v:"required#日志ID不能为空"`

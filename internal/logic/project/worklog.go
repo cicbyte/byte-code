@@ -97,6 +97,24 @@ func (s *sProject) ListWorklogs(ctx context.Context, req *api.WorklogListReq) (t
 	return total, list, nil
 }
 
+func (s *sProject) WorklogDetail(ctx context.Context, id int) (res *api.WorklogDetailRes, err error) {
+	row, err := g.DB().Model("worklogs").Ctx(ctx).Where("id", id).One()
+	if err != nil {
+		return nil, liberr.WrapDb(ctx, err, "查询工作日志失败")
+	}
+	if row.IsEmpty() {
+		return nil, fmt.Errorf("日志不存在")
+	}
+	return &api.WorklogDetailRes{WorklogItem: api.WorklogItem{
+		Id: row["id"].Int(), ProjectId: row["project_id"].Int(),
+		AuthorId:   row["author_id"].Int(),
+		AuthorName: actorName(ctx, row["author_id"].Int()),
+		AuthorType: actorType(ctx, row["author_id"].Int()),
+		Content:    row["content"].String(), Source: row["source"].String(),
+		CreatedAt: row["created_at"].String(), UpdatedAt: row["updated_at"].String(),
+	}}, nil
+}
+
 func (s *sProject) UpdateWorklog(ctx context.Context, req *api.WorklogUpdateReq) (err error) {
 	row, err := g.DB().Model("worklogs").Ctx(ctx).Where("id", req.Id).One()
 	if err != nil {

@@ -40,6 +40,7 @@ type IProject interface {
 	// 工作日志
 	CreateWorklog(ctx context.Context, req *api.WorklogCreateReq) (id int, err error)
 	ListWorklogs(ctx context.Context, req *api.WorklogListReq) (total int, list []api.WorklogItem, err error)
+	WorklogDetail(ctx context.Context, id int) (res *api.WorklogDetailRes, err error)
 	UpdateWorklog(ctx context.Context, req *api.WorklogUpdateReq) (err error)
 	DeleteWorklog(ctx context.Context, id int) (err error)
 	WorklogDraft(ctx context.Context, req *api.WorklogDraftReq) (res *api.WorklogDraftRes, err error)

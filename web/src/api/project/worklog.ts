@@ -30,6 +30,10 @@ export function getWorklogs(pid: number, params?: { pageNum?: number; pageSize?:
   return Alova.Get<WorklogListResult>(`/v1/projects/${pid}/worklogs`, { params });
 }
 
+export function getWorklogDetail(id: number) {
+  return Alova.Get<WorklogItem>(`/v1/worklogs/${id}`);
+}
+
 export function createWorklog(pid: number, data: { content: string; source?: 'manual' | 'tasks' }) {
   return Alova.Post<{ id: number }>(`/v1/projects/${pid}/worklogs`, data);
 }

@@ -265,6 +265,10 @@ func (c *projectController) ListWorklogs(ctx context.Context, req *api.WorklogLi
 	return
 }
 
+func (c *projectController) WorklogDetail(ctx context.Context, req *api.WorklogDetailReq) (*api.WorklogDetailRes, error) {
+	return service.Project().WorklogDetail(ctx, req.Id)
+}
+
 func (c *projectController) UpdateWorklog(ctx context.Context, req *api.WorklogUpdateReq) (*api.WorklogUpdateRes, error) {
 	if err := service.Project().UpdateWorklog(ctx, req); err != nil {
 		return nil, gerror.New(err.Error())
