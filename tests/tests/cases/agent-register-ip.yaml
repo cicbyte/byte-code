@@ -1,0 +1,14 @@
+id: 0
+projectId: 0
+requirementId: 0
+taskId: 0
+title: "Agent 注册来源 IP 审计落库与回显"
+preconditions: "公开注册端点可达；admin 可访问 /ai-users"
+steps: "CLI 通道自助注册 agent → GET /ai-users 校验 registerIp=本机回环；管理端创建 agent → registerIp 为空串"
+expectedResult: "自助注册记录来源 IP（迁移 87 列）；管理端创建显示为空（前端标注「管理端创建」）"
+category: "API 自动化"
+module: "Agent 管理"
+priority: "P2"
+source: human
+status: active
+externalKey: "api/test_agent_register_ip.py::test_register_ip_recorded_and_listed"

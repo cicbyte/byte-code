@@ -12,6 +12,8 @@ export interface AiUserItem {
   status: number;
   ownerHumanId: number;
   createdAt: string;
+  /** 自助注册来源 IP（审计；管理端创建为空串） */
+  registerIp: string;
 }
 
 export interface AiUserListResult {

@@ -76,7 +76,9 @@ type AiUserItem struct {
 	Status       int    `json:"status"`
 	OwnerHumanId int      `json:"ownerHumanId"`
 	CreatedAt    string   `json:"createdAt"`
-	Projects     []string `json:"projects" dc:"已接入项目名列表（回填）"`
+	// 自助注册来源 IP（审计；管理端创建的为空串）
+	RegisterIp string   `json:"registerIp"`
+	Projects   []string `json:"projects" dc:"已接入项目名列表（回填）"`
 }
 
 type AiUserResetKeyReq struct {

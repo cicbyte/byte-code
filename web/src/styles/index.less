@@ -93,3 +93,53 @@ td.col-idx, th.col-idx {
   font-size: 12px;
   text-align: center;
 }
+
+/* ============================================================
+   表格皮肤：表头浅灰底、仅横向行分隔线、行 hover 高亮、
+   舒适行高；明暗双写。
+   注意：naive 的 CSS 变量是组件根内联注入（类选择器覆写无效），
+   且 cssr 样式在运行时后注入——这里一律用更高优先级直接覆写属性
+   ============================================================ */
+:root {
+  --table-head-bg: #fafafa;
+  --table-line: #f0f0f0;
+  --table-hover: #fafafa;
+}
+:root[data-theme='dark'] {
+  --table-head-bg: #26272b;
+  --table-line: #333438;
+  --table-hover: #2a2b30;
+}
+
+/* n-data-table（讨论/审核中心/my-tasks/测试用例等）。
+   双重类名抬优先级：naive 同名选择器经 cssr 运行时后注入，平级必被覆盖 */
+.n-data-table .n-data-table-th.n-data-table-th {
+  background: var(--table-head-bg);
+  font-weight: 500;
+  color: var(--text-2);
+}
+.n-data-table .n-data-table-td.n-data-table-td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--table-line);
+}
+.n-data-table .n-data-table-tr:hover .n-data-table-td {
+  background: var(--table-hover);
+}
+
+/* n-table（原生表格页：任务列表/待审/Agent/执行记录等；th 无 naive 类名） */
+.n-table thead th {
+  background: var(--table-head-bg);
+  font-weight: 500;
+  color: var(--text-2);
+}
+.n-table tbody td,
+.n-table thead th {
+  padding: 9px 12px;
+  border-color: var(--table-line);
+}
+.n-table tbody tr {
+  transition: background 0.15s;
+}
+.n-table tbody tr:hover > td {
+  background: var(--table-hover);
+}

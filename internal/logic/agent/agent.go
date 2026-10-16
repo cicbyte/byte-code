@@ -167,6 +167,9 @@ func Register(ctx context.Context, req *api.RegisterReq) (*api.RegisterRes, erro
 		"api_key_salt":   salt,
 		"owner_human_id": 0, // 自助注册无属主
 		"status":         1,
+		// 注册来源 IP 落库（限流本就按 IP 计数）：管理页审计用，
+		// 排查多实例同名 agent 归属
+		"register_ip": ip,
 	})
 	if err != nil {
 		return nil, liberr.WrapDb(ctx, err, "注册失败")

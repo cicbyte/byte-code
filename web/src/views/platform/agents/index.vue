@@ -22,6 +22,7 @@
             <th>接入项目</th>
             <th>状态</th>
             <th>创建时间</th>
+            <th>注册 IP</th>
             <th>操作</th>
             </tr>
           </thead>
@@ -43,6 +44,10 @@
                 </n-tag>
               </td>
             <td>{{ item.createdAt }}</td>
+            <td>
+              <span v-if="item.registerIp" class="text-xs">{{ item.registerIp }}</span>
+              <span v-else class="text-gray-400 text-xs">管理端创建</span>
+            </td>
             <td>
                 <n-space size="small">
                   <n-button text type="info" @click="handleBindings(item)">绑定</n-button>
