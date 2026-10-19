@@ -18,15 +18,15 @@
         </n-space>
       </template>
 
-      <n-data-table
+      <ProTable
+        ref="tableRef"
+        table-key="global-reviews"
         v-model:checked-row-keys="checkedKeys"
         :columns="columns"
-        :data="list"
-        :loading="loading"
+        :request="tableRequest"
         :row-key="(row: PendingReviewItem) => row.id"
         :row-props="rowProps"
-        :max-height="tableMaxHeight"
-        size="small"
+        :striped="true"
       />
     </n-card>
 
@@ -91,42 +91,37 @@
   import type { PendingReviewItem } from '@/api/platform/index';
   import { reviewTask } from '@/api/project/index';
   import { priorityTagType, typeLabel, typeTagType } from '@/enums/task';
+  import ProTable from '@/components/ProTable/index.vue';
 
   const router = useRouter();
   const message = useMessage();
 
-  const loading = ref(false);
-  const list = ref<PendingReviewItem[]>([]);
+  const tableRef = ref();
   const total = ref(0);
   const checkedKeys = ref<number[]>([]);
-  // 表格高度自适应视口（审核队列常超一屏，页内滚动而非整页滚动）
-  const tableMaxHeight = computed(() => Math.max(320, window.innerHeight - 300));
 
-  async function load() {
-    loading.value = true;
-    try {
-      const res = await getPendingReviews();
-      list.value = res?.list || [];
-      total.value = res?.total || 0;
-      // 刷新后清掉已不在队列中的勾选
-      const ids = new Set(list.value.map((x) => x.id));
-      checkedKeys.value = checkedKeys.value.filter((id) => ids.has(id));
-    } catch {
-      message.error('加载待审任务失败');
-    } finally {
-      loading.value = false;
-    }
+  // 待审端点不分页（一次拉全量）：客户端切片适配 ProTable 分页契约
+  async function tableRequest(p: { page: number; pageSize: number }) {
+    const res = await getPendingReviews(500);
+    const all = res?.list || [];
+    total.value = res?.total ?? all.length;
+    checkedKeys.value = [];
+    const start = (p.page - 1) * p.pageSize;
+    return { list: all.slice(start, start + p.pageSize), itemCount: total.value };
+  }
+
+  function load() {
+    tableRef.value?.reload();
   }
 
   function dropIds(ids: number[]) {
-    list.value = list.value.filter((t) => !ids.includes(t.id));
-    total.value = Math.max(0, total.value - ids.length);
     checkedKeys.value = checkedKeys.value.filter((id) => !ids.includes(id));
     // 打开中的详情被审掉（含批量）时同步收起抽屉
     if (detail.value && ids.includes(detail.value.id)) {
       detail.value = null;
       showDetail.value = false;
     }
+    load();
   }
 
   function reportFailed(failed: Array<{ id: number; title: string; error: string }>) {

@@ -10,56 +10,19 @@
         </n-button>
       </template>
 
-      <n-spin :show="loading">
-        <EmptyState type="generic" title="还没有 Agent" v-if="!loading && userList.length === 0" description="外部 Agent 经注册与项目接入码加入后，会在这里出现" />
-        <n-table v-else :bordered="false" :single-line="false" size="small">
-          <thead>
-            <tr>
-              <th class="col-idx">#</th>
-            <th>账号</th>
-            <th>名称</th>
-            <th>能力描述</th>
-            <th>接入项目</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <th>注册 IP</th>
-            <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, __ix) in userList" :key="item.id" :data-test-id="`platform-agents.row-${item.id}`">
-              <td class="col-idx">{{ __ix + 1 }}</td>
-            <td><span class="agent-account">{{ item.username }}</span></td>
-            <td>{{ item.realName || '-' }}</td>
-            <td>{{ item.capabilities || '-' }}</td>
-            <td>
-                <n-space :size="4">
-                  <n-tag v-for="pn in item.projects || []" :key="pn" size="small" :bordered="false" :data-test-id="`platform-agents.item-${pn}`">{{ pn }}</n-tag>
-                  <span v-if="!(item.projects || []).length" class="text-gray-400">-</span>
-                </n-space>
-              </td>
-            <td>
-                <n-tag :type="USER_STATUS.tagType(item.status)" size="small">
-                  {{ USER_STATUS.label(item.status) }}
-                </n-tag>
-              </td>
-            <td>{{ item.createdAt }}</td>
-            <td>
-              <span v-if="item.registerIp" class="text-xs">{{ item.registerIp }}</span>
-              <span v-else class="text-gray-400 text-xs">管理端创建</span>
-            </td>
-            <td>
-                <n-space size="small">
-                  <n-button text type="info" @click="handleBindings(item)">绑定</n-button>
-                  <n-button text type="info" @click="handleEdit(item)">编辑</n-button>
-                  <n-button text type="warning" @click="handleResetKey(item)">重置 Key</n-button>
-                  <n-button text type="error" @click="handleDelete(item)">删除</n-button>
-                </n-space>
-              </td>
-            </tr>
-          </tbody>
-        </n-table>
-      </n-spin>
+      <ProTable
+        ref="tableRef"
+        table-key="platform-agents"
+        :columns="columns"
+        :request="tableRequest"
+        :row-key="(row: AiUserItem) => row.id"
+        :row-props="rowProps"
+        :striped="true"
+      >
+        <template #empty>
+          <EmptyState type="generic" title="还没有 Agent" description="外部 Agent 经注册与项目接入码加入后，会在这里出现" />
+        </template>
+      </ProTable>
     </n-card>
 
     <!-- 项目绑定总览（含各项目能力集；调整入口在各项目成员页） -->
@@ -128,7 +91,7 @@
 
 <script lang="ts" setup>
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
-  import { ref, reactive, onMounted } from 'vue';
+  import { ref, reactive, h, onMounted } from 'vue';
   import { USER_STATUS } from '@/enums/entities';
   import { useMessage, useDialog } from 'naive-ui';
   import { PlusOutlined } from '@vicons/antd';
@@ -143,11 +106,67 @@
   import { getAgentBindings } from '@/api/ai/index';
   import { AGENT_CAPS } from '@/api/agent/index';
   import { copyToClipboard } from '@/utils/clipboard';
+  import ProTable from '@/components/ProTable/index.vue';
+  import { NButton, NSpace, NTag } from 'naive-ui';
+  import type { DataTableColumns } from 'naive-ui';
 
   const message = useMessage();
   const dialog = useDialog();
-  const loading = ref(false);
-  const userList = ref<AiUserItem[]>([]);
+  const tableRef = ref();
+
+  function rowProps(row: AiUserItem) {
+    return { 'data-test-id': `platform-agents.row-${row.id}` };
+  }
+
+  async function tableRequest(p: { page: number; pageSize: number }) {
+    const res = await getAiUsers({ page: p.page, size: p.pageSize });
+    return { list: res?.list || [], itemCount: res?.total || 0 };
+  }
+
+  const columns: DataTableColumns<AiUserItem> = [
+    { title: '账号', key: 'username', width: 150, render: (row) => row.username },
+    { title: '名称', key: 'realName', width: 130, render: (row) => row.realName || '-' },
+    { title: '能力描述', key: 'capabilities', ellipsis: { tooltip: true }, render: (row) => row.capabilities || '-' },
+    {
+      title: '接入项目',
+      key: 'projects',
+      render: (row) =>
+        h(NSpace, { size: 4 }, () => [
+          ...(row.projects || []).map((pn) =>
+            h(NTag, { size: 'small', bordered: false, 'data-test-id': `platform-agents.item-${pn}` }, () => pn)
+          ),
+          !(row.projects || []).length ? h('span', { class: 'text-gray-400' }, '-') : null,
+        ]),
+    },
+    {
+      title: '状态',
+      key: 'status',
+      width: 90,
+      render: (row) => h(NTag, { type: USER_STATUS.tagType(row.status), size: 'small' }, () => USER_STATUS.label(row.status)),
+    },
+    { title: '创建时间', key: 'createdAt', width: 160, render: (row) => row.createdAt },
+    {
+      title: '注册 IP',
+      key: 'registerIp',
+      width: 130,
+      render: (row) =>
+        row.registerIp
+          ? h('span', { class: 'text-xs' }, row.registerIp)
+          : h('span', { class: 'text-gray-400 text-xs' }, '管理端创建'),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 200,
+      render: (row) =>
+        h(NSpace, { size: 'small' }, () => [
+          h(NButton, { text: true, type: 'info', onClick: () => handleBindings(row) }, () => '绑定'),
+          h(NButton, { text: true, type: 'info', onClick: () => handleEdit(row) }, () => '编辑'),
+          h(NButton, { text: true, type: 'warning', onClick: () => handleResetKey(row) }, () => '重置 Key'),
+          h(NButton, { text: true, type: 'error', onClick: () => handleDelete(row) }, () => '删除'),
+        ]),
+    },
+  ];
 
   // ==================== 项目绑定总览 ====================
   const showBindings = ref(false);
@@ -182,16 +201,8 @@
     username: { required: true, message: '请输入账号', trigger: 'blur' },
   };
 
-  async function loadData() {
-    loading.value = true;
-    try {
-      const res = await getAiUsers();
-      userList.value = res?.list || [];
-    } catch (e) {
-      // ignore
-    } finally {
-      loading.value = false;
-    }
+  function loadData() {
+    tableRef.value?.reload();
   }
 
   function handleCreate() {

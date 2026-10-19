@@ -23,13 +23,13 @@
         </n-space>
       </template>
 
-      <n-data-table
+      <ProTable
+        ref="tableRef"
+        table-key="project-discussions"
         :columns="columns"
-        :data="list"
-        :loading="loading"
-        :row-props="rowProps"
-        :max-height="tableMaxHeight"
-        size="small"
+        :request="tableRequest"
+        row-key="id"
+        :striped="true"
       >
         <template #empty>
           <EmptyState
@@ -38,11 +38,7 @@
             description="有了想法先发起讨论，团队成员与 AI 都可以参与"
           />
         </template>
-      </n-data-table>
-
-      <div class="mt-4 flex justify-end" v-if="total > pageSize">
-        <n-pagination v-model:page="page" :page-size="pageSize" :item-count="total" @update:page="loadData" />
-      </div>
+      </ProTable>
     </n-card>
 
     <!-- 详情抽屉：大容器承载正文 + 回复流，回复框常驻底部 -->
@@ -208,6 +204,7 @@
   import 'md-editor-v3/lib/style.css';
   import DOMPurify from 'dompurify';
   import EmptyState from '@/components/EmptyState/EmptyState.vue';
+  import ProTable from '@/components/ProTable/index.vue';
   import { useDesignSetting } from '@/store/modules/designSetting';
   import { mdToolbars } from '@/utils/mdEditor';
   import {
@@ -257,32 +254,22 @@
     return DOMPurify.sanitize(md);
   }
 
-  // ---------- 列表（表格） ----------
-  const loading = ref(false);
-  const list = ref<DiscussionItem[]>([]);
-  const total = ref(0);
-  const page = ref(1);
-  const pageSize = 20;
+  // ---------- 列表（BasicTable：工具栏斑马纹/刷新/密度/列设置 + 分页托管） ----------
+  const tableRef = ref();
   const statusFilter = ref('');
-  const tableMaxHeight = computed(() => Math.max(320, window.innerHeight - 300));
 
-  async function loadData() {
-    loading.value = true;
-    try {
-      const res = await getDiscussions(projectId, {
-        pageNum: page.value,
-        pageSize,
-        status: statusFilter.value || undefined,
-      });
-      list.value = res?.list || [];
-      total.value = res?.total || 0;
-    } finally {
-      loading.value = false;
-    }
+  // request 契约：{page,pageSize} → {list,itemCount}（平台接口是 pageNum 口径，此处适配）
+  async function tableRequest(p: { page: number; pageSize: number }) {
+    const res = await getDiscussions(projectId, {
+      pageNum: p.page,
+      pageSize: p.pageSize,
+      status: statusFilter.value || undefined,
+    });
+    return { list: res?.list || [], itemCount: res?.total || 0 };
   }
+
   function reload() {
-    page.value = 1;
-    loadData();
+    tableRef.value?.reload();
   }
 
   function statusTag(s: string, taskId: number) {
@@ -299,11 +286,18 @@
     {
       title: '标题',
       key: 'title',
+      // 行入口下沉到标题单元格（h() 全可控）：点击开抽屉 + 锚点，
+      // 不依赖 n-data-table 的 row-props 经封装透传
       render: (row) =>
-        h('span', { class: 'ds-cell-title' }, [
-          h('span', { class: `ds-status-dot st-${row.status}` }),
-          row.title,
-        ]),
+        h(
+          'span',
+          {
+            class: 'ds-cell-title ds-row-link',
+            'data-test-id': `discussions.row-${row.id}`,
+            onClick: () => openDetail(row.id),
+          },
+          [h('span', { class: `ds-status-dot st-${row.status}` }), row.title]
+        ),
     },
     { title: '状态', key: 'status', width: 110, render: (row) => statusTag(row.status, row.convertedTaskId) },
     {
@@ -329,15 +323,6 @@
     { title: '发起时间', key: 'createdAt', width: 150, render: (row) => (row.createdAt || '').slice(0, 16) },
     { title: '最近活动', key: 'updatedAt', width: 110, render: (row) => relTime(row.updatedAt) },
   ];
-
-  // 行点击开抽屉；锚点挂 tr（row-props 直落 <tr>）
-  function rowProps(row: DiscussionItem) {
-    return {
-      style: 'cursor: pointer;',
-      'data-test-id': `discussions.row-${row.id}`,
-      onClick: () => openDetail(row.id),
-    };
-  }
 
   // ---------- 详情（抽屉） ----------
   const showDetail = ref(false);
@@ -372,7 +357,7 @@
       await createDiscussion(projectId, { ...createForm.value });
       message.success('讨论已发起');
       showCreate.value = false;
-      await loadData();
+      await reload();
     } catch (e: any) {
       message.error(e?.message || '发起失败');
       return false;
@@ -387,7 +372,7 @@
       await replyDiscussion(detail.value.id, replyDraft.value);
       replyDraft.value = '';
       await openDetail(detail.value.id);
-      loadData();
+      reload();
     } catch (e: any) {
       message.error(e?.message || '回复失败');
     } finally {
@@ -402,7 +387,7 @@
       const res = await archiveDiscussion(detail.value.id);
       message.success(res?.status === 'archived' ? '已归档' : '已恢复');
       await openDetail(detail.value.id);
-      loadData();
+      reload();
     } catch (e: any) {
       message.error(e?.message || '操作失败');
     }
@@ -422,7 +407,7 @@
           message.success('已删除');
           showDetail.value = false;
           detail.value = null;
-          loadData();
+          reload();
         } catch (e: any) {
           message.error(e?.message || '删除失败');
         }
@@ -444,7 +429,7 @@
       message.success(`已转为任务 #${res?.taskId}`);
       showConvert.value = false;
       await openDetail(detail.value.id);
-      loadData();
+      reload();
     } catch (e: any) {
       message.error(e?.message || '转化失败');
       return false;
@@ -452,12 +437,16 @@
   }
 
   onMounted(() => {
-    loadData();
+    // BasicTable 挂载即自动请求，此处无需再拉列表
   });
 </script>
 
 <style scoped>
   /* 表格单元格 */
+  .ds-row-link {
+    cursor: pointer;
+  }
+
   .ds-cell-title {
     display: inline-flex;
     align-items: center;

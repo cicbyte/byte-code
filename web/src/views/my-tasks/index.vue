@@ -69,25 +69,17 @@
         <n-button size="small" @click="onFilterChange">查询</n-button>
       </n-space>
 
-      <n-data-table
+      <ProTable
+        ref="tableRef"
+        table-key="my-tasks"
         :columns="columns"
-        :data="list"
-        :loading="loading"
+        :request="tableRequest"
         :row-key="(row: MyTaskItem) => row.id"
-        size="small"
+        :striped="true"
       />
-
-      <div class="mt-4 flex justify-end" v-if="total > pagination.size">
-        <n-pagination
-          v-model:page="pagination.page"
-          :page-size="pagination.size"
-          :item-count="total"
-          @update:page="load"
-        />
-      </div>
     </n-card>
 
-    <TaskDetailModal ref="taskDetailRef" @updated="load" />
+    <TaskDetailModal ref="taskDetailRef" @updated="reload" />
   </div>
 </template>
 
@@ -97,6 +89,7 @@
   import { NButton, NTag, NSpace } from 'naive-ui';
   import type { DataTableColumns } from 'naive-ui';
   import { getMyTasks, getMyTaskStats, getProjects } from '@/api/project/index';
+  import ProTable from '@/components/ProTable/index.vue';
   import type { MyTaskItem, MyTaskStats } from '@/api/project/index';
   import echarts from '@/utils/lib/echarts';
   import TaskDetailModal from '@/views/project/components/TaskDetailModal.vue';
@@ -105,10 +98,7 @@
 
   const router = useRouter();
   const route = useRoute();
-  const loading = ref(false);
-  const list = ref<MyTaskItem[]>([]);
-  const total = ref(0);
-  const pagination = reactive({ page: 1, size: 20 });
+  const tableRef = ref();
   // 视角：?scope=all 为可见范围全部任务（仪表盘任务卡钻取入口），
   // 缺省 mine=指派给我；状态预筛 ?status=（须是合法过滤值）
   const scopeAll = route.query.scope === 'all';
@@ -250,28 +240,24 @@
 
   // 过滤条件变化回到第一页再查
   function onFilterChange() {
-    pagination.page = 1;
-    load();
+    tableRef.value?.reload();
   }
 
-  async function load() {
-    loading.value = true;
-    try {
-      const res = await getMyTasks({
-        ...(statusFilter.value ? { status: statusFilter.value } : {}),
-        ...(projectId.value ? { projectId: projectId.value } : {}),
-        ...(keyword.value ? { keyword: keyword.value } : {}),
-        ...(scopeAll ? { scope: 'all' } : {}),
-        page: pagination.page,
-        size: pagination.size,
-      });
-      list.value = res?.list || [];
-      total.value = res?.total || 0;
-    } catch {
-      // http 层统一提示
-    } finally {
-      loading.value = false;
-    }
+  // ProTable 契约：{page,pageSize} → {list,itemCount}（平台接口 page/size 口径，此处适配）
+  async function tableRequest(p: { page: number; pageSize: number }) {
+    const res = await getMyTasks({
+      ...(statusFilter.value ? { status: statusFilter.value } : {}),
+      ...(projectId.value ? { projectId: projectId.value } : {}),
+      ...(keyword.value ? { keyword: keyword.value } : {}),
+      ...(scopeAll ? { scope: 'all' } : {}),
+      page: p.page,
+      size: p.pageSize,
+    });
+    return { list: res?.list || [], itemCount: res?.total || 0 };
+  }
+
+  function reload() {
+    tableRef.value?.reload();
   }
 
   async function loadProjects() {
@@ -288,7 +274,7 @@
   }
 
   onMounted(() => {
-    load();
+    // ProTable 挂载即自动请求
     loadProjects();
     if (!scopeAll) loadStats();
   });

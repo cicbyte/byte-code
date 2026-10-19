@@ -28,75 +28,34 @@
         </n-space>
       </template>
 
-      <n-spin :show="loading">
-        <EmptyState
-          v-if="!loading && pending.length === 0"
-          type="task"
-          title="没有待审核的任务"
-          description="Agent 或成员完成任务后会进入这里等待验收"
-        />
-        <n-table v-else :bordered="false" :single-line="false" size="small">
-          <thead>
-            <tr>
-              <th class="col-check">
-                <input
-                  type="checkbox"
-                  :checked="allChecked"
-                  :indeterminate.prop="someChecked"
-                  data-test-id="project-reviews.check-all"
-                  @change="toggleAll"
-                />
-              </th>
-              <th class="col-idx">#</th>
-              <th style="width: 34%">标题</th>
-              <th>提交人</th>
-              <th>优先级</th>
-              <th>完成时间</th>
-              <th style="width: 160px">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="(t, __ix) in pending" :key="t.id">
-              <tr :data-test-id="`reviews.item-${t.id}`">
-                <td class="col-check">
-                  <input
-                    type="checkbox"
-                    :value="t.id"
-                    :checked="checkedIds.includes(t.id)"
-                    :data-test-id="`project-reviews.check-${t.id}`"
-                    @change="toggleCheck(t.id)"
-                  />
-                </td>
-                <td class="col-idx">{{ __ix + 1 }}</td>
-                <td>
-                  <n-button text type="info" @click="openDetail(t)" :data-test-id="`reviews.title-btn-${t.id}`">
-                    {{ t.title }}
-                  </n-button>
-                </td>
-                <td>
-                  <n-space :size="4" align="center">
-                    <span>{{ t.assigneeName || '-' }}</span>
-                    <n-tag v-if="t.source === 'agent'" size="tiny" :bordered="false" type="info">Agent</n-tag>
-                  </n-space>
-                </td>
-                <td><n-tag :type="priorityTagType(t.priority)" size="small">P{{ t.priority }}</n-tag></td>
-                <td class="text-xs">{{ (t.updatedAt || '').slice(0, 16) }}</td>
-                <td>
-                  <n-space :size="8">
-                    <n-popconfirm @positive-click="approve(t)">
-                      <template #trigger>
-                        <n-button size="tiny" type="success" :data-test-id="`reviews.approve-btn-${t.id}`">通过</n-button>
-                      </template>
-                      通过后任务转入已完成（done）。
-                    </n-popconfirm>
-                    <n-button size="tiny" type="error" ghost @click="openReject(t)">驳回</n-button>
-                  </n-space>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </n-table>
-      </n-spin>
+      <ProTable
+        ref="tableRef"
+        table-key="project-reviews"
+        :columns="columns"
+        :request="tableRequest"
+        :row-key="(row: TaskItem) => row.id"
+        :row-props="rowProps"
+        :pagination="false"
+        :striped="true"
+      >
+        <template #toolbar>
+          <input
+            type="checkbox"
+            :checked="allChecked"
+            :indeterminate.prop="someChecked"
+            data-test-id="project-reviews.check-all"
+            @change="toggleAll"
+          />
+          <span class="text-xs text-gray-400 ml-1">全选本页</span>
+        </template>
+        <template #empty>
+          <EmptyState
+            type="task"
+            title="没有待审核的任务"
+            description="Agent 或成员完成任务后会进入这里等待验收"
+          />
+        </template>
+      </ProTable>
     </n-card>
 
     <!-- 详情抽屉：描述 + Agent 产出，审核动作常驻 footer -->
@@ -172,7 +131,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, computed, onMounted } from 'vue';
+  import { ref, computed, h, onMounted } from 'vue';
   import { useRoute } from 'vue-router';
   import { useMessage } from 'naive-ui';
   import DOMPurify from 'dompurify';
@@ -183,18 +142,94 @@
   import { batchReview } from '@/api/platform/index';
   import type { TaskItem } from '@/api/project/index';
   import { priorityTagType } from '@/enums/task';
+  import ProTable from '@/components/ProTable/index.vue';
+  import { NButton, NPopconfirm, NSpace, NTag } from 'naive-ui';
+  import type { DataTableColumns } from 'naive-ui';
 
   const route = useRoute();
   const message = useMessage();
   const projectId = computed(() => Number(route.params.projectId));
 
-  const loading = ref(false);
+  const tableRef = ref();
   // 待审 = 完成进 review 且 requiresHumanReview=1 / humanReviewStatus=pending
   // （CompleteTask 统一置位；审完 hrs 变化自然出队）
+  // 请求不分页（队列一次拉全量），pending 由原始列表过滤派生
   const list = ref<TaskItem[]>([]);
+
+  async function tableRequest() {
+    const res = await getTasks(projectId.value, { status: 'review', size: 200 });
+    list.value = res?.list || [];
+    return { list: list.value, itemCount: list.value.length };
+  }
+
   const pending = computed(() =>
     list.value.filter((t) => t.requiresHumanReview === 1 && t.humanReviewStatus === 'pending')
   );
+
+  function rowProps(row: TaskItem) {
+    return { 'data-test-id': `reviews.item-${row.id}` };
+  }
+
+  const columns = computed<DataTableColumns<TaskItem>>(() => [
+    {
+      title: '',
+      key: 'check',
+      width: 40,
+      render: (t) =>
+        h('input', {
+          type: 'checkbox',
+          value: t.id,
+          checked: checkedIds.value.includes(t.id),
+          'data-test-id': `project-reviews.check-${t.id}`,
+          onChange: () => toggleCheck(t.id),
+        }),
+    },
+    {
+      title: '标题',
+      key: 'title',
+      render: (t) =>
+        h(
+          NButton,
+          { text: true, type: 'info', onClick: () => openDetail(t), 'data-test-id': `reviews.title-btn-${t.id}` },
+          () => t.title
+        ),
+    },
+    {
+      title: '提交人',
+      key: 'assigneeName',
+      width: 150,
+      render: (t) =>
+        h(NSpace, { size: 4, align: 'center' }, () => [
+          t.assigneeName || '-',
+          t.source === 'agent' ? h(NTag, { size: 'tiny', bordered: false, type: 'info' }, () => 'Agent') : null,
+        ]),
+    },
+    {
+      title: '优先级',
+      key: 'priority',
+      width: 80,
+      render: (t) => h(NTag, { type: priorityTagType(t.priority), size: 'small' }, () => `P${t.priority}`),
+    },
+    { title: '完成时间', key: 'updatedAt', width: 150, render: (t) => (t.updatedAt || '').slice(0, 16) },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 150,
+      render: (t) =>
+        h(NSpace, { size: 8 }, () => [
+          h(
+            NPopconfirm,
+            { onPositiveClick: () => approve(t) },
+            {
+              trigger: () =>
+                h(NButton, { size: 'tiny', type: 'success', 'data-test-id': `reviews.approve-btn-${t.id}` }, () => '通过'),
+              default: () => '通过后任务转入已完成（done）。',
+            }
+          ),
+          h(NButton, { size: 'tiny', type: 'error', ghost: true, onClick: () => openReject(t) }, () => '驳回'),
+        ]),
+    },
+  ]);
 
   const showReject = ref(false);
   const rejectComment = ref('');
@@ -214,16 +249,8 @@
     return DOMPurify.sanitize(md);
   }
 
-  async function load() {
-    loading.value = true;
-    try {
-      const res = await getTasks(projectId.value, { status: 'review', size: 200 });
-      list.value = res?.list || [];
-    } catch {
-      message.error('加载待审任务失败');
-    } finally {
-      loading.value = false;
-    }
+  function load() {
+    tableRef.value?.reload();
   }
 
   function drop(id: number) {
@@ -332,7 +359,7 @@
     }
   }
 
-  onMounted(load);
+  // ProTable 挂载即自动请求
 </script>
 
 <style lang="less" scoped>

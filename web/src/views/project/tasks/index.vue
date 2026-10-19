@@ -64,111 +64,16 @@
         <n-button size="small" quaternary @click="checkedIds = []">清除</n-button>
       </div>
 
-      <n-spin :show="loading">
-      <n-table :bordered="false" :single-line="false" size="small">
-        <thead>
-          <tr>
-            <th class="col-check">
-              <input
-                v-if="closableTasks.length"
-                type="checkbox"
-                :checked="allClosableChecked"
-                :indeterminate.prop="someChecked"
-                data-test-id="tasks.check-all"
-                @change="toggleAll"
-              />
-            </th>
-            <th class="col-idx">#</th>
-            <th>标题</th>
-            <th>类型</th>
-            <th>来源</th>
-            <th>优先级</th>
-            <th>标签</th>
-            <th>状态</th>
-            <th>指派人</th>
-            <th>截止</th>
-            <th>更新时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(task, __ix) in taskList" :key="task.id" :data-test-id="`tasks.row-${task.id}`">
-            <td class="col-check">
-              <input
-                v-if="task.status === 'done'"
-                type="checkbox"
-                :value="task.id"
-                :checked="checkedIds.includes(task.id)"
-                :data-test-id="`tasks.check-${task.id}`"
-                @change="toggleCheck(task.id)"
-              />
-            </td>
-            <td class="col-idx">{{ __ix + 1 }}</td>
-            <td>
-              <n-button text type="info" @click="openTaskDetail(task)">{{ task.title }}</n-button>
-            </td>
-            <td><n-tag :type="typeTagType(task.type)" size="small">{{ typeLabel(task.type) }}</n-tag></td>
-            <td>
-              <n-tag size="small" :bordered="false" :type="sourceTagType(task.sourceLabel || task.source)">
-                {{ sourceLabel(task.sourceLabel || task.source) }}
-              </n-tag>
-            </td>
-            <td><n-tag :type="priorityTagType(task.priority)" size="small">P{{ task.priority }}</n-tag></td>
-            <td>
-              <n-space :size="2">
-                <n-tag v-for="t in task.tags || []" :key="t" size="small" round :bordered="false">{{ t }}</n-tag>
-              </n-space>
-            </td>
-            <td>
-              <n-popselect
-                v-model:value="task.status"
-                :options="statusFlowOptions(task.status)"
-                trigger="click"
-                @update:value="(v: string) => quickStatus(task, v)"
-              >
-                <n-tag size="small" :type="statusTagType(task.status)" class="cursor-pointer">
-                  {{ statusLabel(task.status) }}
-                  <span class="status-flow-hint">▾</span>
-                </n-tag>
-              </n-popselect>
-            </td>
-            <td>{{ task.assigneeName }}</td>
-            <td>
-              <n-tag
-                v-if="task.dueDate"
-                size="small"
-                :type="dueTagType(task.dueDate, task.status) || 'default'"
-              >{{ dueLabel(task.dueDate) }}</n-tag>
-              <span v-else>-</span>
-            </td>
-            <td>
-              <div>{{ task.updatedAt }}</div>
-              <div v-if="task.completedAt" class="text-xs text-gray-400">完成 {{ task.completedAt.slice(5, 16) }}</div>
-            </td>
-            <td>
-              <n-space size="small">
-                <n-button text type="info" @click="openTaskDetail(task)" :data-test-id="`tasks.detail-btn-${task.id}`">详情</n-button>
-                <n-button text type="primary" @click="openEdit(task)">编辑</n-button>
-                <n-button v-if="task.status === 'done'" text type="warning" @click="handleCloseTask(task)">关闭</n-button>
-                <n-button text type="error" @click="handleDelete(task)">删除</n-button>
-              </n-space>
-            </td>
-          </tr>
-        </tbody>
-      </n-table>
-      </n-spin>
+      <ProTable
+        ref="tableRef"
+        table-key="project-tasks"
+        :columns="columns"
+        :request="tableRequest"
+        :row-key="(row: TaskItem) => row.id"
+        :row-props="rowProps"
+        :striped="true"
+      />
 
-      <div class="mt-4 flex justify-end" v-if="total > pagination.size">
-        <n-pagination
-          show-size-picker
-          :page-sizes="[10, 20, 50, 100]"
-          v-model:page="pagination.page"
-          :page-size="pagination.size"
-          :item-count="total"
-          @update:page="onPageChange"
-          @update:page-size="onPageSizeChange"
-        />
-      </div>
     </n-card>
 
     <!-- 新建/编辑任务抽屉（编辑类表单适合抽屉；宽度与任务详情对齐） -->
@@ -234,12 +139,14 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
+  import { ref, reactive, computed, h, watch, onMounted, onUnmounted } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useMessage, useDialog } from 'naive-ui';
   import { getTags } from '@/api/platform/index';
   import { getTasks, createTask, updateTask, deleteTask, getMembers, batchCloseTasks } from '@/api/project/index';
-  import { usePagedList } from '@/composables/usePagedList';
+  import ProTable from '@/components/ProTable/index.vue';
+  import { NButton, NIcon, NPopselect, NSpace, NTag } from 'naive-ui';
+  import type { DataTableColumns } from 'naive-ui';
   import { MdEditor } from 'md-editor-v3';
   import 'md-editor-v3/lib/style.css';
   import { useDesignSetting } from '@/hooks/setting/useDesignSetting';
@@ -381,25 +288,152 @@
     showCreateModal.value = true;
   }
 
-  // usePagedList 统一分页四件套：筛选重置页码/末页删空回退/过期响应防护
-  const {
-    loading, list: taskList, total, pagination,
-    load: loadTasks, onFilterChange, afterRemove, onPageChange, onPageSizeChange,
-  } = usePagedList((page: number, size: number) =>
-    getTasks(projectId.value, {
-      page, size,
+  // ProTable 托管分页/工具栏；筛选变化调用 reload
+  const tableRef = ref();
+  const taskList = ref<TaskItem[]>([]);
+
+  async function tableRequest(p: { page: number; pageSize: number }) {
+    const res = await getTasks(projectId.value, {
+      page: p.page,
+      size: p.pageSize,
       status: filter.status ?? undefined,
       type: filter.type ?? undefined,
       tagId: filter.tagId ?? undefined,
       keyword: filter.keyword || undefined,
       from: filter.dateRange?.[0],
       to: filter.dateRange?.[1],
-    })
-  );
+    });
+    taskList.value = res?.list || [];
+    return { list: taskList.value, itemCount: res?.total || 0 };
+  }
+
+  function loadTasks() {
+    tableRef.value?.reload();
+  }
 
   function handleSearch() {
-    onFilterChange();
+    loadTasks();
   }
+
+  function rowProps(row: TaskItem) {
+    return { 'data-test-id': `tasks.row-${row.id}` };
+  }
+
+  const columns = computed<DataTableColumns<TaskItem>>(() => [
+    {
+      title: '',
+      key: 'check',
+      width: 40,
+      render: (task) =>
+        task.status === 'done'
+          ? h('input', {
+              type: 'checkbox',
+              value: task.id,
+              checked: checkedIds.value.includes(task.id),
+              'data-test-id': `tasks.check-${task.id}`,
+              onChange: () => toggleCheck(task.id),
+            })
+          : null,
+    },
+    {
+      title: '标题',
+      key: 'title',
+      render: (task) =>
+        h(NButton, { text: true, type: 'info', onClick: () => openTaskDetail(task) }, () => task.title),
+    },
+    {
+      title: '类型',
+      key: 'type',
+      width: 90,
+      render: (task) => h(NTag, { type: typeTagType(task.type), size: 'small' }, () => typeLabel(task.type)),
+    },
+    {
+      title: '来源',
+      key: 'source',
+      width: 100,
+      render: (task) =>
+        h(
+          NTag,
+          { size: 'small', bordered: false, type: sourceTagType(task.sourceLabel || task.source) },
+          () => sourceLabel(task.sourceLabel || task.source)
+        ),
+    },
+    {
+      title: '优先级',
+      key: 'priority',
+      width: 80,
+      render: (task) => h(NTag, { type: priorityTagType(task.priority), size: 'small' }, () => `P${task.priority}`),
+    },
+    {
+      title: '标签',
+      key: 'tags',
+      width: 160,
+      render: (task) =>
+        h(
+          NSpace,
+          { size: 2 },
+          () => (task.tags || []).map((t) => h(NTag, { size: 'small', round: true, bordered: false }, () => t))
+        ),
+    },
+    {
+      title: '状态',
+      key: 'status',
+      width: 110,
+      render: (task) =>
+        h(
+          NPopselect,
+          {
+            value: task.status,
+            options: statusFlowOptions(task.status),
+            trigger: 'click',
+            'onUpdate:value': (v: string) => quickStatus(task, v),
+          },
+          {
+            // popselect 的触发器是默认插槽（trigger 是交互方式属性，不是插槽名）
+            default: () =>
+              h('span', { class: 'cursor-pointer' }, [
+                h(NTag, { size: 'small', type: statusTagType(task.status) }, () => statusLabel(task.status)),
+                h('span', { class: 'status-flow-hint' }, '▾'),
+              ]),
+          }
+        ),
+    },
+    { title: '指派人', key: 'assigneeName', width: 110, render: (task) => task.assigneeName || '-' },
+    {
+      title: '截止',
+      key: 'dueDate',
+      width: 110,
+      render: (task) =>
+        task.dueDate
+          ? h(NTag, { size: 'small', type: dueTagType(task.dueDate, task.status) || 'default' }, () => dueLabel(task.dueDate))
+          : h('span', null, '-'),
+    },
+    {
+      title: '更新时间',
+      key: 'updatedAt',
+      width: 150,
+      render: (task) =>
+        h('span', null, [
+          h('div', null, task.updatedAt),
+          task.completedAt ? h('div', { class: 'text-xs text-gray-400' }, `完成 ${task.completedAt.slice(5, 16)}`) : null,
+        ]),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 170,
+      render: (task) =>
+        h(NSpace, { size: 'small' }, () => [
+          h(NButton, { text: true, type: 'info', onClick: () => openTaskDetail(task), 'data-test-id': `tasks.detail-btn-${task.id}` }, () => '详情'),
+          h(NButton, { text: true, type: 'primary', onClick: () => openEdit(task) }, () => '编辑'),
+          task.status === 'done'
+            ? h(NButton, { text: true, type: 'warning', onClick: () => handleCloseTask(task) }, () => '关闭')
+            : null,
+          h(NButton, { text: true, type: 'error', onClick: () => handleDelete(task) }, () => '删除'),
+        ]),
+    },
+  ]);
+
 
   function handleReset() {
     filter.keyword = '';
@@ -518,7 +552,7 @@
       positiveText: '确定',
       negativeText: '取消',
       onPositiveClick: async () => {
-        try { await deleteTask(task.id); message.success('删除成功'); afterRemove(); }
+        try { await deleteTask(task.id); message.success('删除成功'); loadTasks(); }
         catch { message.error('删除失败'); }
       },
     });
@@ -530,7 +564,7 @@
     const onOpenTask = (e: Event) => taskDetailRef.value?.openModal((e as CustomEvent).detail);
     window.addEventListener('bc-open-task', onOpenTask);
     onUnmounted(() => window.removeEventListener('bc-open-task', onOpenTask));
-    loadTasks();
+    // ProTable 挂载即自动请求
     const q = Number(route.query.task);
     if (q > 0) {
       router.replace({ query: { ...route.query, task: undefined } });
